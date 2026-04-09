@@ -1,0 +1,6 @@
+artifacts
+.claude
+.codex_tmp
+.pytest_cache
+build-*
+checkpoints

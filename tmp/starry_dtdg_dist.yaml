@@ -1,0 +1,66 @@
+model:
+  name: evolvegcn
+  family: evolvegcn
+  task: snapshot_node_regression
+  hidden_dim: 16
+  window:
+    size: 4
+
+data:
+  root: /mnt/data/zlj/starrygl-data/raw
+  name: rec-amazon-ratings
+  format: auto
+  graph_mode: dtdg
+
+train:
+  epochs: 1
+  batch_size: 32
+  snaps: 4
+  eval_interval: 1
+  lr: 0.001
+
+runtime:
+  backend: torch
+  device: cpu
+  cache: gpu_local
+  state_sync: versioned
+  checkpoint: ./checkpoints/latest.pt
+
+dtdg:
+  pipeline: flare_native
+  chunk_order: reverse
+  chunk_decay: half
+  num_full_snaps: 2
+
+preprocess:
+  cluster:
+    enabled: true
+    num_per_partition: 2
+    max_nodes: 1024
+    max_edges: 4096
+  chunk:
+    window_multiple: 2
+    max_events_per_chunk: 4096
+    max_time_span: 1024
+
+sampling:
+  neighbor_limit: [10]
+  strategy: recent
+  history: 1
+  neg_sampling: random
+
+graph:
+  storage: snapshots
+  partition: metis
+  route: all2all
+
+dist:
+  backend: gloo
+  world_size: 2
+  rank: 0
+  local_rank: 0
+  local_world_size: 2
+  master_addr: 127.0.0.1
+  master_port: 29541
+  init_method: env://
+  launcher: single_process

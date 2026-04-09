@@ -1,0 +1,70 @@
+model:
+  name: mpnn_lstm
+  family: mpnn_lstm
+  task: snapshot_node_regression
+  hidden_dim: 128
+  window:
+    size: 4
+
+data:
+  root: /mnt/data/zlj/starrygl-data/raw
+  name: rec-amazon-ratings
+  format: auto
+  graph_mode: dtdg
+  split_ratio:
+    train: 0.7
+    val: 0.15
+    test: 0.15
+
+train:
+  epochs: 5
+  batch_size: 32
+  snaps: 20
+  eval_interval: 1
+  lr: 0.001
+
+runtime:
+  backend: torch
+  device: cuda
+  cache: gpu_local
+  state_sync: versioned
+  checkpoint: /mnt/data/zlj/starrygl-artifacts/rec-amazon-ratings-bench/mpnn_lstm_bench.pt
+
+dtdg:
+  pipeline: flare_native
+  chunk_order: rand
+  chunk_decay: half
+  num_full_snaps: 2
+
+preprocess:
+  cluster:
+    enabled: true
+    num_per_partition: 2
+    max_nodes: 4096
+    max_edges: 32768
+  chunk:
+    window_multiple: 2
+    max_events_per_chunk: 32768
+    max_time_span: 4096
+
+sampling:
+  neighbor_limit: [10]
+  strategy: recent
+  history: 1
+  neg_sampling: random
+
+graph:
+  storage: snapshots
+  partition: metis
+  route: all2all
+
+dist:
+  backend: nccl
+  world_size: 4
+  rank: 0
+  local_rank: 0
+  local_world_size: 4
+  master_addr: 127.0.0.1
+  master_port: 29500
+  init_method: env://
+  launcher: torchrun

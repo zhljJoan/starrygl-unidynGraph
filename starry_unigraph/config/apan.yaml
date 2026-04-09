@@ -1,0 +1,69 @@
+model:
+  name: apan
+  family: apan
+  task: temporal_link_prediction
+  hidden_dim: 128
+  memory:
+    type: gru
+  window:
+    size: 8
+
+data:
+  root: ./data
+  name: wikipedia
+  format: auto
+  graph_mode: ctdg
+  split_ratio:
+    train: 0.7
+    val: 0.15
+    test: 0.15
+
+train:
+  epochs: 50
+  batch_size: 200
+  snaps: 8
+  eval_interval: 1
+  lr: 0.0001
+
+runtime:
+  backend: torch
+  device: cuda
+  cache: gpu_local
+  state_sync: versioned
+  checkpoint: ./checkpoints/apan.pt
+
+ctdg:
+  pipeline: online
+
+preprocess:
+  cluster:
+    enabled: true
+    num_per_partition: 2
+    max_nodes: 1024
+    max_edges: 4096
+  chunk:
+    window_multiple: 2
+    max_events_per_chunk: 4096
+    max_time_span: 1024
+
+sampling:
+  neighbor_limit: [10]
+  strategy: recent
+  history: 1
+  neg_sampling: random
+
+graph:
+  storage: events
+  partition: metis
+  route: all2all
+
+dist:
+  backend: nccl
+  world_size: 1
+  rank: 0
+  local_rank: 0
+  local_world_size: 1
+  master_addr: 127.0.0.1
+  master_port: 29500
+  init_method: env://
+  launcher: single_process

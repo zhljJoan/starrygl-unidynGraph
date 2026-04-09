@@ -1,0 +1,77 @@
+# ==============================================================================
+# TGN on WIKI  —  temporal link prediction
+# Aligned with MemShare TGN_large.yml
+# ==============================================================================
+
+model:
+  name: tgn
+  family: tgn
+  task: temporal_link_prediction
+  hidden_dim: 100
+
+data:
+  root: /mnt/nfs/fzz/TGL-DATA
+  name: WIKI
+  format: auto
+  split_ratio:
+    train: 0.70
+    val: 0.15
+    test: 0.15
+
+train:
+  epochs: 50
+  batch_size: 3000
+  lr: 0.0004
+  eval_interval: 1
+
+runtime:
+  backend: torch
+  device: cuda
+  cache: gpu_local
+  state_sync: versioned
+  checkpoint: ./checkpoints/tgn_wiki_latest.pt
+
+# CTDG pipeline settings
+ctdg:
+  pipeline: online
+  mailbox_slots: 1           # TGN: single-slot mailbox (mail_combine=last)
+  historical_alpha: 0.5
+  async_sync: true
+  ada_param_enabled: false
+  dim_time: 100
+  num_head: 2
+  dropout: 0.2
+  att_dropout: 0.2
+
+sampling:
+  neighbor_limit: [20]       # TGN_large: neighbor=20
+  strategy: recent
+  history: 1
+  neg_sampling: random
+
+graph:
+  storage: events
+  partition: metis
+  route: all2all
+
+dist:
+  backend: nccl
+  world_size: 1
+  rank: 0
+  local_rank: 0
+  local_world_size: 1
+  master_addr: 127.0.0.1
+  master_port: 29500
+  init_method: env://
+  launcher: single_process
+
+preprocess:
+  cluster:
+    enabled: false
+    num_per_partition: 1
+    max_nodes: 16384
+    max_edges: 65536
+  chunk:
+    window_multiple: 2
+    max_events_per_chunk: 65536
+    max_time_span: 1000000

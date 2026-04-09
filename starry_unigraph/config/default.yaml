@@ -1,0 +1,187 @@
+# ==============================================================================
+# StarryUniGraph 默认配置
+#
+# 支持的模型：
+#   CTDG（连续时间动态图，graph.storage=events）：
+#     tgn, dyrep, jodie, tgat, apan
+#     task: temporal_link_prediction
+#
+#   DTDG（离散时间动态图，graph.storage=snapshots）：
+#     evolvegcn, tgcn, mpnn_lstm, gcn
+#     task: snapshot_node_regression
+# ==============================================================================
+
+model:
+  name: tgn
+  family: tgn
+  task: temporal_link_prediction
+  hidden_dim: 128
+  # memory 仅 CTDG 模型使用
+  memory:
+    type: gru        # 当前仅支持 gru
+  # window 仅 DTDG 模型使用
+  window:
+    size: 8
+
+# ------------------------------------------------------------------------------
+# 各模型配置示例（复制对应块替换上方 model 节即可）
+# ------------------------------------------------------------------------------
+#
+# --- CTDG: TGN ---
+# model:
+#   name: tgn
+#   family: tgn
+#   task: temporal_link_prediction
+#   hidden_dim: 128
+#   memory:
+#     type: gru
+#
+# --- CTDG: DyRep ---
+# model:
+#   name: dyrep
+#   family: dyrep
+#   task: temporal_link_prediction
+#   hidden_dim: 128
+#   memory:
+#     type: gru
+#
+# --- CTDG: JODIE ---
+# model:
+#   name: jodie
+#   family: jodie
+#   task: temporal_link_prediction
+#   hidden_dim: 128
+#   memory:
+#     type: gru
+#
+# --- CTDG: TGAT ---
+# model:
+#   name: tgat
+#   family: tgat
+#   task: temporal_link_prediction
+#   hidden_dim: 128
+#   memory:
+#     type: gru
+#
+# --- CTDG: APAN ---
+# model:
+#   name: apan
+#   family: apan
+#   task: temporal_link_prediction
+#   hidden_dim: 128
+#   memory:
+#     type: gru
+#
+# --- DTDG: EvolveGCN ---
+# model:
+#   name: evolvegcn
+#   family: evolvegcn
+#   task: snapshot_node_regression
+#   hidden_dim: 64
+#   window:
+#     size: 4
+#
+# --- DTDG: TGCN ---
+# model:
+#   name: tgcn
+#   family: tgcn
+#   task: snapshot_node_regression
+#   hidden_dim: 64
+#   window:
+#     size: 4
+#
+# --- DTDG: MPNN-LSTM ---
+# model:
+#   name: mpnn_lstm
+#   family: mpnn_lstm
+#   task: snapshot_node_regression
+#   hidden_dim: 64
+#   window:
+#     size: 4
+#
+# --- DTDG: GCN ---
+# model:
+#   name: gcn
+#   family: gcn
+#   task: snapshot_node_regression
+#   hidden_dim: 64
+#   window:
+#     size: 4
+# ------------------------------------------------------------------------------
+
+data:
+  root: ./data
+  name: demo
+  format: auto
+  graph_mode: null      # null=自动从 model.family 推断；或显式设置 ctdg / dtdg
+  split_ratio:
+    train: 0.7
+    val: 0.15
+    test: 0.15
+
+train:
+  epochs: 2
+  batch_size: 32
+  snaps: 8              # DTDG: 每轮训练快照数
+  eval_interval: 1
+  lr: 0.001
+
+runtime:
+  backend: mock         # mock | torch | native
+  device: cpu           # cpu | cuda
+  cache: gpu_local
+  state_sync: versioned
+  checkpoint: ./checkpoints/latest.pt
+
+# DTDG 专用配置
+dtdg:
+  pipeline: flare_native            # flare_native | chunked
+  chunk_order: random               # random | reverse | null（不重排）
+  chunk_decay: half                 # half | null
+  num_full_snaps: 1                 # 每轮至少包含的完整快照数
+
+# CTDG 专用配置
+ctdg:
+  pipeline: online
+  mailbox_slots: 4          # K-slot 历史队列长度
+  historical_alpha: 0.5     # HistoricalCache cosine 距离阈值
+  async_sync: true          # 启用 all_to_all_single 异步通信
+  ada_param_enabled: true   # 启用 AdaParameter 动态阈值
+  dim_time: 100             # 时间编码维度
+  num_head: 2               # temporal attention 头数
+  dropout: 0.1
+  att_dropout: 0.1
+
+preprocess:
+  cluster:
+    enabled: true
+    num_per_partition: 2
+    max_nodes: 1024
+    max_edges: 4096
+  chunk:
+    window_multiple: 2
+    max_events_per_chunk: 4096
+    max_time_span: 1024
+
+# 邻居采样（CTDG 使用）
+sampling:
+  neighbor_limit: [10]  # 每跳采样数，多跳时写多个值，如 [10, 5]
+  strategy: recent      # recent | uniform
+  history: 1
+  neg_sampling: random  # random | ...
+
+graph:
+  storage: events       # CTDG=events，DTDG=snapshots
+  partition: metis
+  route: all2all
+
+dist:
+  backend: nccl         # nccl（GPU）| gloo（CPU）
+  world_size: 1
+  rank: 0
+  local_rank: 0
+  local_world_size: 1
+  master_addr: 127.0.0.1
+  master_port: 29500
+  init_method: env://
+  launcher: single_process
