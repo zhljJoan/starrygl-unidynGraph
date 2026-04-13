@@ -1,0 +1,316 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.backends.ctdg.route &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.backends.ctdg.route</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for starry_unigraph.backends.ctdg.route</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">asdict</span><span class="p">,</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">DistributedContext</span>
+
+
+<div class="viewcode-block" id="AsyncExchangeHandle">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.route.html#starry_unigraph.backends.AsyncExchangeHandle">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AsyncExchangeHandle</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Handle for a non-blocking all_to_all_single exchange.&quot;&quot;&quot;</span>
+
+    <span class="n">handle</span><span class="p">:</span> <span class="n">Any</span>           <span class="c1"># dist.Work</span>
+    <span class="n">output_buffer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>  <span class="c1"># flat packed output</span>
+    <span class="n">recv_counts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">slot_width</span><span class="p">:</span> <span class="nb">int</span>       <span class="c1"># ids(1) + values(D) per node</span>
+    <span class="n">value_dim</span><span class="p">:</span> <span class="nb">int</span>        <span class="c1"># D</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span>
+
+<div class="viewcode-block" id="AsyncExchangeHandle.wait">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.route.html#starry_unigraph.backends.AsyncExchangeHandle.wait">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wait</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+        <span class="n">ids_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">vals_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">rc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">recv_counts</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">rc</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">chunk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_buffer</span><span class="p">[</span><span class="n">offset</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span><span class="p">:(</span><span class="n">offset</span> <span class="o">+</span> <span class="n">rc</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span><span class="p">]</span>
+            <span class="n">chunk</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">rc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span><span class="p">)</span>
+            <span class="n">ids_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chunk</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">())</span>
+            <span class="n">vals_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chunk</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_dim</span><span class="p">])</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">rc</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ids_list</span><span class="p">:</span>
+            <span class="n">dev</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">dev</span><span class="p">),</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_dim</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">dev</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">ids_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">vals_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CTDGFeatureRoute">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.route.html#starry_unigraph.backends.CTDGFeatureRoute">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CTDGFeatureRoute</span><span class="p">:</span>
+    <span class="n">route_type</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">world_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">replicated_memory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="CTDGFeatureRoute.describe">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.route.html#starry_unigraph.backends.CTDGFeatureRoute.describe">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">|</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;CTDGFeatureRoute&quot;</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="CTDGFeatureRoute.exchange">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.route.html#starry_unigraph.backends.CTDGFeatureRoute.exchange">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exchange</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">DistributedContext</span><span class="p">,</span>
+        <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">async_op</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">|</span> <span class="n">AsyncExchangeHandle</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ctx</span><span class="o">.</span><span class="n">is_distributed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">node_ids</span><span class="p">,</span> <span class="n">values</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">node_ids</span><span class="p">,</span> <span class="n">values</span>
+
+        <span class="c1"># Use fast all_to_all_single path only for nccl + GPU tensors.</span>
+        <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_backend</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;nccl&quot;</span> <span class="ow">and</span> <span class="n">values</span><span class="o">.</span><span class="n">is_cuda</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fast_exchange</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">async_op</span><span class="o">=</span><span class="n">async_op</span><span class="p">)</span>
+
+        <span class="c1"># Tensor-only fallback (no all_gather_object).</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tensor_exchange</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fast_exchange</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">DistributedContext</span><span class="p">,</span>
+        <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">async_op</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">|</span> <span class="n">AsyncExchangeHandle</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
+
+        <span class="n">dev</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
+        <span class="n">world_size</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">world_size</span>
+
+        <span class="c1"># Step 1: exchange counts</span>
+        <span class="n">recv_counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exchange_counts</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">values</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="c1"># Step 2: pack flat tensor [node_id(1) | values(D)]</span>
+        <span class="n">slot_w</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">D</span>
+        <span class="n">send_buf</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">slot_w</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">values</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">send_buf</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">send_buf</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="n">send_flat</span> <span class="o">=</span> <span class="n">send_buf</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">total_recv</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">recv_counts</span><span class="p">)</span>
+        <span class="n">recv_flat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">total_recv</span> <span class="o">*</span> <span class="n">slot_w</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">values</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">send_splits</span> <span class="o">=</span> <span class="p">[</span><span class="n">n</span> <span class="o">*</span> <span class="n">slot_w</span><span class="p">]</span> <span class="o">*</span> <span class="n">world_size</span>
+        <span class="n">recv_splits</span> <span class="o">=</span> <span class="p">[</span><span class="n">rc</span> <span class="o">*</span> <span class="n">slot_w</span> <span class="k">for</span> <span class="n">rc</span> <span class="ow">in</span> <span class="n">recv_counts</span><span class="p">]</span>
+
+        <span class="n">handle</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">all_to_all_single</span><span class="p">(</span>
+            <span class="n">recv_flat</span><span class="p">,</span>
+            <span class="n">send_flat</span><span class="p">,</span>
+            <span class="n">output_split_sizes</span><span class="o">=</span><span class="n">recv_splits</span><span class="p">,</span>
+            <span class="n">input_split_sizes</span><span class="o">=</span><span class="n">send_splits</span><span class="p">,</span>
+            <span class="n">async_op</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">async_op</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">AsyncExchangeHandle</span><span class="p">(</span>
+                <span class="n">handle</span><span class="o">=</span><span class="n">handle</span><span class="p">,</span>
+                <span class="n">output_buffer</span><span class="o">=</span><span class="n">recv_flat</span><span class="p">,</span>
+                <span class="n">recv_counts</span><span class="o">=</span><span class="n">recv_counts</span><span class="p">,</span>
+                <span class="n">slot_width</span><span class="o">=</span><span class="n">slot_w</span><span class="p">,</span>
+                <span class="n">value_dim</span><span class="o">=</span><span class="n">D</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">dev</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Blocking: wait and unpack</span>
+        <span class="n">async_handle</span> <span class="o">=</span> <span class="n">AsyncExchangeHandle</span><span class="p">(</span>
+            <span class="n">handle</span><span class="o">=</span><span class="n">handle</span><span class="p">,</span>
+            <span class="n">output_buffer</span><span class="o">=</span><span class="n">recv_flat</span><span class="p">,</span>
+            <span class="n">recv_counts</span><span class="o">=</span><span class="n">recv_counts</span><span class="p">,</span>
+            <span class="n">slot_width</span><span class="o">=</span><span class="n">slot_w</span><span class="p">,</span>
+            <span class="n">value_dim</span><span class="o">=</span><span class="n">D</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">dev</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">merged_ids</span><span class="p">,</span> <span class="n">merged_values</span> <span class="o">=</span> <span class="n">async_handle</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">merged_ids</span><span class="p">,</span> <span class="n">merged_values</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_exchange_counts</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">DistributedContext</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
+
+        <span class="n">send_count</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">n</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">recv_counts_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">all_gather_into_tensor</span><span class="p">(</span><span class="n">recv_counts_t</span><span class="p">,</span> <span class="n">send_count</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">recv_counts_t</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_tensor_exchange</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">DistributedContext</span><span class="p">,</span>
+        <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
+
+        <span class="n">dev</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">local_n</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span>
+
+        <span class="n">send_count</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">local_n</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">dev</span><span class="p">)</span>
+        <span class="n">recv_counts_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">dev</span><span class="p">)</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">all_gather_into_tensor</span><span class="p">(</span><span class="n">recv_counts_t</span><span class="p">,</span> <span class="n">send_count</span><span class="p">)</span>
+        <span class="n">recv_counts</span> <span class="o">=</span> <span class="n">recv_counts_t</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">max_n</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">recv_counts</span><span class="p">)</span> <span class="k">if</span> <span class="n">recv_counts</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">node_ids</span><span class="o">.</span><span class="n">device</span><span class="p">),</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">values</span><span class="o">.</span><span class="n">device</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="n">pad_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">max_n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">dev</span><span class="p">)</span>
+        <span class="n">pad_vals</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">max_n</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">dev</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">local_n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">pad_ids</span><span class="p">[:</span><span class="n">local_n</span><span class="p">]</span> <span class="o">=</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dev</span><span class="p">)</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+            <span class="n">pad_vals</span><span class="p">[:</span><span class="n">local_n</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dev</span><span class="p">)</span>
+
+        <span class="n">ids_buf</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">pad_ids</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">world_size</span><span class="p">)]</span>
+        <span class="n">vals_buf</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">pad_vals</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">world_size</span><span class="p">)]</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">all_gather</span><span class="p">(</span><span class="n">ids_buf</span><span class="p">,</span> <span class="n">pad_ids</span><span class="p">)</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">all_gather</span><span class="p">(</span><span class="n">vals_buf</span><span class="p">,</span> <span class="n">pad_vals</span><span class="p">)</span>
+
+        <span class="n">merged_ids_chunks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">merged_vals_chunks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">rank</span><span class="p">,</span> <span class="n">rc</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">recv_counts</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">rc</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">merged_ids_chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ids_buf</span><span class="p">[</span><span class="n">rank</span><span class="p">][:</span><span class="n">rc</span><span class="p">])</span>
+            <span class="n">merged_vals_chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vals_buf</span><span class="p">[</span><span class="n">rank</span><span class="p">][:</span><span class="n">rc</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">merged_ids_chunks</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">node_ids</span><span class="o">.</span><span class="n">device</span><span class="p">),</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">values</span><span class="o">.</span><span class="n">device</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="n">merged_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">merged_ids_chunks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">node_ids</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">merged_values</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">merged_vals_chunks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">merged_ids</span><span class="p">,</span> <span class="n">merged_values</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

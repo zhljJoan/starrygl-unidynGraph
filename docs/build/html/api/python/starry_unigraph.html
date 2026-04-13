@@ -1,0 +1,987 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph package &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="starry_unigraph.backends package" href="starry_unigraph.backends.html" />
+    <link rel="prev" title="starry_unigraph" href="modules.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">starry_unigraph package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="modules.html">starry_unigraph</a></li>
+      <li class="breadcrumb-item active">starry_unigraph package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/api/python/starry_unigraph.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-starry_unigraph">
+<span id="starry-unigraph-package"></span><h1>starry_unigraph package<a class="headerlink" href="#module-starry_unigraph" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.SchedulerSession">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.</span></span><span class="sig-name descname"><span class="pre">SchedulerSession</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext" title="starry_unigraph.types.SessionContext"><span class="pre">SessionContext</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">provider</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_spec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_adapter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/session.html#SchedulerSession"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.SchedulerSession" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.SchedulerSession.build_runtime">
+<span class="sig-name descname"><span class="pre">build_runtime</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle" title="starry_unigraph.types.RuntimeBundle"><span class="pre">RuntimeBundle</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/session.html#SchedulerSession.build_runtime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.SchedulerSession.build_runtime" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.SchedulerSession.evaluate">
+<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/session.html#SchedulerSession.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.SchedulerSession.evaluate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.SchedulerSession.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_or_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overrides</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession" title="starry_unigraph.session.SchedulerSession"><span class="pre">SchedulerSession</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/session.html#SchedulerSession.from_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.SchedulerSession.from_config" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.SchedulerSession.load_checkpoint">
+<span class="sig-name descname"><span class="pre">load_checkpoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/session.html#SchedulerSession.load_checkpoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.SchedulerSession.load_checkpoint" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.SchedulerSession.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PredictionResult" title="starry_unigraph.types.PredictionResult"><span class="pre">PredictionResult</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/session.html#SchedulerSession.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.SchedulerSession.predict" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.SchedulerSession.prepare_data">
+<span class="sig-name descname"><span class="pre">prepare_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PreparedArtifacts" title="starry_unigraph.types.PreparedArtifacts"><span class="pre">PreparedArtifacts</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/session.html#SchedulerSession.prepare_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.SchedulerSession.prepare_data" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.SchedulerSession.run_epoch">
+<span class="sig-name descname"><span class="pre">run_epoch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'train'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/session.html#SchedulerSession.run_epoch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.SchedulerSession.run_epoch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.SchedulerSession.run_task">
+<span class="sig-name descname"><span class="pre">run_task</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/session.html#SchedulerSession.run_task"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.SchedulerSession.run_task" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.SchedulerSession.save_checkpoint">
+<span class="sig-name descname"><span class="pre">save_checkpoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Path</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/session.html#SchedulerSession.save_checkpoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.SchedulerSession.save_checkpoint" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.backends.html">starry_unigraph.backends package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGFeatureRoute"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGFeatureRoute.describe"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGFeatureRoute.exchange"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute.exchange()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGFeatureRoute.replicated_memory"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute.replicated_memory</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGFeatureRoute.route_type"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute.route_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGFeatureRoute.world_size"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute.world_size</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGLinkPredictor"><code class="docutils literal notranslate"><span class="pre">CTDGLinkPredictor</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGLinkPredictor.forward"><code class="docutils literal notranslate"><span class="pre">CTDGLinkPredictor.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.async_sync"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.async_sync</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.describe"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.device"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.device</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.edge_feat_dim"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.edge_feat_dim</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.gather"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.gather()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.gather_mailbox"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.gather_mailbox()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.hidden_dim"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.hidden_dim</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.last_update"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.last_update</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.mailbox_slots"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.mailbox_slots</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.num_nodes"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.num_nodes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.rank"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.rank</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.read_mailbox"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.read_mailbox()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.read_mailbox_ts"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.read_mailbox_ts()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.submit_async_mail_sync"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.submit_async_mail_sync()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.submit_async_memory_sync"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.submit_async_memory_sync()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.sync_updates"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.sync_updates()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.wait_pending_syncs"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.wait_pending_syncs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.world_size"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.world_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank.write_mailbox"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.write_mailbox()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.NativeTemporalSampler"><code class="docutils literal notranslate"><span class="pre">NativeTemporalSampler</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.NativeTemporalSampler.sample"><code class="docutils literal notranslate"><span class="pre">NativeTemporalSampler.sample()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData"><code class="docutils literal notranslate"><span class="pre">PartitionData</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.add_edata"><code class="docutils literal notranslate"><span class="pre">PartitionData.add_edata()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.add_ndata"><code class="docutils literal notranslate"><span class="pre">PartitionData.add_ndata()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.dst_ids"><code class="docutils literal notranslate"><span class="pre">PartitionData.dst_ids</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.edge_data"><code class="docutils literal notranslate"><span class="pre">PartitionData.edge_data</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.edge_dst"><code class="docutils literal notranslate"><span class="pre">PartitionData.edge_dst</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.edge_ids"><code class="docutils literal notranslate"><span class="pre">PartitionData.edge_ids</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.edge_src"><code class="docutils literal notranslate"><span class="pre">PartitionData.edge_src</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.from_blocks"><code class="docutils literal notranslate"><span class="pre">PartitionData.from_blocks()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.item"><code class="docutils literal notranslate"><span class="pre">PartitionData.item()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.load"><code class="docutils literal notranslate"><span class="pre">PartitionData.load()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.node_data"><code class="docutils literal notranslate"><span class="pre">PartitionData.node_data</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.num_dst_nodes"><code class="docutils literal notranslate"><span class="pre">PartitionData.num_dst_nodes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.num_snaps"><code class="docutils literal notranslate"><span class="pre">PartitionData.num_snaps</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.pin_memory"><code class="docutils literal notranslate"><span class="pre">PartitionData.pin_memory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.pop_ndata"><code class="docutils literal notranslate"><span class="pre">PartitionData.pop_ndata()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.routes"><code class="docutils literal notranslate"><span class="pre">PartitionData.routes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.save"><code class="docutils literal notranslate"><span class="pre">PartitionData.save()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.src_ids"><code class="docutils literal notranslate"><span class="pre">PartitionData.src_ids</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.to"><code class="docutils literal notranslate"><span class="pre">PartitionData.to()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData.to_blocks"><code class="docutils literal notranslate"><span class="pre">PartitionData.to_blocks()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphBlob"><code class="docutils literal notranslate"><span class="pre">STGraphBlob</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphBlob.current_graph"><code class="docutils literal notranslate"><span class="pre">STGraphBlob.current_graph</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphBlob.describe"><code class="docutils literal notranslate"><span class="pre">STGraphBlob.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphBlob.flare_is_full_snapshot"><code class="docutils literal notranslate"><span class="pre">STGraphBlob.flare_is_full_snapshot</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphBlob.snapshot_index"><code class="docutils literal notranslate"><span class="pre">STGraphBlob.snapshot_index</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphLoader"><code class="docutils literal notranslate"><span class="pre">STGraphLoader</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphLoader.build_snapshot_index"><code class="docutils literal notranslate"><span class="pre">STGraphLoader.build_snapshot_index()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphLoader.fetch_graph"><code class="docutils literal notranslate"><span class="pre">STGraphLoader.fetch_graph()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphLoader.from_partition_data"><code class="docutils literal notranslate"><span class="pre">STGraphLoader.from_partition_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphLoader.reorder_chunks"><code class="docutils literal notranslate"><span class="pre">STGraphLoader.reorder_chunks()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STWindowState"><code class="docutils literal notranslate"><span class="pre">STWindowState</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STWindowState.describe"><code class="docutils literal notranslate"><span class="pre">STWindowState.describe()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TGTemporalDataset"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TGTemporalDataset.describe"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TGTemporalDataset.iter_batches"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset.iter_batches()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TGTemporalDataset.sampler_graph"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset.sampler_graph()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TGTemporalDataset.split_event_ids"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset.split_event_ids()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TensorData"><code class="docutils literal notranslate"><span class="pre">TensorData</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TensorData.data"><code class="docutils literal notranslate"><span class="pre">TensorData.data</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TensorData.from_tensors"><code class="docutils literal notranslate"><span class="pre">TensorData.from_tensors()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TensorData.item"><code class="docutils literal notranslate"><span class="pre">TensorData.item()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TensorData.pin_memory"><code class="docutils literal notranslate"><span class="pre">TensorData.pin_memory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TensorData.ptr"><code class="docutils literal notranslate"><span class="pre">TensorData.ptr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TensorData.to"><code class="docutils literal notranslate"><span class="pre">TensorData.to()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TensorData.to_tensors"><code class="docutils literal notranslate"><span class="pre">TensorData.to_tensors()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.backends.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.ctdg.html">starry_unigraph.backends.ctdg package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.AdaParameter"><code class="docutils literal notranslate"><span class="pre">AdaParameter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.AsyncExchangeHandle"><code class="docutils literal notranslate"><span class="pre">AsyncExchangeHandle</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGDataBatch"><code class="docutils literal notranslate"><span class="pre">CTDGDataBatch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGFeatureRoute"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGHistoricalCache"><code class="docutils literal notranslate"><span class="pre">CTDGHistoricalCache</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGLinkPredictor"><code class="docutils literal notranslate"><span class="pre">CTDGLinkPredictor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGMemoryBank"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGMemoryUpdater"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryUpdater</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGSampleOutput"><code class="docutils literal notranslate"><span class="pre">CTDGSampleOutput</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.NativeTemporalSampler"><code class="docutils literal notranslate"><span class="pre">NativeTemporalSampler</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.TGTemporalDataset"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.ctdg.html#submodules">Submodules</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.backends.flare.html">starry_unigraph.backends.flare package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#starry_unigraph.backends.flare.PartitionData"><code class="docutils literal notranslate"><span class="pre">PartitionData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#starry_unigraph.backends.flare.RNNStateManager"><code class="docutils literal notranslate"><span class="pre">RNNStateManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#starry_unigraph.backends.flare.Route"><code class="docutils literal notranslate"><span class="pre">Route</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#starry_unigraph.backends.flare.RouteData"><code class="docutils literal notranslate"><span class="pre">RouteData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#starry_unigraph.backends.flare.STGraphBlob"><code class="docutils literal notranslate"><span class="pre">STGraphBlob</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#starry_unigraph.backends.flare.STGraphLoader"><code class="docutils literal notranslate"><span class="pre">STGraphLoader</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#starry_unigraph.backends.flare.STWindowState"><code class="docutils literal notranslate"><span class="pre">STWindowState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#starry_unigraph.backends.flare.TensorData"><code class="docutils literal notranslate"><span class="pre">TensorData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#starry_unigraph.backends.flare.build_flare_model"><code class="docutils literal notranslate"><span class="pre">build_flare_model()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#starry_unigraph.backends.flare.extract_graph_labels"><code class="docutils literal notranslate"><span class="pre">extract_graph_labels()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.flare.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.checkpoint.html">starry_unigraph.checkpoint package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.checkpoint.html#starry_unigraph.checkpoint.load_checkpoint"><code class="docutils literal notranslate"><span class="pre">load_checkpoint()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.checkpoint.html#starry_unigraph.checkpoint.save_checkpoint"><code class="docutils literal notranslate"><span class="pre">save_checkpoint()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.checkpoint.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.checkpoint.io.html">starry_unigraph.checkpoint.io module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.checkpoint.io.html#starry_unigraph.checkpoint.io.load_checkpoint"><code class="docutils literal notranslate"><span class="pre">load_checkpoint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.checkpoint.io.html#starry_unigraph.checkpoint.io.save_checkpoint"><code class="docutils literal notranslate"><span class="pre">save_checkpoint()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.cli.html">starry_unigraph.cli package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.cli.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.cli.main.html">starry_unigraph.cli.main module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.cli.main.html#starry_unigraph.cli.main.build_parser"><code class="docutils literal notranslate"><span class="pre">build_parser()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.cli.main.html#starry_unigraph.cli.main.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.core.html">starry_unigraph.core package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.AsyncStageHandle"><code class="docutils literal notranslate"><span class="pre">AsyncStageHandle</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.AsyncStageHandle.depends_on"><code class="docutils literal notranslate"><span class="pre">AsyncStageHandle.depends_on</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.AsyncStageHandle.describe"><code class="docutils literal notranslate"><span class="pre">AsyncStageHandle.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.AsyncStageHandle.name"><code class="docutils literal notranslate"><span class="pre">AsyncStageHandle.name</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.AsyncStageHandle.payload"><code class="docutils literal notranslate"><span class="pre">AsyncStageHandle.payload</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.AsyncStageHandle.status"><code class="docutils literal notranslate"><span class="pre">AsyncStageHandle.status</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.AsyncStageHandle.token"><code class="docutils literal notranslate"><span class="pre">AsyncStageHandle.token</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGBatch"><code class="docutils literal notranslate"><span class="pre">CTDGBatch</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGBatch.chain"><code class="docutils literal notranslate"><span class="pre">CTDGBatch.chain</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGBatch.history"><code class="docutils literal notranslate"><span class="pre">CTDGBatch.history</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGBatch.index"><code class="docutils literal notranslate"><span class="pre">CTDGBatch.index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGBatch.neighbors"><code class="docutils literal notranslate"><span class="pre">CTDGBatch.neighbors</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGBatch.roots"><code class="docutils literal notranslate"><span class="pre">CTDGBatch.roots</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGBatch.route_plan"><code class="docutils literal notranslate"><span class="pre">CTDGBatch.route_plan</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGBatch.split"><code class="docutils literal notranslate"><span class="pre">CTDGBatch.split</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGBatch.strategy"><code class="docutils literal notranslate"><span class="pre">CTDGBatch.strategy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGBatch.to_payload"><code class="docutils literal notranslate"><span class="pre">CTDGBatch.to_payload()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGKernel"><code class="docutils literal notranslate"><span class="pre">CTDGKernel</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGKernel.dump_state"><code class="docutils literal notranslate"><span class="pre">CTDGKernel.dump_state()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGKernel.execute_eval"><code class="docutils literal notranslate"><span class="pre">CTDGKernel.execute_eval()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGKernel.execute_predict"><code class="docutils literal notranslate"><span class="pre">CTDGKernel.execute_predict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGKernel.execute_train"><code class="docutils literal notranslate"><span class="pre">CTDGKernel.execute_train()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGKernel.iter_batches"><code class="docutils literal notranslate"><span class="pre">CTDGKernel.iter_batches()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGKernel.mailbox_state"><code class="docutils literal notranslate"><span class="pre">CTDGKernel.mailbox_state</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGKernel.runtime_state"><code class="docutils literal notranslate"><span class="pre">CTDGKernel.runtime_state</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGKernel.sampler"><code class="docutils literal notranslate"><span class="pre">CTDGKernel.sampler</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGMailboxState"><code class="docutils literal notranslate"><span class="pre">CTDGMailboxState</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGMailboxState.describe"><code class="docutils literal notranslate"><span class="pre">CTDGMailboxState.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGMailboxState.last_batch"><code class="docutils literal notranslate"><span class="pre">CTDGMailboxState.last_batch</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGMailboxState.mailbox_version"><code class="docutils literal notranslate"><span class="pre">CTDGMailboxState.mailbox_version</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGMailboxState.memory_type"><code class="docutils literal notranslate"><span class="pre">CTDGMailboxState.memory_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGMailboxState.memory_version"><code class="docutils literal notranslate"><span class="pre">CTDGMailboxState.memory_version</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGMailboxState.update"><code class="docutils literal notranslate"><span class="pre">CTDGMailboxState.update()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGPartitionBook"><code class="docutils literal notranslate"><span class="pre">CTDGPartitionBook</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGPartitionBook.describe"><code class="docutils literal notranslate"><span class="pre">CTDGPartitionBook.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGPartitionBook.event_count"><code class="docutils literal notranslate"><span class="pre">CTDGPartitionBook.event_count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGPartitionBook.num_parts"><code class="docutils literal notranslate"><span class="pre">CTDGPartitionBook.num_parts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGPartitionBook.partition_algo"><code class="docutils literal notranslate"><span class="pre">CTDGPartitionBook.partition_algo</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGPreparedBatch"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGPreparedBatch.batch"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch.batch</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGPreparedBatch.describe"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGPreparedBatch.edge_features"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch.edge_features</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGPreparedBatch.node_features"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch.node_features</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGRuntimeState"><code class="docutils literal notranslate"><span class="pre">CTDGRuntimeState</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGRuntimeState.describe"><code class="docutils literal notranslate"><span class="pre">CTDGRuntimeState.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGRuntimeState.last_prediction"><code class="docutils literal notranslate"><span class="pre">CTDGRuntimeState.last_prediction</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGRuntimeState.last_split"><code class="docutils literal notranslate"><span class="pre">CTDGRuntimeState.last_split</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGRuntimeState.sampler_cursor"><code class="docutils literal notranslate"><span class="pre">CTDGRuntimeState.sampler_cursor</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.attach_native_sampler"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.attach_native_sampler()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.build_lookup"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.build_lookup()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.cursor"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.cursor</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.dump_state"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.dump_state()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.feature_route"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.feature_route</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.history"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.history</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.native_sampler"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.native_sampler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.neighbor_limit"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.neighbor_limit</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.sample"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.sample()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.sample_batch"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.sample_batch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.state_sync"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.state_sync</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGSamplerCore.strategy"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore.strategy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGStepResult"><code class="docutils literal notranslate"><span class="pre">CTDGStepResult</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGStepResult.loss"><code class="docutils literal notranslate"><span class="pre">CTDGStepResult.loss</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGStepResult.meta"><code class="docutils literal notranslate"><span class="pre">CTDGStepResult.meta</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGStepResult.predictions"><code class="docutils literal notranslate"><span class="pre">CTDGStepResult.predictions</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGStepResult.targets"><code class="docutils literal notranslate"><span class="pre">CTDGStepResult.targets</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.CTDGStepResult.to_payload"><code class="docutils literal notranslate"><span class="pre">CTDGStepResult.to_payload()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch"><code class="docutils literal notranslate"><span class="pre">DTDGBatch</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch.adjacency"><code class="docutils literal notranslate"><span class="pre">DTDGBatch.adjacency</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch.chain"><code class="docutils literal notranslate"><span class="pre">DTDGBatch.chain</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch.dense_features"><code class="docutils literal notranslate"><span class="pre">DTDGBatch.dense_features</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch.graph"><code class="docutils literal notranslate"><span class="pre">DTDGBatch.graph</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch.graph_meta"><code class="docutils literal notranslate"><span class="pre">DTDGBatch.graph_meta</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch.index"><code class="docutils literal notranslate"><span class="pre">DTDGBatch.index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch.route_plan"><code class="docutils literal notranslate"><span class="pre">DTDGBatch.route_plan</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch.split"><code class="docutils literal notranslate"><span class="pre">DTDGBatch.split</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch.to_payload"><code class="docutils literal notranslate"><span class="pre">DTDGBatch.to_payload()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGBatch.window_size"><code class="docutils literal notranslate"><span class="pre">DTDGBatch.window_size</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGKernel"><code class="docutils literal notranslate"><span class="pre">DTDGKernel</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGKernel.dump_state"><code class="docutils literal notranslate"><span class="pre">DTDGKernel.dump_state()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGKernel.execute_eval"><code class="docutils literal notranslate"><span class="pre">DTDGKernel.execute_eval()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGKernel.execute_predict"><code class="docutils literal notranslate"><span class="pre">DTDGKernel.execute_predict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGKernel.execute_train"><code class="docutils literal notranslate"><span class="pre">DTDGKernel.execute_train()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGKernel.iter_batches"><code class="docutils literal notranslate"><span class="pre">DTDGKernel.iter_batches()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGKernel.runtime_state"><code class="docutils literal notranslate"><span class="pre">DTDGKernel.runtime_state</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGKernel.snapshot_core"><code class="docutils literal notranslate"><span class="pre">DTDGKernel.snapshot_core</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGPartitionBook"><code class="docutils literal notranslate"><span class="pre">DTDGPartitionBook</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGPartitionBook.describe"><code class="docutils literal notranslate"><span class="pre">DTDGPartitionBook.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGPartitionBook.num_parts"><code class="docutils literal notranslate"><span class="pre">DTDGPartitionBook.num_parts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGPartitionBook.partition_algo"><code class="docutils literal notranslate"><span class="pre">DTDGPartitionBook.partition_algo</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGPartitionBook.snapshot_count"><code class="docutils literal notranslate"><span class="pre">DTDGPartitionBook.snapshot_count</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGRuntimeState"><code class="docutils literal notranslate"><span class="pre">DTDGRuntimeState</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGRuntimeState.describe"><code class="docutils literal notranslate"><span class="pre">DTDGRuntimeState.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGRuntimeState.last_prediction"><code class="docutils literal notranslate"><span class="pre">DTDGRuntimeState.last_prediction</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGRuntimeState.last_split"><code class="docutils literal notranslate"><span class="pre">DTDGRuntimeState.last_split</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGRuntimeState.snapshot_cursor"><code class="docutils literal notranslate"><span class="pre">DTDGRuntimeState.snapshot_cursor</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGSnapshotCore"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGSnapshotCore.backend_loader"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore.backend_loader</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGSnapshotCore.build_snapshot_index"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore.build_snapshot_index()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGSnapshotCore.cursor"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore.cursor</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGSnapshotCore.dump_state"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore.dump_state()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGSnapshotCore.load_snapshot"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore.load_snapshot()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGSnapshotCore.route_plan"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore.route_plan</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGSnapshotCore.snaps"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore.snaps</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGSnapshotCore.window_state"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore.window_state</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGSnapshotCore.windows"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore.windows()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGStepResult"><code class="docutils literal notranslate"><span class="pre">DTDGStepResult</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGStepResult.loss"><code class="docutils literal notranslate"><span class="pre">DTDGStepResult.loss</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGStepResult.meta"><code class="docutils literal notranslate"><span class="pre">DTDGStepResult.meta</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGStepResult.predictions"><code class="docutils literal notranslate"><span class="pre">DTDGStepResult.predictions</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGStepResult.targets"><code class="docutils literal notranslate"><span class="pre">DTDGStepResult.targets</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGStepResult.to_payload"><code class="docutils literal notranslate"><span class="pre">DTDGStepResult.to_payload()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGWindowState"><code class="docutils literal notranslate"><span class="pre">DTDGWindowState</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGWindowState.describe"><code class="docutils literal notranslate"><span class="pre">DTDGWindowState.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGWindowState.last_snapshot"><code class="docutils literal notranslate"><span class="pre">DTDGWindowState.last_snapshot</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGWindowState.store"><code class="docutils literal notranslate"><span class="pre">DTDGWindowState.store()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGWindowState.stored_windows"><code class="docutils literal notranslate"><span class="pre">DTDGWindowState.stored_windows</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.DTDGWindowState.window_size"><code class="docutils literal notranslate"><span class="pre">DTDGWindowState.window_size</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.FeatureRoutePlan"><code class="docutils literal notranslate"><span class="pre">FeatureRoutePlan</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.FeatureRoutePlan.describe"><code class="docutils literal notranslate"><span class="pre">FeatureRoutePlan.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.FeatureRoutePlan.fanout"><code class="docutils literal notranslate"><span class="pre">FeatureRoutePlan.fanout</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.FeatureRoutePlan.feature_keys"><code class="docutils literal notranslate"><span class="pre">FeatureRoutePlan.feature_keys</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.FeatureRoutePlan.route_type"><code class="docutils literal notranslate"><span class="pre">FeatureRoutePlan.route_type</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelBatch"><code class="docutils literal notranslate"><span class="pre">KernelBatch</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelBatch.chain"><code class="docutils literal notranslate"><span class="pre">KernelBatch.chain</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelBatch.index"><code class="docutils literal notranslate"><span class="pre">KernelBatch.index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelBatch.split"><code class="docutils literal notranslate"><span class="pre">KernelBatch.split</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelBatch.to_payload"><code class="docutils literal notranslate"><span class="pre">KernelBatch.to_payload()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelExecutor"><code class="docutils literal notranslate"><span class="pre">KernelExecutor</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelExecutor.dump_state"><code class="docutils literal notranslate"><span class="pre">KernelExecutor.dump_state()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelExecutor.execute_eval"><code class="docutils literal notranslate"><span class="pre">KernelExecutor.execute_eval()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelExecutor.execute_predict"><code class="docutils literal notranslate"><span class="pre">KernelExecutor.execute_predict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelExecutor.execute_train"><code class="docutils literal notranslate"><span class="pre">KernelExecutor.execute_train()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelExecutor.iter_batches"><code class="docutils literal notranslate"><span class="pre">KernelExecutor.iter_batches()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelResult"><code class="docutils literal notranslate"><span class="pre">KernelResult</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelResult.to_payload"><code class="docutils literal notranslate"><span class="pre">KernelResult.to_payload()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelRuntimeState"><code class="docutils literal notranslate"><span class="pre">KernelRuntimeState</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.KernelRuntimeState.describe"><code class="docutils literal notranslate"><span class="pre">KernelRuntimeState.describe()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.PipelineTrace"><code class="docutils literal notranslate"><span class="pre">PipelineTrace</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.PipelineTrace.add"><code class="docutils literal notranslate"><span class="pre">PipelineTrace.add()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.PipelineTrace.as_meta"><code class="docutils literal notranslate"><span class="pre">PipelineTrace.as_meta()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.PipelineTrace.async_ops"><code class="docutils literal notranslate"><span class="pre">PipelineTrace.async_ops</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.PipelineTrace.begin_async"><code class="docutils literal notranslate"><span class="pre">PipelineTrace.begin_async()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.PipelineTrace.complete_async"><code class="docutils literal notranslate"><span class="pre">PipelineTrace.complete_async()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.PipelineTrace.fail_async"><code class="docutils literal notranslate"><span class="pre">PipelineTrace.fail_async()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.PipelineTrace.stages"><code class="docutils literal notranslate"><span class="pre">PipelineTrace.stages</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.SnapshotRoutePlan"><code class="docutils literal notranslate"><span class="pre">SnapshotRoutePlan</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.SnapshotRoutePlan.cache_policy"><code class="docutils literal notranslate"><span class="pre">SnapshotRoutePlan.cache_policy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.SnapshotRoutePlan.describe"><code class="docutils literal notranslate"><span class="pre">SnapshotRoutePlan.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.SnapshotRoutePlan.route_type"><code class="docutils literal notranslate"><span class="pre">SnapshotRoutePlan.route_type</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateDelta"><code class="docutils literal notranslate"><span class="pre">StateDelta</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateDelta.describe"><code class="docutils literal notranslate"><span class="pre">StateDelta.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateDelta.family"><code class="docutils literal notranslate"><span class="pre">StateDelta.family</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateDelta.transition"><code class="docutils literal notranslate"><span class="pre">StateDelta.transition</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateDelta.values"><code class="docutils literal notranslate"><span class="pre">StateDelta.values</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateHandle"><code class="docutils literal notranslate"><span class="pre">StateHandle</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateHandle.describe"><code class="docutils literal notranslate"><span class="pre">StateHandle.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateHandle.family"><code class="docutils literal notranslate"><span class="pre">StateHandle.family</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateHandle.metadata"><code class="docutils literal notranslate"><span class="pre">StateHandle.metadata</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateHandle.name"><code class="docutils literal notranslate"><span class="pre">StateHandle.name</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateHandle.scope"><code class="docutils literal notranslate"><span class="pre">StateHandle.scope</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateSyncPlan"><code class="docutils literal notranslate"><span class="pre">StateSyncPlan</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateSyncPlan.advance"><code class="docutils literal notranslate"><span class="pre">StateSyncPlan.advance()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateSyncPlan.describe"><code class="docutils literal notranslate"><span class="pre">StateSyncPlan.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateSyncPlan.mode"><code class="docutils literal notranslate"><span class="pre">StateSyncPlan.mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateSyncPlan.version"><code class="docutils literal notranslate"><span class="pre">StateSyncPlan.version</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateWriteback"><code class="docutils literal notranslate"><span class="pre">StateWriteback</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateWriteback.delta"><code class="docutils literal notranslate"><span class="pre">StateWriteback.delta</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateWriteback.describe"><code class="docutils literal notranslate"><span class="pre">StateWriteback.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateWriteback.handle"><code class="docutils literal notranslate"><span class="pre">StateWriteback.handle</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateWriteback.version"><code class="docutils literal notranslate"><span class="pre">StateWriteback.version</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.ctdg.html">starry_unigraph.core.ctdg module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg.html#starry_unigraph.core.ctdg.CTDGBatch"><code class="docutils literal notranslate"><span class="pre">CTDGBatch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg.html#starry_unigraph.core.ctdg.CTDGKernel"><code class="docutils literal notranslate"><span class="pre">CTDGKernel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg.html#starry_unigraph.core.ctdg.CTDGMailboxState"><code class="docutils literal notranslate"><span class="pre">CTDGMailboxState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg.html#starry_unigraph.core.ctdg.CTDGPartitionBook"><code class="docutils literal notranslate"><span class="pre">CTDGPartitionBook</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg.html#starry_unigraph.core.ctdg.CTDGPreparedBatch"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg.html#starry_unigraph.core.ctdg.CTDGRuntimeState"><code class="docutils literal notranslate"><span class="pre">CTDGRuntimeState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg.html#starry_unigraph.core.ctdg.CTDGSamplerCore"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg.html#starry_unigraph.core.ctdg.CTDGStepResult"><code class="docutils literal notranslate"><span class="pre">CTDGStepResult</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg.html#starry_unigraph.core.ctdg.FeatureRoutePlan"><code class="docutils literal notranslate"><span class="pre">FeatureRoutePlan</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg.html#starry_unigraph.core.ctdg.StateSyncPlan"><code class="docutils literal notranslate"><span class="pre">StateSyncPlan</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html">starry_unigraph.core.ctdg_kernel module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.CTDGBatch"><code class="docutils literal notranslate"><span class="pre">CTDGBatch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.CTDGKernel"><code class="docutils literal notranslate"><span class="pre">CTDGKernel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.CTDGMailboxState"><code class="docutils literal notranslate"><span class="pre">CTDGMailboxState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.CTDGPartitionBook"><code class="docutils literal notranslate"><span class="pre">CTDGPartitionBook</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.CTDGPreparedBatch"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.CTDGRuntimeState"><code class="docutils literal notranslate"><span class="pre">CTDGRuntimeState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.CTDGSamplerCore"><code class="docutils literal notranslate"><span class="pre">CTDGSamplerCore</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.CTDGStepResult"><code class="docutils literal notranslate"><span class="pre">CTDGStepResult</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.FeatureRoutePlan"><code class="docutils literal notranslate"><span class="pre">FeatureRoutePlan</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.StateSyncPlan"><code class="docutils literal notranslate"><span class="pre">StateSyncPlan</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.dtdg.html">starry_unigraph.core.dtdg module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg.html#starry_unigraph.core.dtdg.DTDGBatch"><code class="docutils literal notranslate"><span class="pre">DTDGBatch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg.html#starry_unigraph.core.dtdg.DTDGKernel"><code class="docutils literal notranslate"><span class="pre">DTDGKernel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg.html#starry_unigraph.core.dtdg.DTDGPartitionBook"><code class="docutils literal notranslate"><span class="pre">DTDGPartitionBook</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg.html#starry_unigraph.core.dtdg.DTDGRuntimeState"><code class="docutils literal notranslate"><span class="pre">DTDGRuntimeState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg.html#starry_unigraph.core.dtdg.DTDGSnapshotCore"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg.html#starry_unigraph.core.dtdg.DTDGStepResult"><code class="docutils literal notranslate"><span class="pre">DTDGStepResult</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg.html#starry_unigraph.core.dtdg.DTDGWindowState"><code class="docutils literal notranslate"><span class="pre">DTDGWindowState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg.html#starry_unigraph.core.dtdg.SnapshotRoutePlan"><code class="docutils literal notranslate"><span class="pre">SnapshotRoutePlan</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html">starry_unigraph.core.dtdg_kernel module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGBatch"><code class="docutils literal notranslate"><span class="pre">DTDGBatch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGKernel"><code class="docutils literal notranslate"><span class="pre">DTDGKernel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGPartitionBook"><code class="docutils literal notranslate"><span class="pre">DTDGPartitionBook</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGRuntimeState"><code class="docutils literal notranslate"><span class="pre">DTDGRuntimeState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGSnapshotCore"><code class="docutils literal notranslate"><span class="pre">DTDGSnapshotCore</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGStepResult"><code class="docutils literal notranslate"><span class="pre">DTDGStepResult</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGWindowState"><code class="docutils literal notranslate"><span class="pre">DTDGWindowState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.SnapshotRoutePlan"><code class="docutils literal notranslate"><span class="pre">SnapshotRoutePlan</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.protocol.html">starry_unigraph.core.protocol module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.AsyncStageHandle"><code class="docutils literal notranslate"><span class="pre">AsyncStageHandle</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.KernelBatch"><code class="docutils literal notranslate"><span class="pre">KernelBatch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.KernelExecutor"><code class="docutils literal notranslate"><span class="pre">KernelExecutor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.KernelResult"><code class="docutils literal notranslate"><span class="pre">KernelResult</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.KernelRuntimeState"><code class="docutils literal notranslate"><span class="pre">KernelRuntimeState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.PipelineStageRecord"><code class="docutils literal notranslate"><span class="pre">PipelineStageRecord</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.PipelineTrace"><code class="docutils literal notranslate"><span class="pre">PipelineTrace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.StateDelta"><code class="docutils literal notranslate"><span class="pre">StateDelta</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.StateHandle"><code class="docutils literal notranslate"><span class="pre">StateHandle</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.StateWriteback"><code class="docutils literal notranslate"><span class="pre">StateWriteback</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.data.html">starry_unigraph.data package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RawTemporalEvents"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RawTemporalEvents.dst"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents.dst</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RawTemporalEvents.edge_feat"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents.edge_feat</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RawTemporalEvents.num_edges"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents.num_edges</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RawTemporalEvents.num_nodes"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents.num_nodes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RawTemporalEvents.source"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents.source</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RawTemporalEvents.src"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents.src</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RawTemporalEvents.ts"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents.ts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RawTemporalEvents.weight"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents.weight</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.build_snapshot_dataset_from_events"><code class="docutils literal notranslate"><span class="pre">build_snapshot_dataset_from_events()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.load_raw_temporal_events"><code class="docutils literal notranslate"><span class="pre">load_raw_temporal_events()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.data.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.raw_temporal.html">starry_unigraph.data.raw_temporal module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.raw_temporal.html#starry_unigraph.data.raw_temporal.RawTemporalEvents"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.raw_temporal.html#starry_unigraph.data.raw_temporal.build_snapshot_dataset_from_events"><code class="docutils literal notranslate"><span class="pre">build_snapshot_dataset_from_events()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.raw_temporal.html#starry_unigraph.data.raw_temporal.load_raw_temporal_events"><code class="docutils literal notranslate"><span class="pre">load_raw_temporal_events()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.native.html">starry_unigraph.native package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.edge_part"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.edge_part</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.fanout"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.fanout</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.local_part"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.local_part</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.node_part"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.node_part</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.num_edges"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.num_edges</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.num_layers"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.num_layers</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.num_nodes"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.num_nodes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.policy"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.policy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.probability"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.probability</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.reset"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.reset()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.sample_from_nodes"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.sample_from_nodes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.tnb"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.tnb</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler.workers"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler.workers</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.build_temporal_neighbor_block"><code class="docutils literal notranslate"><span class="pre">build_temporal_neighbor_block()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.is_bts_sampler_available"><code class="docutils literal notranslate"><span class="pre">is_bts_sampler_available()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.native.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.native.bts_sampler.html">starry_unigraph.native.bts_sampler module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.native.bts_sampler.html#starry_unigraph.native.bts_sampler.BTSNativeSampler"><code class="docutils literal notranslate"><span class="pre">BTSNativeSampler</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.native.bts_sampler.html#starry_unigraph.native.bts_sampler.build_temporal_neighbor_block"><code class="docutils literal notranslate"><span class="pre">build_temporal_neighbor_block()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.native.bts_sampler.html#starry_unigraph.native.bts_sampler.is_bts_sampler_available"><code class="docutils literal notranslate"><span class="pre">is_bts_sampler_available()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.preprocess.html">starry_unigraph.preprocess package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactLayout"><code class="docutils literal notranslate"><span class="pre">ArtifactLayout</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactLayout.directories"><code class="docutils literal notranslate"><span class="pre">ArtifactLayout.directories</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactLayout.meta_path"><code class="docutils literal notranslate"><span class="pre">ArtifactLayout.meta_path</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactLayout.root"><code class="docutils literal notranslate"><span class="pre">ArtifactLayout.root</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactOutput"><code class="docutils literal notranslate"><span class="pre">ArtifactOutput</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactOutput.payload"><code class="docutils literal notranslate"><span class="pre">ArtifactOutput.payload</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactOutput.relative_path"><code class="docutils literal notranslate"><span class="pre">ArtifactOutput.relative_path</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactOutput.serializer"><code class="docutils literal notranslate"><span class="pre">ArtifactOutput.serializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactPayload"><code class="docutils literal notranslate"><span class="pre">ArtifactPayload</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactPayload.outputs"><code class="docutils literal notranslate"><span class="pre">ArtifactPayload.outputs</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.ArtifactPayload.provider_meta"><code class="docutils literal notranslate"><span class="pre">ArtifactPayload.provider_meta</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.GraphPreprocessor"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.GraphPreprocessor.artifact_dirs"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.artifact_dirs</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.GraphPreprocessor.build_partitions"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.build_partitions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.GraphPreprocessor.build_runtime_artifacts"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.build_runtime_artifacts()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.GraphPreprocessor.emit_artifacts"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.emit_artifacts()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.GraphPreprocessor.ensure_artifact_layout"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.ensure_artifact_layout()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.GraphPreprocessor.prepare_raw"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.prepare_raw()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.html#starry_unigraph.preprocess.GraphPreprocessor.run"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.run()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html">starry_unigraph.preprocess.base module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactLayout"><code class="docutils literal notranslate"><span class="pre">ArtifactLayout</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactOutput"><code class="docutils literal notranslate"><span class="pre">ArtifactOutput</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactPayload"><code class="docutils literal notranslate"><span class="pre">ArtifactPayload</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.GraphPreprocessor"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.providers.html">starry_unigraph.providers package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider"><code class="docutils literal notranslate"><span class="pre">CTDGProvider</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.build_eval_iterator"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.build_eval_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.build_predict_iterator"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.build_predict_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.build_runtime"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.build_runtime()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.build_train_iterator"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.build_train_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.graph_mode"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.graph_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.load_checkpoint"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.load_checkpoint()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.prepare_data"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.prepare_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.provider_key"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.provider_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.run_eval_step"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.run_eval_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.run_predict_step"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.run_predict_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.run_train_step"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.run_train_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.CTDGProvider.save_checkpoint"><code class="docutils literal notranslate"><span class="pre">CTDGProvider.save_checkpoint()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider"><code class="docutils literal notranslate"><span class="pre">DTDGProvider</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider.build_eval_iterator"><code class="docutils literal notranslate"><span class="pre">DTDGProvider.build_eval_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider.build_predict_iterator"><code class="docutils literal notranslate"><span class="pre">DTDGProvider.build_predict_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider.build_runtime"><code class="docutils literal notranslate"><span class="pre">DTDGProvider.build_runtime()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider.build_train_iterator"><code class="docutils literal notranslate"><span class="pre">DTDGProvider.build_train_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider.graph_mode"><code class="docutils literal notranslate"><span class="pre">DTDGProvider.graph_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider.prepare_data"><code class="docutils literal notranslate"><span class="pre">DTDGProvider.prepare_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider.provider_key"><code class="docutils literal notranslate"><span class="pre">DTDGProvider.provider_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider.run_eval_step"><code class="docutils literal notranslate"><span class="pre">DTDGProvider.run_eval_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider.run_predict_step"><code class="docutils literal notranslate"><span class="pre">DTDGProvider.run_predict_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.html#starry_unigraph.providers.DTDGProvider.run_train_step"><code class="docutils literal notranslate"><span class="pre">DTDGProvider.run_train_step()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.providers.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.common.html">starry_unigraph.providers.common module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.common.html#starry_unigraph.providers.common.BaseProvider"><code class="docutils literal notranslate"><span class="pre">BaseProvider</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleExecutionAdapter"><code class="docutils literal notranslate"><span class="pre">SimpleExecutionAdapter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleRuntimeAdapter"><code class="docutils literal notranslate"><span class="pre">SimpleRuntimeAdapter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.common.html#starry_unigraph.providers.common.ensure_artifact_dirs"><code class="docutils literal notranslate"><span class="pre">ensure_artifact_dirs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.common.html#starry_unigraph.providers.common.read_meta"><code class="docutils literal notranslate"><span class="pre">read_meta()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.common.html#starry_unigraph.providers.common.validate_artifacts"><code class="docutils literal notranslate"><span class="pre">validate_artifacts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.common.html#starry_unigraph.providers.common.write_manifest"><code class="docutils literal notranslate"><span class="pre">write_manifest()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.common.html#starry_unigraph.providers.common.write_meta"><code class="docutils literal notranslate"><span class="pre">write_meta()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.ctdg.html">starry_unigraph.providers.ctdg module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.ctdg.html#starry_unigraph.providers.ctdg.CTDGPreprocessor"><code class="docutils literal notranslate"><span class="pre">CTDGPreprocessor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.ctdg.html#starry_unigraph.providers.ctdg.CTDGProvider"><code class="docutils literal notranslate"><span class="pre">CTDGProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.dtdg.html">starry_unigraph.providers.dtdg module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg.html#starry_unigraph.providers.dtdg.DTDGProvider"><code class="docutils literal notranslate"><span class="pre">DTDGProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.dtdg_common.html">starry_unigraph.providers.dtdg_common module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_common.html#starry_unigraph.providers.dtdg_common.dtdg_pipeline"><code class="docutils literal notranslate"><span class="pre">dtdg_pipeline()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.dtdg_data.html">starry_unigraph.providers.dtdg_data module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_data.html#starry_unigraph.providers.dtdg_data.WebDataLoader"><code class="docutils literal notranslate"><span class="pre">WebDataLoader</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_data.html#starry_unigraph.providers.dtdg_data.apply_partition"><code class="docutils literal notranslate"><span class="pre">apply_partition()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_data.html#starry_unigraph.providers.dtdg_data.build_dtdg_partitions"><code class="docutils literal notranslate"><span class="pre">build_dtdg_partitions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_data.html#starry_unigraph.providers.dtdg_data.build_flare_partition_data_list"><code class="docutils literal notranslate"><span class="pre">build_flare_partition_data_list()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_data.html#starry_unigraph.providers.dtdg_data.build_partition_input_from_raw_dataset"><code class="docutils literal notranslate"><span class="pre">build_partition_input_from_raw_dataset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_data.html#starry_unigraph.providers.dtdg_data.build_web_data_loader"><code class="docutils literal notranslate"><span class="pre">build_web_data_loader()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_data.html#starry_unigraph.providers.dtdg_data.normalize_snapshot_count"><code class="docutils literal notranslate"><span class="pre">normalize_snapshot_count()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.dtdg_loaders.html">starry_unigraph.providers.dtdg_loaders module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_loaders.html#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader"><code class="docutils literal notranslate"><span class="pre">ChunkedDTDGLoader</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_loaders.html#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader"><code class="docutils literal notranslate"><span class="pre">FlareRuntimeLoader</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.dtdg_preprocess.html">starry_unigraph.providers.dtdg_preprocess module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_preprocess.html#starry_unigraph.providers.dtdg_preprocess.BaseDTDGPreprocessor"><code class="docutils literal notranslate"><span class="pre">BaseDTDGPreprocessor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_preprocess.html#starry_unigraph.providers.dtdg_preprocess.ChunkedDTDGPreprocessor"><code class="docutils literal notranslate"><span class="pre">ChunkedDTDGPreprocessor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_preprocess.html#starry_unigraph.providers.dtdg_preprocess.FlareDTDGPreprocessor"><code class="docutils literal notranslate"><span class="pre">FlareDTDGPreprocessor</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.providers.dtdg_train.html">starry_unigraph.providers.dtdg_train module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_train.html#starry_unigraph.providers.dtdg_train.init_flare_training"><code class="docutils literal notranslate"><span class="pre">init_flare_training()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_train.html#starry_unigraph.providers.dtdg_train.run_flare_eval_step"><code class="docutils literal notranslate"><span class="pre">run_flare_eval_step()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_train.html#starry_unigraph.providers.dtdg_train.run_flare_predict_step"><code class="docutils literal notranslate"><span class="pre">run_flare_predict_step()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.providers.dtdg_train.html#starry_unigraph.providers.dtdg_train.run_flare_train_step"><code class="docutils literal notranslate"><span class="pre">run_flare_train_step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.registry.html">starry_unigraph.registry package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.registry.html#starry_unigraph.registry.ModelRegistry"><code class="docutils literal notranslate"><span class="pre">ModelRegistry</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.registry.html#starry_unigraph.registry.ModelRegistry.resolve"><code class="docutils literal notranslate"><span class="pre">ModelRegistry.resolve()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.registry.html#starry_unigraph.registry.ProviderRegistry"><code class="docutils literal notranslate"><span class="pre">ProviderRegistry</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.registry.html#starry_unigraph.registry.ProviderRegistry.register"><code class="docutils literal notranslate"><span class="pre">ProviderRegistry.register()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.registry.html#starry_unigraph.registry.ProviderRegistry.resolve"><code class="docutils literal notranslate"><span class="pre">ProviderRegistry.resolve()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.registry.html#starry_unigraph.registry.TaskRegistry"><code class="docutils literal notranslate"><span class="pre">TaskRegistry</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.registry.html#starry_unigraph.registry.TaskRegistry.resolve"><code class="docutils literal notranslate"><span class="pre">TaskRegistry.resolve()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.registry.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.registry.model_registry.html">starry_unigraph.registry.model_registry module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.registry.model_registry.html#starry_unigraph.registry.model_registry.ModelRegistry"><code class="docutils literal notranslate"><span class="pre">ModelRegistry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.registry.model_registry.html#starry_unigraph.registry.model_registry.ModelSpec"><code class="docutils literal notranslate"><span class="pre">ModelSpec</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.registry.provider_registry.html">starry_unigraph.registry.provider_registry module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.registry.provider_registry.html#starry_unigraph.registry.provider_registry.ProviderRegistry"><code class="docutils literal notranslate"><span class="pre">ProviderRegistry</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.registry.task_registry.html">starry_unigraph.registry.task_registry module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.registry.task_registry.html#starry_unigraph.registry.task_registry.TaskRegistry"><code class="docutils literal notranslate"><span class="pre">TaskRegistry</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.html">starry_unigraph.runtime package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.ExecutionAdapter"><code class="docutils literal notranslate"><span class="pre">ExecutionAdapter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.ExecutionAdapter.eval_step"><code class="docutils literal notranslate"><span class="pre">ExecutionAdapter.eval_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.ExecutionAdapter.predict_step"><code class="docutils literal notranslate"><span class="pre">ExecutionAdapter.predict_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.ExecutionAdapter.train_step"><code class="docutils literal notranslate"><span class="pre">ExecutionAdapter.train_step()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider"><code class="docutils literal notranslate"><span class="pre">GraphProvider</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider.build_eval_iterator"><code class="docutils literal notranslate"><span class="pre">GraphProvider.build_eval_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider.build_predict_iterator"><code class="docutils literal notranslate"><span class="pre">GraphProvider.build_predict_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider.build_runtime"><code class="docutils literal notranslate"><span class="pre">GraphProvider.build_runtime()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider.build_train_iterator"><code class="docutils literal notranslate"><span class="pre">GraphProvider.build_train_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider.graph_mode"><code class="docutils literal notranslate"><span class="pre">GraphProvider.graph_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider.prepare_data"><code class="docutils literal notranslate"><span class="pre">GraphProvider.prepare_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider.run_eval_step"><code class="docutils literal notranslate"><span class="pre">GraphProvider.run_eval_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider.run_predict_step"><code class="docutils literal notranslate"><span class="pre">GraphProvider.run_predict_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider.run_train_step"><code class="docutils literal notranslate"><span class="pre">GraphProvider.run_train_step()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.RuntimeAdapter"><code class="docutils literal notranslate"><span class="pre">RuntimeAdapter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.RuntimeAdapter.dump_runtime_state"><code class="docutils literal notranslate"><span class="pre">RuntimeAdapter.dump_runtime_state()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.RuntimeAdapter.init_model"><code class="docutils literal notranslate"><span class="pre">RuntimeAdapter.init_model()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.RuntimeAdapter.init_optimizer"><code class="docutils literal notranslate"><span class="pre">RuntimeAdapter.init_optimizer()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.RuntimeAdapter.load_runtime_state"><code class="docutils literal notranslate"><span class="pre">RuntimeAdapter.load_runtime_state()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.base.html">starry_unigraph.runtime.base module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.runtime.base.html#starry_unigraph.runtime.base.ExecutionAdapter"><code class="docutils literal notranslate"><span class="pre">ExecutionAdapter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.runtime.base.html#starry_unigraph.runtime.base.GraphProvider"><code class="docutils literal notranslate"><span class="pre">GraphProvider</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.runtime.base.html#starry_unigraph.runtime.base.RuntimeAdapter"><code class="docutils literal notranslate"><span class="pre">RuntimeAdapter</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.tasks.html">starry_unigraph.tasks package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.tasks.html#starry_unigraph.tasks.BaseTaskAdapter"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.html#starry_unigraph.tasks.BaseTaskAdapter.compute_loss"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter.compute_loss()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.html#starry_unigraph.tasks.BaseTaskAdapter.format_prediction"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter.format_prediction()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.html#starry_unigraph.tasks.BaseTaskAdapter.task_type"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter.task_type</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.tasks.html#starry_unigraph.tasks.NodeRegressionTaskAdapter"><code class="docutils literal notranslate"><span class="pre">NodeRegressionTaskAdapter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.html#starry_unigraph.tasks.NodeRegressionTaskAdapter.task_type"><code class="docutils literal notranslate"><span class="pre">NodeRegressionTaskAdapter.task_type</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.tasks.html#starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter"><code class="docutils literal notranslate"><span class="pre">TemporalLinkPredictionTaskAdapter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.html#starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter.task_type"><code class="docutils literal notranslate"><span class="pre">TemporalLinkPredictionTaskAdapter.task_type</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.tasks.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.base.html">starry_unigraph.tasks.base module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_regression.html">starry_unigraph.tasks.node_regression module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.tasks.node_regression.html#starry_unigraph.tasks.node_regression.NodeRegressionTaskAdapter"><code class="docutils literal notranslate"><span class="pre">NodeRegressionTaskAdapter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html">starry_unigraph.tasks.temporal_link_prediction module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.TemporalLinkPredictionTaskAdapter"><code class="docutils literal notranslate"><span class="pre">TemporalLinkPredictionTaskAdapter</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.distributed.html">starry_unigraph.distributed module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.distributed.html#starry_unigraph.distributed.apply_distributed_env"><code class="docutils literal notranslate"><span class="pre">apply_distributed_env()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.distributed.html#starry_unigraph.distributed.build_distributed_context"><code class="docutils literal notranslate"><span class="pre">build_distributed_context()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.distributed.html#starry_unigraph.distributed.finalize_distributed"><code class="docutils literal notranslate"><span class="pre">finalize_distributed()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.distributed.html#starry_unigraph.distributed.initialize_distributed"><code class="docutils literal notranslate"><span class="pre">initialize_distributed()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.session.html">starry_unigraph.session module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession.build_runtime"><code class="docutils literal notranslate"><span class="pre">SchedulerSession.build_runtime()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession.evaluate"><code class="docutils literal notranslate"><span class="pre">SchedulerSession.evaluate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession.from_config"><code class="docutils literal notranslate"><span class="pre">SchedulerSession.from_config()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession.load_checkpoint"><code class="docutils literal notranslate"><span class="pre">SchedulerSession.load_checkpoint()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession.predict"><code class="docutils literal notranslate"><span class="pre">SchedulerSession.predict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession.prepare_data"><code class="docutils literal notranslate"><span class="pre">SchedulerSession.prepare_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession.run_epoch"><code class="docutils literal notranslate"><span class="pre">SchedulerSession.run_epoch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession.run_task"><code class="docutils literal notranslate"><span class="pre">SchedulerSession.run_task()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.session.html#starry_unigraph.session.SchedulerSession.save_checkpoint"><code class="docutils literal notranslate"><span class="pre">SchedulerSession.save_checkpoint()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.types.html">starry_unigraph.types module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext"><code class="docutils literal notranslate"><span class="pre">DistributedContext</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.backend"><code class="docutils literal notranslate"><span class="pre">DistributedContext.backend</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.init_method"><code class="docutils literal notranslate"><span class="pre">DistributedContext.init_method</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.initialized"><code class="docutils literal notranslate"><span class="pre">DistributedContext.initialized</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.is_distributed"><code class="docutils literal notranslate"><span class="pre">DistributedContext.is_distributed</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.launcher"><code class="docutils literal notranslate"><span class="pre">DistributedContext.launcher</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.local_rank"><code class="docutils literal notranslate"><span class="pre">DistributedContext.local_rank</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.local_world_size"><code class="docutils literal notranslate"><span class="pre">DistributedContext.local_world_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.master_addr"><code class="docutils literal notranslate"><span class="pre">DistributedContext.master_addr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.master_port"><code class="docutils literal notranslate"><span class="pre">DistributedContext.master_port</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.rank"><code class="docutils literal notranslate"><span class="pre">DistributedContext.rank</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext.world_size"><code class="docutils literal notranslate"><span class="pre">DistributedContext.world_size</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PredictionResult"><code class="docutils literal notranslate"><span class="pre">PredictionResult</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PredictionResult.meta"><code class="docutils literal notranslate"><span class="pre">PredictionResult.meta</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PredictionResult.predictions"><code class="docutils literal notranslate"><span class="pre">PredictionResult.predictions</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PredictionResult.targets"><code class="docutils literal notranslate"><span class="pre">PredictionResult.targets</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PreparedArtifacts"><code class="docutils literal notranslate"><span class="pre">PreparedArtifacts</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PreparedArtifacts.directories"><code class="docutils literal notranslate"><span class="pre">PreparedArtifacts.directories</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PreparedArtifacts.meta_path"><code class="docutils literal notranslate"><span class="pre">PreparedArtifacts.meta_path</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PreparedArtifacts.provider_meta"><code class="docutils literal notranslate"><span class="pre">PreparedArtifacts.provider_meta</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle"><code class="docutils literal notranslate"><span class="pre">RuntimeBundle</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle.model"><code class="docutils literal notranslate"><span class="pre">RuntimeBundle.model</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle.optimizer"><code class="docutils literal notranslate"><span class="pre">RuntimeBundle.optimizer</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle.scheduler"><code class="docutils literal notranslate"><span class="pre">RuntimeBundle.scheduler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle.state"><code class="docutils literal notranslate"><span class="pre">RuntimeBundle.state</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext"><code class="docutils literal notranslate"><span class="pre">SessionContext</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext.artifact_root"><code class="docutils literal notranslate"><span class="pre">SessionContext.artifact_root</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext.config"><code class="docutils literal notranslate"><span class="pre">SessionContext.config</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext.dataset_path"><code class="docutils literal notranslate"><span class="pre">SessionContext.dataset_path</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext.dist"><code class="docutils literal notranslate"><span class="pre">SessionContext.dist</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext.project_root"><code class="docutils literal notranslate"><span class="pre">SessionContext.project_root</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext.provider_state"><code class="docutils literal notranslate"><span class="pre">SessionContext.provider_state</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext.warnings"><code class="docutils literal notranslate"><span class="pre">SessionContext.warnings</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="modules.html" class="btn btn-neutral float-left" title="starry_unigraph" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.backends.html" class="btn btn-neutral float-right" title="starry_unigraph.backends package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

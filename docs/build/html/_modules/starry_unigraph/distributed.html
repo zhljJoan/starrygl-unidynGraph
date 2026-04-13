@@ -1,0 +1,201 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.distributed &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.distributed</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for starry_unigraph.distributed</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">DistributedContext</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_env_int</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">default</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">default</span>
+
+
+<div class="viewcode-block" id="apply_distributed_env">
+<a class="viewcode-back" href="../../api/python/starry_unigraph.distributed.html#starry_unigraph.distributed.apply_distributed_env">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">apply_distributed_env</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="n">merged</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    <span class="n">dist_cfg</span> <span class="o">=</span> <span class="n">merged</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;dist&quot;</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="n">torchrun_active</span> <span class="o">=</span> <span class="s2">&quot;WORLD_SIZE&quot;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span> <span class="ow">or</span> <span class="s2">&quot;RANK&quot;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span> <span class="ow">or</span> <span class="s2">&quot;LOCAL_RANK&quot;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span>
+
+    <span class="n">dist_cfg</span><span class="p">[</span><span class="s2">&quot;backend&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;backend&quot;</span><span class="p">,</span> <span class="s2">&quot;nccl&quot;</span><span class="p">)</span>
+    <span class="n">dist_cfg</span><span class="p">[</span><span class="s2">&quot;world_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_env_int</span><span class="p">(</span><span class="s2">&quot;WORLD_SIZE&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;world_size&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+    <span class="n">dist_cfg</span><span class="p">[</span><span class="s2">&quot;rank&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_env_int</span><span class="p">(</span><span class="s2">&quot;RANK&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rank&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
+    <span class="n">dist_cfg</span><span class="p">[</span><span class="s2">&quot;local_rank&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_env_int</span><span class="p">(</span><span class="s2">&quot;LOCAL_RANK&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;local_rank&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
+    <span class="n">dist_cfg</span><span class="p">[</span><span class="s2">&quot;local_world_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_env_int</span><span class="p">(</span><span class="s2">&quot;LOCAL_WORLD_SIZE&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;local_world_size&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+    <span class="n">dist_cfg</span><span class="p">[</span><span class="s2">&quot;master_addr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;MASTER_ADDR&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;master_addr&quot;</span><span class="p">,</span> <span class="s2">&quot;127.0.0.1&quot;</span><span class="p">)))</span>
+    <span class="n">dist_cfg</span><span class="p">[</span><span class="s2">&quot;master_port&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_env_int</span><span class="p">(</span><span class="s2">&quot;MASTER_PORT&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;master_port&quot;</span><span class="p">,</span> <span class="mi">29500</span><span class="p">)))</span>
+    <span class="n">dist_cfg</span><span class="p">[</span><span class="s2">&quot;init_method&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;init_method&quot;</span><span class="p">,</span> <span class="s2">&quot;env://&quot;</span><span class="p">))</span>
+    <span class="n">dist_cfg</span><span class="p">[</span><span class="s2">&quot;launcher&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;torchrun&quot;</span> <span class="k">if</span> <span class="n">torchrun_active</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;launcher&quot;</span><span class="p">,</span> <span class="s2">&quot;single_process&quot;</span><span class="p">))</span>
+
+    <span class="n">runtime_cfg</span> <span class="o">=</span> <span class="n">merged</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;runtime&quot;</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="k">if</span> <span class="n">runtime_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;device&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="ow">and</span> <span class="n">dist_cfg</span><span class="p">[</span><span class="s2">&quot;launcher&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;torchrun&quot;</span><span class="p">:</span>
+        <span class="n">runtime_cfg</span><span class="p">[</span><span class="s2">&quot;device&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;cuda:</span><span class="si">{</span><span class="n">dist_cfg</span><span class="p">[</span><span class="s1">&#39;local_rank&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">return</span> <span class="n">merged</span></div>
+
+
+
+<div class="viewcode-block" id="build_distributed_context">
+<a class="viewcode-back" href="../../api/python/starry_unigraph.distributed.html#starry_unigraph.distributed.build_distributed_context">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_distributed_context</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">DistributedContext</span><span class="p">:</span>
+    <span class="n">dist_cfg</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dist&quot;</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="k">return</span> <span class="n">DistributedContext</span><span class="p">(</span>
+        <span class="n">backend</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;backend&quot;</span><span class="p">,</span> <span class="s2">&quot;nccl&quot;</span><span class="p">)),</span>
+        <span class="n">world_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;world_size&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span>
+        <span class="n">rank</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rank&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span>
+        <span class="n">local_rank</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;local_rank&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span>
+        <span class="n">local_world_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;local_world_size&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span>
+        <span class="n">master_addr</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;master_addr&quot;</span><span class="p">,</span> <span class="s2">&quot;127.0.0.1&quot;</span><span class="p">)),</span>
+        <span class="n">master_port</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;master_port&quot;</span><span class="p">,</span> <span class="mi">29500</span><span class="p">)),</span>
+        <span class="n">init_method</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;init_method&quot;</span><span class="p">,</span> <span class="s2">&quot;env://&quot;</span><span class="p">)),</span>
+        <span class="n">launcher</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">dist_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;launcher&quot;</span><span class="p">,</span> <span class="s2">&quot;single_process&quot;</span><span class="p">)),</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="initialize_distributed">
+<a class="viewcode-back" href="../../api/python/starry_unigraph.distributed.html#starry_unigraph.distributed.initialize_distributed">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">initialize_distributed</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">DistributedContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DistributedContext</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ctx</span><span class="o">.</span><span class="n">is_distributed</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ctx</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
+
+    <span class="k">if</span> <span class="n">ctx</span><span class="o">.</span><span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;nccl&quot;</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">set_device</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">local_rank</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">init_process_group</span><span class="p">(</span>
+            <span class="n">backend</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">backend</span><span class="p">,</span>
+            <span class="n">init_method</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">init_method</span><span class="p">,</span>
+            <span class="n">rank</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span>
+            <span class="n">world_size</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">initialized</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="n">ctx</span></div>
+
+
+
+<div class="viewcode-block" id="finalize_distributed">
+<a class="viewcode-back" href="../../api/python/starry_unigraph.distributed.html#starry_unigraph.distributed.finalize_distributed">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">finalize_distributed</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">DistributedContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ctx</span><span class="o">.</span><span class="n">initialized</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
+
+    <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">destroy_process_group</span><span class="p">()</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">initialized</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

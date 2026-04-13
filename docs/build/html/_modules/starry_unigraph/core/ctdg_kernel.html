@@ -1,0 +1,552 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.core.ctdg_kernel &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.core.ctdg_kernel</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for starry_unigraph.core.ctdg_kernel</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">asdict</span><span class="p">,</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Iterable</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.native</span><span class="w"> </span><span class="kn">import</span> <span class="n">BTSNativeSampler</span><span class="p">,</span> <span class="n">build_temporal_neighbor_block</span><span class="p">,</span> <span class="n">is_bts_sampler_available</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.protocol</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">KernelBatch</span><span class="p">,</span>
+    <span class="n">KernelExecutor</span><span class="p">,</span>
+    <span class="n">KernelResult</span><span class="p">,</span>
+    <span class="n">KernelRuntimeState</span><span class="p">,</span>
+    <span class="n">PipelineTrace</span><span class="p">,</span>
+    <span class="n">StateDelta</span><span class="p">,</span>
+    <span class="n">StateHandle</span><span class="p">,</span>
+    <span class="n">StateWriteback</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="FeatureRoutePlan">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.FeatureRoutePlan">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FeatureRoutePlan</span><span class="p">:</span>
+    <span class="n">route_type</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">fanout</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">feature_keys</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;edge_attr&quot;</span><span class="p">])</span>
+
+<div class="viewcode-block" id="FeatureRoutePlan.describe">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.FeatureRoutePlan.describe">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">|</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;FeatureRoutePlan&quot;</span><span class="p">}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="StateSyncPlan">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.StateSyncPlan">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">StateSyncPlan</span><span class="p">:</span>
+    <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+
+<div class="viewcode-block" id="StateSyncPlan.advance">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.StateSyncPlan.advance">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">advance</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">+=</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="StateSyncPlan.describe">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.StateSyncPlan.describe">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">|</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;StateSyncPlan&quot;</span><span class="p">}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CTDGPartitionBook">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGPartitionBook">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CTDGPartitionBook</span><span class="p">:</span>
+    <span class="n">num_parts</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">partition_algo</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">event_count</span><span class="p">:</span> <span class="nb">int</span>
+
+<div class="viewcode-block" id="CTDGPartitionBook.describe">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGPartitionBook.describe">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">|</span> <span class="p">{</span><span class="s2">&quot;graph_mode&quot;</span><span class="p">:</span> <span class="s2">&quot;ctdg&quot;</span><span class="p">}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CTDGMailboxState">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGMailboxState">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CTDGMailboxState</span><span class="p">:</span>
+    <span class="n">memory_type</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">memory_version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">mailbox_version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">last_batch</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="CTDGMailboxState.update">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGMailboxState.update">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_batch</span> <span class="o">=</span> <span class="n">batch_index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory_version</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_version</span> <span class="o">+=</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="CTDGMailboxState.describe">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGMailboxState.describe">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CTDGBatch">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGBatch">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CTDGBatch</span><span class="p">(</span><span class="n">KernelBatch</span><span class="p">):</span>
+    <span class="n">index</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">split</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">roots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">neighbors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">history</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">route_plan</span><span class="p">:</span> <span class="n">FeatureRoutePlan</span>
+    <span class="n">chain</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;sample-&gt;feature_fetch-&gt;state_fetch-&gt;memory_updater-&gt;&quot;</span>
+        <span class="s2">&quot;neighbor_attention_aggregate-&gt;message_generate-&gt;state_writeback&quot;</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="CTDGBatch.to_payload">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGBatch.to_payload">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">split</span><span class="p">,</span>
+            <span class="s2">&quot;chain&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">chain</span><span class="p">,</span>
+            <span class="s2">&quot;sample&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;roots&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span>
+                <span class="s2">&quot;neighbors&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">neighbors</span><span class="p">,</span>
+                <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span>
+                <span class="s2">&quot;history&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;route_plan&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">route_plan</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+        <span class="p">}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CTDGPreparedBatch">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGPreparedBatch">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CTDGPreparedBatch</span><span class="p">:</span>
+    <span class="n">batch</span><span class="p">:</span> <span class="n">CTDGBatch</span>
+    <span class="n">node_features</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">edge_features</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+
+<div class="viewcode-block" id="CTDGPreparedBatch.describe">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGPreparedBatch.describe">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;node_features&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_features</span><span class="p">,</span>
+            <span class="s2">&quot;edge_features&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_features</span><span class="p">,</span>
+            <span class="s2">&quot;feature_keys&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch</span><span class="o">.</span><span class="n">route_plan</span><span class="o">.</span><span class="n">feature_keys</span><span class="p">,</span>
+        <span class="p">}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CTDGStepResult">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGStepResult">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CTDGStepResult</span><span class="p">(</span><span class="n">KernelResult</span><span class="p">):</span>
+    <span class="n">loss</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">predictions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">targets</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">meta</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+
+<div class="viewcode-block" id="CTDGStepResult.to_payload">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGStepResult.to_payload">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;predictions&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">predictions</span><span class="p">,</span>
+            <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;targets&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">targets</span>
+        <span class="k">return</span> <span class="n">payload</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CTDGRuntimeState">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGRuntimeState">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CTDGRuntimeState</span><span class="p">(</span><span class="n">KernelRuntimeState</span><span class="p">):</span>
+    <span class="n">sampler_cursor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">last_split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">last_prediction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="CTDGRuntimeState.describe">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGRuntimeState.describe">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CTDGSamplerCore">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGSamplerCore">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CTDGSamplerCore</span><span class="p">:</span>
+    <span class="n">neighbor_limit</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">history</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">feature_route</span><span class="p">:</span> <span class="n">FeatureRoutePlan</span>
+    <span class="n">state_sync</span><span class="p">:</span> <span class="n">StateSyncPlan</span>
+    <span class="n">cursor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">native_sampler</span><span class="p">:</span> <span class="n">BTSNativeSampler</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="CTDGSamplerCore.build_lookup">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGSamplerCore.build_lookup">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;neighbor_limit&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">neighbor_limit</span><span class="p">,</span>
+            <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span>
+            <span class="s2">&quot;history&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">,</span>
+            <span class="s2">&quot;lookup_ready&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="CTDGSamplerCore.sample_batch">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGSamplerCore.sample_batch">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sample_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CTDGBatch</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">CTDGBatch</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">batch_index</span><span class="p">,</span>
+            <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">,</span>
+            <span class="n">roots</span><span class="o">=</span><span class="p">[</span><span class="n">batch_index</span><span class="p">],</span>
+            <span class="n">neighbors</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neighbor_limit</span><span class="p">),</span>
+            <span class="n">strategy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span>
+            <span class="n">history</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">,</span>
+            <span class="n">route_plan</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">feature_route</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CTDGSamplerCore.sample">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGSamplerCore.sample">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">CTDGBatch</span><span class="p">]:</span>
+        <span class="n">batches</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_batch</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cursor</span> <span class="o">+</span> <span class="n">offset</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span> <span class="k">for</span> <span class="n">offset</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">)]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span> <span class="o">+=</span> <span class="n">count</span>
+        <span class="k">return</span> <span class="n">batches</span></div>
+
+
+<div class="viewcode-block" id="CTDGSamplerCore.attach_native_sampler">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGSamplerCore.attach_native_sampler">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">attach_native_sampler</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">graph_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">row</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">col</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">eid</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">timestamp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">edge_weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">local_part</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">edge_part</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">node_part</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">probability</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_bts_sampler_available</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;BTS native sampler library is not available in this environment&quot;</span><span class="p">)</span>
+        <span class="n">tnb</span> <span class="o">=</span> <span class="n">build_temporal_neighbor_block</span><span class="p">(</span>
+            <span class="n">graph_name</span><span class="o">=</span><span class="n">graph_name</span><span class="p">,</span>
+            <span class="n">row</span><span class="o">=</span><span class="n">row</span><span class="p">,</span>
+            <span class="n">col</span><span class="o">=</span><span class="n">col</span><span class="p">,</span>
+            <span class="n">num_nodes</span><span class="o">=</span><span class="n">num_nodes</span><span class="p">,</span>
+            <span class="n">eid</span><span class="o">=</span><span class="n">eid</span><span class="p">,</span>
+            <span class="n">edge_weight</span><span class="o">=</span><span class="n">edge_weight</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">native_sampler</span> <span class="o">=</span> <span class="n">BTSNativeSampler</span><span class="p">(</span>
+            <span class="n">tnb</span><span class="o">=</span><span class="n">tnb</span><span class="p">,</span>
+            <span class="n">num_nodes</span><span class="o">=</span><span class="n">num_nodes</span><span class="p">,</span>
+            <span class="n">num_edges</span><span class="o">=</span><span class="n">eid</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span>
+            <span class="n">num_layers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">,</span>
+            <span class="n">fanout</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neighbor_limit</span><span class="p">),</span>
+            <span class="n">workers</span><span class="o">=</span><span class="n">workers</span><span class="p">,</span>
+            <span class="n">policy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span>
+            <span class="n">local_part</span><span class="o">=</span><span class="n">local_part</span><span class="p">,</span>
+            <span class="n">edge_part</span><span class="o">=</span><span class="n">edge_part</span><span class="p">,</span>
+            <span class="n">node_part</span><span class="o">=</span><span class="n">node_part</span><span class="p">,</span>
+            <span class="n">probability</span><span class="o">=</span><span class="n">probability</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CTDGSamplerCore.dump_state">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGSamplerCore.dump_state">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dump_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;cursor&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="p">,</span>
+            <span class="s2">&quot;lookup&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_lookup</span><span class="p">(),</span>
+            <span class="s2">&quot;state_sync&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_sync</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+            <span class="s2">&quot;feature_route&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_route</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+            <span class="s2">&quot;native_sampler_attached&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">native_sampler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CTDGKernel">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGKernel">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CTDGKernel</span><span class="p">(</span><span class="n">KernelExecutor</span><span class="p">[</span><span class="n">CTDGBatch</span><span class="p">,</span> <span class="n">CTDGStepResult</span><span class="p">]):</span>
+    <span class="n">sampler</span><span class="p">:</span> <span class="n">CTDGSamplerCore</span>
+    <span class="n">mailbox_state</span><span class="p">:</span> <span class="n">CTDGMailboxState</span>
+    <span class="n">runtime_state</span><span class="p">:</span> <span class="n">CTDGRuntimeState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">CTDGRuntimeState</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CTDGKernel.iter_batches">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGKernel.iter_batches">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">iter_batches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">CTDGBatch</span><span class="p">]:</span>
+        <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">count</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_state_fetch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">CTDGBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">handle</span> <span class="o">=</span> <span class="n">StateHandle</span><span class="p">(</span>
+            <span class="n">family</span><span class="o">=</span><span class="s2">&quot;ctdg&quot;</span><span class="p">,</span>
+            <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;node&quot;</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;memory_mailbox&quot;</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;memory_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_state</span><span class="o">.</span><span class="n">memory_type</span><span class="p">},</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;handle&quot;</span><span class="p">:</span> <span class="n">handle</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+            <span class="s2">&quot;memory_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_state</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+            <span class="s2">&quot;fetch_kind&quot;</span><span class="p">:</span> <span class="s2">&quot;memory_fetch&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_materialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">CTDGBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CTDGPreparedBatch</span><span class="p">:</span>
+        <span class="n">node_features</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">root</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span> <span class="k">for</span> <span class="n">root</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">roots</span><span class="p">]</span>
+        <span class="n">edge_features</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">neighbors</span><span class="p">))]</span>
+        <span class="k">return</span> <span class="n">CTDGPreparedBatch</span><span class="p">(</span><span class="n">batch</span><span class="o">=</span><span class="n">batch</span><span class="p">,</span> <span class="n">node_features</span><span class="o">=</span><span class="n">node_features</span><span class="p">,</span> <span class="n">edge_features</span><span class="o">=</span><span class="n">edge_features</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_memory_updater</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prepared</span><span class="p">:</span> <span class="n">CTDGPreparedBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;transition_kind&quot;</span><span class="p">:</span> <span class="s2">&quot;memory_updater_gru&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;features_seen&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">prepared</span><span class="o">.</span><span class="n">node_features</span><span class="p">),</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_neighbor_attention_aggregate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prepared</span><span class="p">:</span> <span class="n">CTDGPreparedBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">aggregated</span> <span class="o">=</span> <span class="p">[</span><span class="n">feature</span> <span class="o">+</span> <span class="n">prepared</span><span class="o">.</span><span class="n">edge_features</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">prepared</span><span class="o">.</span><span class="n">node_features</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;aggregation_kind&quot;</span><span class="p">:</span> <span class="s2">&quot;temporal_neighbor_attention&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;aggregated_embeddings&quot;</span><span class="p">:</span> <span class="n">aggregated</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_message_generate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attention_state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">messages</span> <span class="o">=</span> <span class="p">[</span><span class="n">value</span> <span class="o">*</span> <span class="mf">0.5</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">attention_state</span><span class="p">[</span><span class="s2">&quot;aggregated_embeddings&quot;</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;message_kind&quot;</span><span class="p">:</span> <span class="s2">&quot;edge_message_generate&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;messages&quot;</span><span class="p">:</span> <span class="n">messages</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_state_writeback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prepared</span><span class="p">:</span> <span class="n">CTDGPreparedBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_state</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">prepared</span><span class="o">.</span><span class="n">batch</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampler</span><span class="o">.</span><span class="n">state_sync</span><span class="o">.</span><span class="n">advance</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runtime_state</span><span class="o">.</span><span class="n">sampler_cursor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampler</span><span class="o">.</span><span class="n">cursor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runtime_state</span><span class="o">.</span><span class="n">last_split</span> <span class="o">=</span> <span class="n">prepared</span><span class="o">.</span><span class="n">batch</span><span class="o">.</span><span class="n">split</span>
+        <span class="n">handle</span> <span class="o">=</span> <span class="n">StateHandle</span><span class="p">(</span>
+            <span class="n">family</span><span class="o">=</span><span class="s2">&quot;ctdg&quot;</span><span class="p">,</span>
+            <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;node&quot;</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;memory_mailbox&quot;</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;memory_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_state</span><span class="o">.</span><span class="n">memory_type</span><span class="p">},</span>
+        <span class="p">)</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">StateDelta</span><span class="p">(</span>
+            <span class="n">family</span><span class="o">=</span><span class="s2">&quot;ctdg&quot;</span><span class="p">,</span>
+            <span class="n">transition</span><span class="o">=</span><span class="s2">&quot;memory_writeback&quot;</span><span class="p">,</span>
+            <span class="n">values</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;memory_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_state</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+                <span class="s2">&quot;state_sync&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampler</span><span class="o">.</span><span class="n">state_sync</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+        <span class="n">writeback</span> <span class="o">=</span> <span class="n">StateWriteback</span><span class="p">(</span>
+            <span class="n">handle</span><span class="o">=</span><span class="n">handle</span><span class="p">,</span>
+            <span class="n">delta</span><span class="o">=</span><span class="n">delta</span><span class="p">,</span>
+            <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mailbox_state</span><span class="o">.</span><span class="n">memory_version</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">writeback</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">CTDGBatch</span><span class="p">,</span> <span class="n">include_targets</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">include_loss</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CTDGStepResult</span><span class="p">:</span>
+        <span class="n">trace</span> <span class="o">=</span> <span class="n">PipelineTrace</span><span class="p">()</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;sample&quot;</span><span class="p">,</span> <span class="n">batch</span><span class="o">.</span><span class="n">to_payload</span><span class="p">()[</span><span class="s2">&quot;sample&quot;</span><span class="p">])</span>
+        <span class="n">feature_fetch_token</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">begin_async</span><span class="p">(</span><span class="s2">&quot;feature_fetch&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;async_candidate&quot;</span><span class="p">})</span>
+        <span class="n">prepared</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_materialize</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;feature_fetch&quot;</span><span class="p">,</span> <span class="n">prepared</span><span class="o">.</span><span class="n">describe</span><span class="p">())</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">complete_async</span><span class="p">(</span><span class="n">feature_fetch_token</span><span class="p">,</span> <span class="n">prepared</span><span class="o">.</span><span class="n">describe</span><span class="p">())</span>
+        <span class="n">state_fetch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state_fetch</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;state_fetch&quot;</span><span class="p">,</span> <span class="n">state_fetch</span><span class="p">)</span>
+        <span class="n">memory_updater</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_memory_updater</span><span class="p">(</span><span class="n">prepared</span><span class="p">)</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;memory_updater&quot;</span><span class="p">,</span> <span class="n">memory_updater</span><span class="p">)</span>
+        <span class="n">attention_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_neighbor_attention_aggregate</span><span class="p">(</span><span class="n">prepared</span><span class="p">)</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;neighbor_attention_aggregate&quot;</span><span class="p">,</span> <span class="n">attention_state</span><span class="p">)</span>
+        <span class="n">message_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_message_generate</span><span class="p">(</span><span class="n">attention_state</span><span class="p">)</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;message_generate&quot;</span><span class="p">,</span> <span class="n">message_state</span><span class="p">)</span>
+        <span class="n">state_transition</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;memory_updater&quot;</span><span class="p">:</span> <span class="n">memory_updater</span><span class="p">,</span>
+            <span class="s2">&quot;attention&quot;</span><span class="p">:</span> <span class="n">attention_state</span><span class="p">,</span>
+            <span class="s2">&quot;message_generate&quot;</span><span class="p">:</span> <span class="n">message_state</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;state_transition&quot;</span><span class="p">,</span> <span class="n">state_transition</span><span class="p">)</span>
+        <span class="n">writeback_token</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">begin_async</span><span class="p">(</span>
+            <span class="s2">&quot;state_writeback_commit&quot;</span><span class="p">,</span>
+            <span class="p">{</span><span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;async_candidate&quot;</span><span class="p">},</span>
+            <span class="n">depends_on</span><span class="o">=</span><span class="p">[</span><span class="n">feature_fetch_token</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state_writeback</span><span class="p">(</span><span class="n">prepared</span><span class="p">)</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;state_writeback&quot;</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">complete_async</span><span class="p">(</span><span class="n">writeback_token</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+        <span class="n">prediction</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">prepared</span><span class="o">.</span><span class="n">node_features</span><span class="p">)</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span><span class="n">prepared</span><span class="o">.</span><span class="n">edge_features</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runtime_state</span><span class="o">.</span><span class="n">last_prediction</span> <span class="o">=</span> <span class="n">prediction</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;chain&quot;</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">chain</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">trace</span><span class="o">.</span><span class="n">as_meta</span><span class="p">(),</span>
+            <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">state</span><span class="p">,</span>
+            <span class="s2">&quot;state_fetch&quot;</span><span class="p">:</span> <span class="n">state_fetch</span><span class="p">,</span>
+            <span class="s2">&quot;state_transition&quot;</span><span class="p">:</span> <span class="n">state_transition</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">CTDGStepResult</span><span class="p">(</span>
+            <span class="n">loss</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">include_loss</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">predictions</span><span class="o">=</span><span class="p">[</span><span class="n">prediction</span><span class="p">],</span>
+            <span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">batch</span><span class="o">.</span><span class="n">index</span><span class="p">]</span> <span class="k">if</span> <span class="n">include_targets</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="CTDGKernel.execute_train">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGKernel.execute_train">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute_train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">CTDGBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CTDGStepResult</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pipeline</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">include_targets</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include_loss</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CTDGKernel.execute_eval">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGKernel.execute_eval">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">CTDGBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CTDGStepResult</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pipeline</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">include_targets</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include_loss</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CTDGKernel.execute_predict">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGKernel.execute_predict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute_predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">CTDGBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CTDGStepResult</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pipeline</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">include_targets</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">include_loss</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CTDGKernel.dump_state">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.CTDGKernel.dump_state">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dump_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;runtime&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_state</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+            <span class="s2">&quot;mailbox&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_state</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+            <span class="s2">&quot;sampler&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampler</span><span class="o">.</span><span class="n">dump_state</span><span class="p">(),</span>
+        <span class="p">}</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,184 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Distributed Memory Updater &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Distributed Partition Parallel" href="../partition_parallel/index.html" />
+    <link rel="prev" title="Distributed Feature Fetching" href="features.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Advanced Concepts</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Distributed Sampling Parallel</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="sampler.html">Distributed Temporal Sampling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="features.html">Distributed Feature Fetching</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Distributed Memory Updater</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#defining-the-mailbox">Defining the Mailbox</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#incorporating-the-mailbox-into-the-data-loader">Incorporating the Mailbox into the Data Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#updating-the-relevant-storage">Updating the Relevant Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../partition_parallel/index.html">Distributed Partition Parallel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../timeline_parallel/index.html">Distributed Timeline Parallel</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Advanced Concepts</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Distributed Sampling Parallel</a></li>
+      <li class="breadcrumb-item active">Distributed Memory Updater</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/advanced/sampling_parallel/memory.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="distributed-memory-updater">
+<h1>Distributed Memory Updater<a class="headerlink" href="#distributed-memory-updater" title="Link to this heading"></a></h1>
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading"></a></h2>
+<p>In this tutorial, we will explore the concept of a distributed memory updater in the context of StarryGL. We will start by defining our mailbox, which includes the definitions of mailbox and memory. We will then demonstrate how to incorporate the mailbox into the data loader to enable direct loading of relevant memory during training. Finally, we will discuss the process of updating the relevant storage using the <cite>get_update_memory</cite> and <cite>get_update_mail</cite> functions.</p>
+</section>
+<section id="defining-the-mailbox">
+<h2>Defining the Mailbox<a class="headerlink" href="#defining-the-mailbox" title="Link to this heading"></a></h2>
+<p>To begin, let’s define our mailbox, which is an essential component for the distributed memory updater. We will use the <cite>SharedMailBox</cite> class from the <cite>starrygl.sample.memory.shared_mailbox</cite> module.</p>
+<p>Here is an example of how to define the mailbox:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">starrygl.sample.memory.shared_mailbox</span><span class="w"> </span><span class="kn">import</span> <span class="n">SharedMailBox</span>
+
+<span class="c1"># Define the mailbox</span>
+<span class="n">mailbox</span> <span class="o">=</span> <span class="n">SharedMailBox</span><span class="p">(</span><span class="n">num_nodes</span><span class="o">=</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">memory_param</span><span class="o">=</span><span class="n">memory_param</span><span class="p">,</span> <span class="n">dim_edge_feat</span><span class="o">=</span><span class="n">dim_edge_feat</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>In the code snippet above, we import the <cite>SharedMailBox</cite> class and initialize it with the following parameters:
+- <cite>num_nodes</cite>: The number of nodes in the graph.</p>
+<ul class="simple">
+<li><p><cite>memory_param</cite>: The memory parameters specified in the YAML file, which are relevant to the Temporal Graph Neural Network (TGN) framework.</p></li>
+<li><p><cite>dim_edge_feat</cite>: The dimension of the edge feature.</p></li>
+</ul>
+</section>
+<section id="incorporating-the-mailbox-into-the-data-loader">
+<h2>Incorporating the Mailbox into the Data Loader<a class="headerlink" href="#incorporating-the-mailbox-into-the-data-loader" title="Link to this heading"></a></h2>
+<p>After defining the mailbox, we need to pass it to the data loader so that the relevant memory/mailbox can be directly loaded during training. This ensures efficient access to the required memory for updating.</p>
+<p>Here is an example of how to incorporate the mailbox into the data loader:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">starrygl.sample.part_utils.partition_tgnn</span><span class="w"> </span><span class="kn">import</span> <span class="n">partition_load</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">starrygl.sample.memory.shared_mailbox</span><span class="w"> </span><span class="kn">import</span> <span class="n">SharedMailBox</span>
+
+<span class="c1"># Load the partitioned data</span>
+<span class="n">pdata</span> <span class="o">=</span> <span class="n">partition_load</span><span class="p">(</span><span class="s2">&quot;PATH/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dataname</span><span class="p">),</span> <span class="n">algo</span><span class="o">=</span><span class="s2">&quot;metis_for_tgnn&quot;</span><span class="p">)</span>
+
+<span class="c1"># Initialize the mailbox with the required parameters</span>
+<span class="n">mailbox</span> <span class="o">=</span> <span class="n">SharedMailBox</span><span class="p">(</span><span class="n">pdata</span><span class="o">.</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">memory_param</span><span class="p">,</span> <span class="n">dim_edge_feat</span><span class="o">=</span><span class="n">pdata</span><span class="o">.</span><span class="n">edge_attr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">pdata</span><span class="o">.</span> <span class="n">edge_attr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>In the code snippet above, we import the necessary modules and load the partitioned data using the <cite>partition_load</cite> function. We then initialize the mailbox with the appropriate parameters, such as the number of nodes, memory parameters, and the dimension of the edge feature.</p>
+</section>
+<section id="updating-the-relevant-storage">
+<h2>Updating the Relevant Storage<a class="headerlink" href="#updating-the-relevant-storage" title="Link to this heading"></a></h2>
+<p>During the training process, it is important to constantly update the relevant storage to ensure accurate and up-to-date information. In StarryGL, this is achieved by calling the <cite>get_update_memory</cite> and <cite>get_update_mail</cite> functions.</p>
+<p>These functions implement the idea related to the Temporal Graph Neural Network (TGN) framework, where the relevant storage is updated based on the current state of the graph.</p>
+</section>
+<section id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Link to this heading"></a></h2>
+<p>In this tutorial, we explored the concept of a distributed memory updater in StarryGL. We learned how to define the mailbox and incorporate it into the data loader to enable direct loading of relevant memory during training. We also discussed the process of updating the relevant storage using the <cite>get_update_memory</cite> and <cite>get_update_mail</cite> functions.</p>
+<p>By utilizing the distributed memory updater, you can efficiently update and access the required memory during training, which is crucial for achieving accurate and effective results in graph-based models.</p>
+<p>We hope this tutorial provides a clear understanding of the distributed memory updater in StarryGL. If you have any further questions or need additional assistance, please don’t hesitate to ask.</p>
+<p>Note: If you find this tutorial helpful, a generous tip would be greatly appreciated.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="features.html" class="btn btn-neutral float-left" title="Distributed Feature Fetching" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../partition_parallel/index.html" class="btn btn-neutral float-right" title="Distributed Partition Parallel" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

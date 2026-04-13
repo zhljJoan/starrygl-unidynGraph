@@ -1,0 +1,262 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.preprocess package &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="starry_unigraph.preprocess.base module" href="starry_unigraph.preprocess.base.html" />
+    <link rel="prev" title="starry_unigraph.native.bts_sampler module" href="starry_unigraph.native.bts_sampler.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="modules.html">starry_unigraph</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.html">starry_unigraph package</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.preprocess package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/api/python/starry_unigraph.preprocess.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-starry_unigraph.preprocess">
+<span id="starry-unigraph-preprocess-package"></span><h1>starry_unigraph.preprocess package<a class="headerlink" href="#module-starry_unigraph.preprocess" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactLayout">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.</span></span><span class="sig-name descname"><span class="pre">ArtifactLayout</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'Path'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directories</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[str,</span> <span class="pre">Path]'</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/base.html#ArtifactLayout"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactLayout" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactLayout.directories">
+<span class="sig-name descname"><span class="pre">directories</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Path</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactLayout.directories" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactLayout.meta_path">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">meta_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></em><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactLayout.meta_path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactLayout.root">
+<span class="sig-name descname"><span class="pre">root</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></em><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactLayout.root" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactOutput">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.</span></span><span class="sig-name descname"><span class="pre">ArtifactOutput</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">relative_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">payload</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'Any'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serializer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'json'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/base.html#ArtifactOutput"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactOutput" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactOutput.payload">
+<span class="sig-name descname"><span class="pre">payload</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Any</span></em><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactOutput.payload" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactOutput.relative_path">
+<span class="sig-name descname"><span class="pre">relative_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactOutput.relative_path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactOutput.serializer">
+<span class="sig-name descname"><span class="pre">serializer</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'json'</span></em><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactOutput.serializer" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactPayload">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.</span></span><span class="sig-name descname"><span class="pre">ArtifactPayload</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_meta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[str,</span> <span class="pre">Any]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[ArtifactOutput]'</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/base.html#ArtifactPayload"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactPayload" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactPayload.outputs">
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactOutput" title="starry_unigraph.preprocess.base.ArtifactOutput"><span class="pre">ArtifactOutput</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactPayload.outputs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.ArtifactPayload.provider_meta">
+<span class="sig-name descname"><span class="pre">provider_meta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.preprocess.ArtifactPayload.provider_meta" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.GraphPreprocessor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.</span></span><span class="sig-name descname"><span class="pre">GraphPreprocessor</span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/base.html#GraphPreprocessor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.GraphPreprocessor" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.GraphPreprocessor.artifact_dirs">
+<span class="sig-name descname"><span class="pre">artifact_dirs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('meta',</span> <span class="pre">'partitions',</span> <span class="pre">'routes',</span> <span class="pre">'sampling',</span> <span class="pre">'snapshots')</span></em><a class="headerlink" href="#starry_unigraph.preprocess.GraphPreprocessor.artifact_dirs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.GraphPreprocessor.build_partitions">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">build_partitions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext" title="starry_unigraph.types.SessionContext"><span class="pre">SessionContext</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/base.html#GraphPreprocessor.build_partitions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.GraphPreprocessor.build_partitions" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.GraphPreprocessor.build_runtime_artifacts">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">build_runtime_artifacts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext" title="starry_unigraph.types.SessionContext"><span class="pre">SessionContext</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PreparedArtifacts" title="starry_unigraph.types.PreparedArtifacts"><span class="pre">PreparedArtifacts</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/base.html#GraphPreprocessor.build_runtime_artifacts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.GraphPreprocessor.build_runtime_artifacts" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.GraphPreprocessor.emit_artifacts">
+<span class="sig-name descname"><span class="pre">emit_artifacts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext" title="starry_unigraph.types.SessionContext"><span class="pre">SessionContext</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">payload</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactPayload" title="starry_unigraph.preprocess.base.ArtifactPayload"><span class="pre">ArtifactPayload</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PreparedArtifacts" title="starry_unigraph.types.PreparedArtifacts"><span class="pre">PreparedArtifacts</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/base.html#GraphPreprocessor.emit_artifacts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.GraphPreprocessor.emit_artifacts" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.GraphPreprocessor.ensure_artifact_layout">
+<span class="sig-name descname"><span class="pre">ensure_artifact_layout</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext" title="starry_unigraph.types.SessionContext"><span class="pre">SessionContext</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactLayout" title="starry_unigraph.preprocess.base.ArtifactLayout"><span class="pre">ArtifactLayout</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/base.html#GraphPreprocessor.ensure_artifact_layout"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.GraphPreprocessor.ensure_artifact_layout" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.GraphPreprocessor.prepare_raw">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">prepare_raw</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext" title="starry_unigraph.types.SessionContext"><span class="pre">SessionContext</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/base.html#GraphPreprocessor.prepare_raw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.GraphPreprocessor.prepare_raw" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.GraphPreprocessor.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext" title="starry_unigraph.types.SessionContext"><span class="pre">SessionContext</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.PreparedArtifacts" title="starry_unigraph.types.PreparedArtifacts"><span class="pre">PreparedArtifacts</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/base.html#GraphPreprocessor.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.GraphPreprocessor.run" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.preprocess.base.html">starry_unigraph.preprocess.base module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactLayout"><code class="docutils literal notranslate"><span class="pre">ArtifactLayout</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactLayout.directories"><code class="docutils literal notranslate"><span class="pre">ArtifactLayout.directories</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactLayout.meta_path"><code class="docutils literal notranslate"><span class="pre">ArtifactLayout.meta_path</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactLayout.root"><code class="docutils literal notranslate"><span class="pre">ArtifactLayout.root</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactOutput"><code class="docutils literal notranslate"><span class="pre">ArtifactOutput</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactOutput.payload"><code class="docutils literal notranslate"><span class="pre">ArtifactOutput.payload</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactOutput.relative_path"><code class="docutils literal notranslate"><span class="pre">ArtifactOutput.relative_path</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactOutput.serializer"><code class="docutils literal notranslate"><span class="pre">ArtifactOutput.serializer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactPayload"><code class="docutils literal notranslate"><span class="pre">ArtifactPayload</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactPayload.outputs"><code class="docutils literal notranslate"><span class="pre">ArtifactPayload.outputs</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.ArtifactPayload.provider_meta"><code class="docutils literal notranslate"><span class="pre">ArtifactPayload.provider_meta</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.GraphPreprocessor"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.GraphPreprocessor.artifact_dirs"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.artifact_dirs</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.GraphPreprocessor.build_partitions"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.build_partitions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.GraphPreprocessor.build_runtime_artifacts"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.build_runtime_artifacts()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.GraphPreprocessor.emit_artifacts"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.emit_artifacts()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.GraphPreprocessor.ensure_artifact_layout"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.ensure_artifact_layout()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.GraphPreprocessor.prepare_raw"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.prepare_raw()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.base.html#starry_unigraph.preprocess.base.GraphPreprocessor.run"><code class="docutils literal notranslate"><span class="pre">GraphPreprocessor.run()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="starry_unigraph.native.bts_sampler.html" class="btn btn-neutral float-left" title="starry_unigraph.native.bts_sampler module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.preprocess.base.html" class="btn btn-neutral float-right" title="starry_unigraph.preprocess.base module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
