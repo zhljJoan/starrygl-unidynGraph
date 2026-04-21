@@ -1,21 +1,37 @@
 from dataclasses import field
+from typing import Tuple
 
+import dgl
 import torch
-from torch import Tensor
+from torch import Optional, Tensor
+
+from starry_unigraph.runtime.route.comm import SpatialDeps, StateDeps
+
 
 class ChunkAtomic:
     """Python层仅作薄封装，所有密集计算在C++/CUDA"""
     
-    src_ids: torch.Tensor # 本地缓存ID
-    dst_ids: torch.Tensor # 本地缓存ID
-    edge_ids: torch.Tensor# 本地缓存ID
-    edge_src: torch.Tensor
-    edge_dst: torch.Tensor
-    node_data: dict[str, torch.Tensor] = field(default_factory=dict)
-    edge_data: dict[str, torch.Tensor] = field(default_factory=dict)
-    routes: RouteData | None = None
+    chunk_id: Tuple[int,int] #(time_slice_id, node_cluster_id)
+    time_range: Tuple[int,int] #(t_start, t_end)
     
-    def load_from_chunk(chunk) -> 'ChunkAtomic':
+    #是否保留，存本地特征，chunk特征，还是普通global的特征
+    node_set: torch.Tensor # 本地master节点ID列表
+    tcsr_rowptr: torch.Tensor # Temporal-CSR的row_ptr
+    tcsr_col: torch.Tensor # Temporal-CSR的col_idx
+    tcsr_ts: torch.Tensor # Temporal-CSR的timestamps
+    tcsr_edge_id: torch.Tensor # Temporal-CSR的edge_id
+    
+    #boundary info
+    cross_node_ids: Tensor    # [N_cross]   跨界邻居节点ID (sorted)
+    cross_node_home: Tensor   # [N_cross]   对应的home cluster_id
+    cross_edge_count: Tensor  # [N_cluster] 到每个cluster的跨界边数
+    
+    # === L3: Scheduling Meta ===
+    load_estimate: float               # 计算负载估计
+    spatial_deps: SpatialDeps    # 固定快照的通信依赖关系 
+    state_deps: StateDeps        # 跨时间的state依赖关系
+    
+    def load_from_chunk(block) -> 'ChunkAtomic':
         src_ids: list[torch.Tensor] = []
         dst_ids: list[torch.Tensor] = []
         edge_ids: list[torch.Tensor] = []
@@ -25,13 +41,12 @@ class ChunkAtomic:
         dst_node_data: dict[str, list[torch.Tensor]] = {}
         edge_data: dict[str, list[torch.Tensor]] = {}
         routes: list = []
-        for block in blocks:
-            src, dst = block.edges()
-            edge_src.append(src)
-            edge_dst.append(dst)
-            src_id = block.srcdata[dgl.NID] if dgl.NID in block.srcdata else torch.arange(block.num_src_nodes())
-            dst_id = block.dstdata[dgl.NID] if dgl.NID in block.dstdata else torch.arange(block.num_dst_nodes())
-            edge_id = block.edata[dgl.EID] if dgl.EID in block.edata else torch.arange(block.num_edges())
+        src, dst = block.edges()
+        edge_src.append(src)
+        edge_dst.append(dst)
+        src_id = block.srcdata[dgl.NID] if dgl.NID in block.srcdata else torch.arange(block.num_src_nodes())
+        dst_id = block.dstdata[dgl.NID] if dgl.NID in block.dstdata else torch.arange(block.num_dst_nodes())
+        edge_id = block.edata[dgl.EID] if dgl.EID in block.edata else torch.arange(block.num_edges())
             if torch.any(src_id[: dst_id.numel()] != dst_id):
                 raise ValueError("prefix of src_ids and dst_ids must be the same")
             src_ids.append(src_id[dst_id.numel() :])

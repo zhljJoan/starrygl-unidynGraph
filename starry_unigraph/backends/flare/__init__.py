@@ -1,6 +1,6 @@
-# Flare backend moved to starry_unigraph.runtime.flare
+# Flare backend moved to starry_unigraph.backends.dtdg
 # This module is kept for backward compatibility re-exports.
-from starry_unigraph.runtime.flare import (
+from starry_unigraph.backends.dtdg.runtime import (
     PartitionData,
     RNNStateManager,
     Route,

@@ -1,6 +1,7 @@
-# CTDG backend moved to starry_unigraph.runtime.online
-# This module is kept for backward compatibility re-exports.
-from starry_unigraph.runtime.online import (
+# CTDG backend
+from .preprocess import CTDGPreprocessor
+from .runtime.session import CTDGSession
+from .runtime import (
     AdaParameter,
     AsyncExchangeHandle,
     CTDGDataBatch,
@@ -17,6 +18,8 @@ from starry_unigraph.runtime.online import (
 )
 
 __all__ = [
+    "CTDGPreprocessor",
+    "CTDGSession",
     "AdaParameter",
     "AsyncExchangeHandle",
     "CTDGDataBatch",

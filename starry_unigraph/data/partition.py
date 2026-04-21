@@ -115,7 +115,7 @@ class RouteData:
         Raises:
             ValueError: If this RouteData contains != 1 snapshot.
         """
-        from starry_unigraph.runtime.flare.route import Route
+        from starry_unigraph.backends.dtdg.runtime.route import Route
 
         routes = self.to_routes(group=group)
         if len(routes) != 1:
@@ -131,7 +131,7 @@ class RouteData:
         Returns:
             List of :class:`Route`, one per snapshot.
         """
-        from starry_unigraph.runtime.flare.route import Route
+        from starry_unigraph.backends.dtdg.runtime.route import Route
 
         routes: list[Route] = []
         for index in range(len(self)):
@@ -436,7 +436,7 @@ class PartitionData:
             node/edge features from ``node_data`` / ``edge_data`` attached,
             and ``block.route`` set when routing info is available.
         """
-        from starry_unigraph.runtime.flare.route import Route
+        from starry_unigraph.backends.dtdg.runtime.route import Route
 
         blocks: list[DGLBlock] = []
         for index in range(len(self)):
