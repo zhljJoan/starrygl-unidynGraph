@@ -40,16 +40,15 @@ class NativeTemporalSampler:
 
     Args:
         dataset: :class:`TGTemporalDataset` providing the event graph.
-        fanout: Per-layer fanout list, e.g. ``[10, 10]`` for 2-hop with
-            10 neighbors each.
+        fanout: Per-layer fanout list (e.g., ``[10, 10]`` for 2-hop with 10 neighbors each).
         history: Number of sampler layers (typically ``len(fanout)``).
-        strategy: Sampling strategy string (e.g. ``"recent"``).
+        strategy: Sampling strategy string (e.g., ``"recent"``).
         workers: Number of BTS sampler worker threads.
 
     Example::
 
-        sampler = NativeTemporalSampler(dataset, fanout=[10,10],
-                                         history=2, strategy="recent")
+        sampler = NativeTemporalSampler(dataset, fanout=[10, 10],
+                                        history=2, strategy="recent")
         output = sampler.sample("train", root_nodes, timestamps)
     """
     def __init__(
