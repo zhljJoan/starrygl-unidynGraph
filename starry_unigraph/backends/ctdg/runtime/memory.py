@@ -62,6 +62,7 @@ class CTDGMemoryBank:
     rank: int = 0
     world_size: int = 1
     async_sync: bool = True
+    node_parts: torch.Tensor | None = None  # [num_nodes] mapping node_id → partition_id
 
     def __post_init__(self) -> None:
         D = self.hidden_dim
@@ -69,9 +70,15 @@ class CTDGMemoryBank:
         E = max(0, self.edge_feat_dim)
         self.slot_width = 2 * D + E
 
-        if self.world_size > 1:
+        # Determine local_ids from node_parts (if available) or fall back to round-robin
+        if self.node_parts is not None and self.world_size > 1:
+            # Use node_parts tensor: find nodes assigned to this rank
+            local_ids = torch.where(self.node_parts == self.rank)[0]
+        elif self.world_size > 1:
+            # Fall back to round-robin: node_id % world_size
             local_ids = torch.arange(self.rank, self.num_nodes, self.world_size, dtype=torch.long)
         else:
+            # Single-rank: all nodes
             local_ids = torch.arange(self.num_nodes, dtype=torch.long)
 
         self.num_local_nodes = local_ids.numel()
@@ -348,7 +355,13 @@ class CTDGMemoryBank:
         node_ids = node_ids.detach().long().to(self.device)
         vals = values.detach().float().to(self.device)
         ts = timestamps.detach().float().to(self.device)
-        owner = torch.remainder(node_ids, ctx.world_size).long()
+
+        # Determine owner: use node_parts if available, else fall back to modulo
+        if self.node_parts is not None:
+            owner = self.node_parts[node_ids].long()
+        else:
+            owner = torch.remainder(node_ids, ctx.world_size).long()
+
         remote_mask = owner != ctx.rank
         if not remote_mask.any():
             return

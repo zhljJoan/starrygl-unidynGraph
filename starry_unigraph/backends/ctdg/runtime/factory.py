@@ -55,6 +55,17 @@ def build_ctdg_runtime(session_ctx: SessionContext) -> tuple[CTDGOnlineRuntime, 
     )
 
     edge_feat_dim = max(1, dataset.edge_feat_dim)
+
+    # Load node_parts from artifacts if available (from SPEED partitioning)
+    node_parts = None
+    if session_ctx.prepared_artifacts and session_ctx.prepared_artifacts.provider_meta.get("has_node_parts"):
+        try:
+            node_parts_path = session_ctx.prepared_artifacts.directories["partitions"] / "node_parts.pt"
+            if node_parts_path.exists():
+                node_parts = torch.load(node_parts_path, weights_only=True)
+        except Exception as e:
+            print(f"Warning: Failed to load node_parts from artifacts ({e}), using round-robin")
+
     memory = CTDGMemoryBank(
         num_nodes=dataset.num_nodes,
         hidden_dim=hidden_dim,
@@ -64,6 +75,7 @@ def build_ctdg_runtime(session_ctx: SessionContext) -> tuple[CTDGOnlineRuntime, 
         rank=dist_ctx.rank,
         world_size=dist_ctx.world_size,
         async_sync=async_sync,
+        node_parts=node_parts,
     )
 
     model = CTDGLinkPredictor(
@@ -107,8 +119,13 @@ def build_ctdg_runtime(session_ctx: SessionContext) -> tuple[CTDGOnlineRuntime, 
     try:
         import torch.distributed as dist
         if dist_ctx.is_distributed and dist.is_initialized():
-            node_part = torch.arange(dataset.num_nodes, dtype=torch.long) % dist_ctx.world_size
-            shared_nodes = torch.where(node_part != dist_ctx.rank)[0].to(device)
+            # Use node_parts if available, else fall back to round-robin
+            if node_parts is not None:
+                shared_nodes = torch.where(node_parts != dist_ctx.rank)[0].to(device)
+            else:
+                node_part = torch.arange(dataset.num_nodes, dtype=torch.long) % dist_ctx.world_size
+                shared_nodes = torch.where(node_part != dist_ctx.rank)[0].to(device)
+
             ada = AdaParameter(alpha=historical_alpha) if ada_param_enabled else None
             memory.historical_cache = CTDGHistoricalCache(
                 num_shared=shared_nodes.numel(),
