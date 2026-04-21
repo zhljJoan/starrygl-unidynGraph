@@ -97,12 +97,6 @@ Train using multiple GPUs on a single machine with CTDG:
         --config configs/tgn_wiki_multigpu.yaml \
         --phase all
 
-CTDG Multi-GPU support:
-- ✅ Single-machine multi-GPU via partitioning + NCCL all-to-all
-- ✅ Event-based partitioning (round-robin or SPEED for load balancing)
-- ✅ Memory bank synchronization across GPUs
-- ✅ Async communication for latency hiding
-
 **Characteristics**:
 - **Communication**: NCCL collective all-to-all (~100-500 µs latency)
 - **Scalability**: 2-8 GPUs on same machine (PCIe/NVLink fabric)
