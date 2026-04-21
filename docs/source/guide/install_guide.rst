@@ -86,136 +86,34 @@ Output:
 - Trained model checkpoint in ``output/checkpoint/``
 - Training logs in ``output/logs/``
 
-Multi-GPU Training (Single Machine)
-------------------------------------
+Multi-GPU Distributed Training
+------------------------------
 
-Train using multiple GPUs on a single machine with CTDG:
-
-.. code-block:: bash
-
-    torchrun --nproc_per_node=4 -m starry_unigraph \
-        --config configs/tgn_wiki_multigpu.yaml \
-        --phase all
-
-**Characteristics**:
-- **Communication**: NCCL collective all-to-all (~100-500 µs latency)
-- **Scalability**: 2-8 GPUs on same machine (PCIe/NVLink fabric)
-- **Memory**: Partitioned storage (each GPU stores ~1/N nodes)
-- **Best for**: Dense neighborhoods, large temporal windows, social networks
-
-Multi-Machine Distributed Training (CTDG via NCCL)
----------------------------------------------------
-
-Train using multiple machines with CTDG using NCCL over TCP/IP:
+Train using multiple GPUs and machines with torchrun:
 
 .. code-block:: bash
 
-    # On master node (rank=0)
-    python -m torch.distributed.launch \
-        --nproc_per_node=4 \
-        --nnodes=2 \
-        --node_rank=0 \
-        --master_addr=<master_ip> \
-        --master_port=29500 \
-        -m starry_unigraph \
-        --config configs/tgn_wiki_distributed.yaml \
-        --phase all
+    # CTDG: Continuous-Time with node partitioning
+    torchrun --nproc_per_node=4 --nnodes=2 --master_addr=<master_ip> \
+        -m starry_unigraph --config configs/tgn_distributed.yaml --phase all
 
-    # On worker node (rank=1)
-    python -m torch.distributed.launch \
-        --nproc_per_node=4 \
-        --nnodes=2 \
-        --node_rank=1 \
-        --master_addr=<master_ip> \
-        --master_port=29500 \
-        -m starry_unigraph \
-        --config configs/tgn_wiki_distributed.yaml \
-        --phase all
+    # DTDG: Discrete-Time with snapshot partitioning
+    torchrun --nproc_per_node=4 --nnodes=2 --master_addr=<master_ip> \
+        -m starry_unigraph --config configs/mpnn_lstm_distributed.yaml --phase all
 
-Configuration for multi-machine CTDG:
+**Configuration Example (Multi-GPU/Multi-Machine)**:
 
 .. code-block:: yaml
 
     data:
-      graph_mode: ctdg
+      graph_mode: ctdg  # or "dtdg"
       source: data/my_events.csv
-      num_partitions: 8  # Multiple partitions (2 machines × 4 GPUs)
-      partition: speed  # or round_robin
+      num_partitions: 8  # Partitions across all ranks
 
     training:
       batch_size: 32
       num_epochs: 100
-
-CTDG Multi-Machine Support:
-- ✅ Arbitrary number of machines via NCCL
-- ✅ NCCL over TCP/IP for cross-machine communication
-- ✅ Same communication pattern as single-machine (all-to-all_single)
-- ✅ Node partitioning (SPEED or round-robin) for load balancing
-
-**How It Works**:
-
-CTDG uses **the same NCCL all-to-all_single collective** for both single-machine and multi-machine:
-
-1. **Single-Machine**: NCCL uses NVLINK/PCIe → ~100-500 µs
-2. **Multi-Machine**: NCCL uses TCP/IP → ~10-50 ms (network layer difference only)
-
-The communication **pattern is identical** — only the underlying network transport changes.
-
-**Characteristics**:
-- **Communication**: NCCL all-to-all_single (~100-500 µs local, ~10-50 ms over network)
-- **Scalability**: 2+ machines with arbitrary GPUs per machine
-- **Memory**: Partitioned storage (each rank stores ~1/(machines×GPUs) nodes)
-- **Best for**: Large-scale temporal graphs, distributed training with NCCL infrastructure
-
-**Comparison: CTDG Single-Machine vs Multi-Machine**:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Feature
-     - Single-Machine
-     - Multi-Machine
-
-   * - Backend
-     - NCCL (NVLINK/PCIe)
-     - NCCL (TCP/IP)
-
-   * - Latency
-     - ~100-500 µs
-     - ~10-50 ms
-
-   * - Bandwidth
-     - ~100-1000 GB/s
-     - ~1-100 GB/s (network)
-
-   * - Communication Pattern
-     - all-to-all_single
-     - all-to-all_single (same!)
-
-   * - Typical Setup
-     - 2-8 GPUs on 1 machine
-     - 2+ machines with 1-4 GPUs each
-
-   * - Network Protocol
-     - PCIe/NVLINK fabric
-     - Ethernet/InfiniBand over TCP
-
-Multi-GPU Training (Distributed - DTDG)
-----------------------------------------
-
-Train using multiple GPUs with DTDG (Discrete-Time Dynamic Graphs):
-
-.. code-block:: bash
-
-    torchrun --nproc_per_node=4 -m starry_unigraph \
-        --config configs/mpnn_lstm_4gpu.yaml \
-        --phase all
-
-DTDG supports:
-- ✅ Single-machine multi-GPU (Flare architecture)
-- ✅ Multi-machine via snapshot partitioning (with torch.distributed)
-- ✅ Mixed precision training
-- ✅ Gradient accumulation
+      learning_rate: 0.0001
 
 Prepare Your Data
 =================
@@ -506,7 +404,7 @@ Advantages:
 - ✅ Proven with Flare architecture
 
 Multi-Machine (DTDG with torch.distributed)
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To train across multiple machines, use DTDG with torch.distributed launcher:
 

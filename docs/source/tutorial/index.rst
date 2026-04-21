@@ -1,17 +1,21 @@
 Tutorials & Architecture
 ========================
 
-.. toctree::
-   :maxdepth: 1
-
-High-level Guides
------------------
+Getting Started
+===============
 
 .. toctree::
    :maxdepth: 1
 
    intro
-   Abstract
+   UniTraining
+
+Training Guides by Graph Mode
+=============================
+
+.. toctree::
+   :maxdepth: 1
+
    CTDGTraining
    DTDGTraining
    ChunkTraining
