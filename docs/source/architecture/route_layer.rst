@@ -134,15 +134,15 @@ Integration with DGL blocks:
             src_x = x  # Local only
         # ... continue message passing with src_x
 
-**CTDG: Distributed Memory Routing with Partitioning**
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**CTDG: Distributed Memory Routing with NCCL**
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-CTDG supports both **single-machine multi-GPU** and **multi-machine distributed** training via node partitioning and synchronized memory banks:
+CTDG supports both **single-machine multi-GPU** and **multi-machine distributed** training via node partitioning and NCCL-based memory synchronization:
 
 .. code-block:: python
 
     class CTDGMemoryBank:
-        """Per-rank partitioned node memory with distributed sync."""
+        """Per-rank partitioned node memory with NCCL all-to-all sync."""
 
         def __init__(self, num_nodes: int, node_partition_map: Tensor, rank: int, world_size: int):
             self.node_partition_map = node_partition_map  # node_id → rank/GPU
@@ -150,90 +150,43 @@ CTDG supports both **single-machine multi-GPU** and **multi-machine distributed*
             self.world_size = world_size
             # Local storage for nodes assigned to this rank
             self.num_local_nodes = (node_partition_map == rank).sum()
-            self.local_memory = Memory[num_local_nodes, dim]  # GPU/CPU storage
-            self.remote_memory = Memory[num_remote_nodes, dim]  # Buffer for remote nodes
+            self.local_memory = Memory[num_local_nodes, dim]  # local node embeddings
 
         def fetch(self, node_ids: Tensor):
-            """Get memory for nodes, syncing remote if needed."""
+            """Get memory for nodes, syncing remote if needed via NCCL all-to-all."""
             local_mask = self.node_partition_map[node_ids] == self.rank
             result = zeros_like(node_ids)
             result[local_mask] = self.local_memory[global2local[local_mask]]
-            result[~local_mask] = self._sync_remote(node_ids[~local_mask])
+            if (~local_mask).any():
+                result[~local_mask] = self._sync_remote_nccl(node_ids[~local_mask])
             return result
 
-        def _sync_remote(self, remote_node_ids: Tensor):
-            """Synchronize remote node features via all-to-all (multi-GPU) or RPC (multi-machine)."""
-            if self.world_size == 1:
-                return self.local_memory  # Single rank
-            elif self.is_same_machine():
-                # Single-machine multi-GPU: use all-to-all collective
-                return self._exchange_via_nccl(remote_node_ids)
-            else:
-                # Multi-machine: use RPC for cross-rank access
-                return self._exchange_via_rpc(remote_node_ids)
+        def _sync_remote_nccl(self, remote_node_ids: Tensor):
+            """Synchronize remote node features via NCCL all-to-all_single.
 
-**Single-Machine Multi-GPU Setup**:
+            Each rank sends its local embeddings to remote ranks via collective:
+            - build send_counts/recv_counts based on node ownership
+            - all ranks exchange: dist.all_to_all_single(recv_buf, send_buf, ...)
+            - gather results from all ranks
+            """
+            send_counts, recv_counts = self._exchange_counts(remote_node_ids)
+            recv_buffer = torch.zeros(sum(recv_counts), dim, device=device)
+            send_buffer = self._pack_local_embeddings(send_counts)
 
-.. code-block:: python
+            # All-to-all on all ranks (works single-machine and multi-machine)
+            dist.all_to_all_single(recv_buffer, send_buffer,
+                                  recv_split_sizes=recv_counts,
+                                  input_split_sizes=send_counts)
+            return self._unpack_received_buffer(recv_buffer)
 
-    # During preprocessing:
-    node_partition_map = torch.zeros(num_nodes)
-    for partition_id, nodes in enumerate(partitions):  # nodes per GPU
-        node_partition_map[nodes] = partition_id
+**Communication Pattern**:
 
-    # During training (each rank):
-    memory_bank = CTDGMemoryBank(num_nodes, node_partition_map, rank, world_size)
-    # Each GPU synchronizes features via NCCL all-to-all
+Both **single-machine (GPU-to-GPU)** and **multi-machine (machine-to-machine)** use the same **NCCL collective all-to-all_single**:
 
-**Single-Machine Characteristics**:
-- ✅ Multi-GPU support via NCCL all-to-all collective
-- ✅ Low latency (same PCIe/NVLink fabric)
-- ✅ All-to-all overhead manageable (typically 2-8 GPUs)
-- ✅ Node partitioning (SPEED or round-robin) for load balancing
+- Single-machine: All ranks (GPUs) on same PCIe/NVLink fabric → ~100-500 µs
+- Multi-machine: All ranks across network → ~10-50 ms (backend: nccl-over-tcp)
 
-**Multi-Machine Distributed Setup**:
-
-.. code-block:: python
-
-    # Initialize distributed context with RPC
-    dist.init_process_group(backend="nccl", rank=rank, world_size=world_size)
-    rpc.init_rpc(f"worker_{rank}", rank=rank, world_size=world_size)
-
-    # During training (each rank):
-    memory_bank = CTDGMemoryBank(num_nodes, node_partition_map, rank, world_size)
-    # Remote node access via RPC (non-blocking, overlapped with compute)
-
-**Multi-Machine Characteristics**:
-- ✅ Supports arbitrary number of machines
-- ✅ RPC enables asynchronous remote memory access
-- ✅ Latency-tolerant (overlaps communication with computation)
-- ⚠️ Network bandwidth is bottleneck (similar to message passing systems)
-- ⚠️ Not suitable for fully-connected graphs (use DTDG for sparse sampling instead)
-
-**Communication Methods Comparison**:
-
-.. list-table:: CTDG Communication Patterns
-   :header-rows: 1
-
-   * - Setup
-     - Communication
-     - Latency
-     - Suitable For
-
-   * - Single-GPU
-     - Local memory access
-     - ~1-5 µs
-     - Baseline
-
-   * - Single-Machine Multi-GPU
-     - NCCL all-to-all
-     - ~100-500 µs
-     - Dense neighborhoods (e.g., social networks)
-
-   * - Multi-Machine
-     - RPC with async batching
-     - ~1-10 ms
-     - Sparse neighborhoods or partial memory replication
+**Key Feature**: The communication pattern is **identical** in both cases. Only the network layer differs.
 
 **Chunk: Async Cross-Cluster Routing**
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -335,6 +288,9 @@ DTDG's all-to-all uses torch.distributed collectives:
 Comparing DTDG vs CTDG Routing
 -------------------------------
 
+**Key Insight**: Both CTDG and DTDG use NCCL **all-to-all_single** for multi-GPU/multi-machine communication.
+The difference is what data they exchange and when.
+
 .. list-table:: Routing Strategy Comparison
    :header-rows: 1
 
@@ -342,33 +298,41 @@ Comparing DTDG vs CTDG Routing
      - DTDG
      - CTDG
 
-   * - **Communication**
-     - Explicit all-to-all per snapshot
-     - Implicit memory bank partition + sync
+   * - **What**
+     - Graph features (per-snapshot edges)
+     - Node embeddings (temporal memory)
 
-   * - **Scalability**
-     - Multi-machine (snap shot-based boundaries)
-     - Multi-machine (RPC) + Single-machine multi-GPU (all-to-all)
+   * - **When**
+     - Per snapshot
+     - On-demand per batch (when node needed)
+
+   * - **Exchange Method**
+     - Route.forward() → NCCL all-to-all_single
+     - Memory.fetch() → NCCL all-to-all_single
+
+   * - **Communication**
+     - Per-snapshot all-to-all (blocking/async)
+     - Per-request all-to-all (async)
+
+   * - **Single-Machine Latency**
+     - ~100-500 µs (collective)
+     - ~100-500 µs (collective)
+
+   * - **Multi-Machine Latency**
+     - ~10-50 ms (NCCL over TCP)
+     - ~10-50 ms (NCCL over TCP)
 
    * - **Memory Cost**
-     - Temporary recv buffer (features fetched per snapshot)
-     - Permanent partition (nodes stored on assigned ranks)
-
-   * - **Latency (Local)**
-     - All-to-all collective ~100-500 µs
-     - Memory lookup ~1-10 µs
-
-   * - **Latency (Multi-Machine)**
-     - All-to-all ~10-50 ms (blocking)
-     - RPC ~1-10 ms per node (async, overlappable)
+     - Temporary recv buffer per snapshot
+     - Partition storage (static, larger)
 
    * - **Flexibility**
-     - Different routes per snapshot
+     - Different routes per snapshot (time-varying)
      - Static partition map (time-invariant)
 
    * - **Optimal Use Case**
-     - Dense sampling, multi-machine, sparse edges
-     - Large neighborhoods, temporal state updates, arbitrary topology
+     - Discrete-time graphs, sparse sampling
+     - Continuous-time graphs, large memory models
 
 See Also
 --------

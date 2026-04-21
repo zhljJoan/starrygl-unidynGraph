@@ -11,7 +11,7 @@ High-level Guides
    :maxdepth: 1
 
    intro
-   UniTraining
+   Abstract
    CTDGTraining
    DTDGTraining
    ChunkTraining
