@@ -24,23 +24,7 @@ try:
 except ImportError:
     _DGL_AVAILABLE = False
 
-
-# ---------------------------------------------------------------------------
-# Time encoding  (identical to MemShare TimeEncode)
-# ---------------------------------------------------------------------------
-
-class TimeEncode(nn.Module):
-    def __init__(self, dim: int) -> None:
-        super().__init__()
-        self.dim = dim
-        self.w = nn.Linear(1, dim)
-        self.w.bias = nn.Parameter(torch.zeros(dim))
-        self.w.weight = nn.Parameter(
-            (1.0 / 10 ** torch.linspace(0, 9, dim)).reshape(dim, 1)
-        )
-
-    def forward(self, t: torch.Tensor) -> torch.Tensor:
-        return torch.cos(self.w(t.float().reshape(-1, 1)))
+from starry_unigraph.runtime.modules import TimeEncode
 
 
 # ---------------------------------------------------------------------------

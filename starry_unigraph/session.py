@@ -10,12 +10,16 @@ import torch.distributed as dist
 from starry_unigraph.checkpoint import load_checkpoint, save_checkpoint
 from starry_unigraph.config.schema import detect_graph_mode, load_config, validate_config
 from starry_unigraph.distributed import apply_distributed_env, build_distributed_context
+from starry_unigraph.backends.ctdg.preprocess import CTDGPreprocessor
 from starry_unigraph.backends.dtdg import FlareDTDGPreprocessor, FlareRuntimeLoader, init_flare_training, run_flare_eval_step, run_flare_predict_step, run_flare_train_step
 from starry_unigraph.backends.dtdg.preprocess import load_prepared_from_disk, validate_artifacts
+from starry_unigraph.preprocess.chunk import ChunkPreprocessor
 from starry_unigraph.registry import ModelRegistry, TaskRegistry
 from starry_unigraph.runtime.chunk import ChunkRuntimeLoader
 from starry_unigraph.backends.ctdg.runtime.session import CTDGSession
 from starry_unigraph.types import PredictionResult, PreparedArtifacts, RuntimeBundle, SessionContext
+from starry_unigraph.runtime.engine import PipelineEngine
+from starry_unigraph.runtime.backend_adapters import CTDGGraphBackend, FlareGraphBackend, ChunkGraphBackend, DummyStateManager
 
 
 class SchedulerSession:
@@ -29,6 +33,8 @@ class SchedulerSession:
         self.snapshot_core: FlareRuntimeLoader | ChunkRuntimeLoader | None = None
         self.ctdg_session: CTDGSession | None = None
         self.prepared: PreparedArtifacts | None = None
+        # New: unified pipeline engine (optional, for refactored code path)
+        self.pipeline_engine: PipelineEngine | None = None
 
     @classmethod
     def from_config(
@@ -56,7 +62,16 @@ class SchedulerSession:
         return cls(session_ctx=ctx, model_spec=model_spec, task_adapter=task_cls())
 
     def prepare_data(self) -> PreparedArtifacts:
-        preprocessor = FlareDTDGPreprocessor()
+        from starry_unigraph.config.schema import detect_graph_mode
+        graph_mode = detect_graph_mode(self.ctx.config)
+        if graph_mode == "ctdg":
+            preprocessor = CTDGPreprocessor()
+        elif graph_mode == "dtdg":
+            preprocessor = FlareDTDGPreprocessor()
+        elif graph_mode == "chunk":
+            preprocessor = ChunkPreprocessor()
+        else:
+            raise ValueError(f"Unknown graph_mode for preprocessing: {graph_mode!r}")
         self.prepared = preprocessor.run(self.ctx)
         return self.prepared
 
@@ -83,14 +98,11 @@ class SchedulerSession:
             flare_dir = self.prepared.directories["flare"]
             if not (flare_dir / "manifest.json").exists():
                 raise FileNotFoundError(f"Missing flare manifest: {flare_dir / 'manifest.json'}")
-
             part_id = min(self.ctx.dist.rank, self.ctx.dist.world_size - 1)
             partition_path = flare_dir / f"part_{part_id:03d}.pth"
             if not partition_path.exists():
                 raise FileNotFoundError(f"Missing flare partition artifact: {partition_path}")
-
             partition_data = torch.load(partition_path, weights_only=False)
-
             self.snapshot_core = FlareRuntimeLoader.from_partition_data(
                 data=partition_data,
                 device=device,
@@ -98,7 +110,6 @@ class SchedulerSession:
                 world_size=self.ctx.dist.world_size,
                 config=self.ctx.config,
             )
-
             self.runtime = RuntimeBundle(state={"graph_mode": "dtdg"})
             init_flare_training(runtime=self.runtime, session_ctx=self.ctx, partition_data=partition_data, device=device)
             self.runtime.state.update(
@@ -133,6 +144,79 @@ class SchedulerSession:
         else:
             raise ValueError(f"Unknown graph_mode: {graph_mode}")
         return self.runtime
+
+    def build_pipeline_engine(self, model: Any = None) -> PipelineEngine:
+        """Build unified PipelineEngine (new architecture, optional).
+
+        This creates a PipelineEngine that composes GraphBackend + TaskAdapter + StateManager + Model.
+        For now, this is opt-in. Existing code path via run_epoch() still works.
+
+        Args:
+            model: Neural network model (if None, will be loaded from model_spec)
+
+        Returns:
+            PipelineEngine ready for run_epoch() calls
+
+        Note:
+            This is part of the Graph Mode × Task Type orthogonal separation refactoring.
+        """
+        if self.prepared is None:
+            self.prepared = load_prepared_from_disk(self.ctx.artifact_root)
+
+        graph_mode = self.prepared.provider_meta.get("graph_mode")
+        base_device = str(self.ctx.config["runtime"]["device"])
+        if base_device == "cuda" and dist.is_available() and dist.is_initialized():
+            device = f"cuda:{self.ctx.dist.local_rank}"
+        else:
+            device = base_device
+
+        # Build GraphBackend and StateManager adapters based on graph_mode
+        if graph_mode == "ctdg":
+            if self.ctdg_session is None:
+                self.ctdg_session = CTDGSession()
+                self.ctdg_session.build_runtime(self.ctx)
+            backend = CTDGGraphBackend(self.ctdg_session)
+        elif graph_mode == "dtdg":
+            if self.snapshot_core is None:
+                # Build FlareRuntimeLoader (same as build_runtime)
+                validate_artifacts(self.prepared, expected_graph_mode="dtdg", expected_num_parts=self.ctx.dist.world_size)
+                flare_dir = self.prepared.directories["flare"]
+                part_id = min(self.ctx.dist.rank, self.ctx.dist.world_size - 1)
+                partition_path = flare_dir / f"part_{part_id:03d}.pth"
+                partition_data = torch.load(partition_path, weights_only=False)
+                self.snapshot_core = FlareRuntimeLoader.from_partition_data(
+                    data=partition_data,
+                    device=device,
+                    rank=self.ctx.dist.rank,
+                    world_size=self.ctx.dist.world_size,
+                    config=self.ctx.config,
+                )
+            backend = FlareGraphBackend(self.snapshot_core)
+        elif graph_mode == "chunk":
+            if self.snapshot_core is None:
+                validate_artifacts(self.prepared, expected_graph_mode="chunk", expected_num_parts=self.ctx.dist.world_size)
+                self.snapshot_core = ChunkRuntimeLoader.from_prepared_artifacts(
+                    prepared_dir=self.ctx.artifact_root,
+                    device=device,
+                    rank=self.ctx.dist.rank,
+                    world_size=self.ctx.dist.world_size,
+                    config=self.ctx.config,
+                )
+            backend = ChunkGraphBackend(self.snapshot_core)
+        else:
+            raise ValueError(f"Unknown graph_mode: {graph_mode}")
+
+        # Create PipelineEngine
+        state_manager = DummyStateManager()  # Placeholder; could be replaced with real state managers
+        self.pipeline_engine = PipelineEngine(
+            backend=backend,
+            state_manager=state_manager,
+            model=model or self.model_spec,  # Placeholder model
+            task_adapter=self.task_adapter,
+            device=device,
+        )
+
+        return self.pipeline_engine
 
     def run_epoch(self, split: str = "train") -> dict[str, Any]:
         if self.ctdg_session is not None:

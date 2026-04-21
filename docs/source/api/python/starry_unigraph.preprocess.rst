@@ -10,7 +10,6 @@ Submodules
 ----------
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 3
 
    starry_unigraph.preprocess.base
-   starry_unigraph.preprocess.dtdg_prepare

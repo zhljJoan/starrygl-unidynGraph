@@ -10,8 +10,7 @@ Submodules
 ----------
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 3
 
-   starry_unigraph.registry.model_registry
-   starry_unigraph.registry.provider_registry
    starry_unigraph.registry.task_registry
+   starry_unigraph.registry.model_registry

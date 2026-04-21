@@ -10,7 +10,6 @@ Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 3
 
    starry_unigraph.backends.ctdg
-   starry_unigraph.backends.flare

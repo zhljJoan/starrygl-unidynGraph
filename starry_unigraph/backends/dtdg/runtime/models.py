@@ -24,6 +24,7 @@ import torch.nn.functional as F
 import torch.distributed as dist
 from dgl import DGLGraph
 
+from starry_unigraph.runtime.modules import GCNStack, MatGRUCell, _LSTMCell
 from .state import STGraphBlob
 
 
@@ -96,64 +97,6 @@ def _gcn_message_pass(graph: DGLGraph, x: torch.Tensor) -> torch.Tensor:
         graph.edata["norm"] = _gcn_norm(graph)
         graph.update_all(fn.u_mul_e("h", "norm", "m"), fn.sum("m", "h_new"))
         return graph.dstdata["h_new"] if graph.is_block else graph.ndata["h_new"]
-
-
-class GCNStack(nn.Module):
-    """Multi-layer GCN with message passing on DGL graphs/blocks.
-
-    Each layer performs normalized message passing (``GCN_norm * src_feats``)
-    followed by a linear transform.  ReLU is applied between layers.
-
-    Args:
-        input_size: Input feature dimension.
-        hidden_size: Hidden and output dimension for all layers.
-        num_layers: Number of GCN layers (default 2).
-
-    Example::
-
-        gcn = GCNStack(input_size=2, hidden_size=64, num_layers=2)
-        h = gcn.forward_graph(block)              # single graph
-        h_list = gcn.layerwise(blob)              # per-frame outputs
-    """
-    def __init__(self, input_size: int, hidden_size: int, num_layers: int = 2) -> None:
-        super().__init__()
-        self.layers = nn.ModuleList()
-        in_dim = input_size
-        for _ in range(num_layers):
-            self.layers.append(nn.Linear(in_dim, hidden_size, bias=False))
-            in_dim = hidden_size
-
-    def forward_graph(self, graph: DGLGraph, x: torch.Tensor | None = None) -> torch.Tensor:
-        h = _graph_input(graph) if x is None else x
-        for idx, layer in enumerate(self.layers):
-            h = _gcn_message_pass(graph, h)
-            h = layer(h)
-            if idx < len(self.layers) - 1:
-                h = F.relu(h)
-        return h
-
-    def layerwise(self, blob_or_graph: STGraphBlob | DGLGraph) -> list[torch.Tensor]:
-        outputs = []
-        for graph in _graph_sequence(blob_or_graph):
-            outputs.append(self.forward_graph(graph))
-        return outputs
-
-
-class MatGRUCell(nn.Module):
-    def __init__(self, in_feats: int, out_feats: int) -> None:
-        super().__init__()
-        self.update = nn.Linear(in_feats + out_feats, out_feats)
-        self.reset = nn.Linear(in_feats + out_feats, out_feats)
-        self.htilda = nn.Linear(in_feats + out_feats, out_feats)
-
-    def forward(self, prev_w: torch.Tensor, inputs: torch.Tensor) -> torch.Tensor:
-        inputs = inputs.repeat(prev_w.size(0), 1)
-        xc = torch.cat([inputs, prev_w], dim=1)
-        z_t = torch.sigmoid(self.update(xc))
-        r_t = torch.sigmoid(self.reset(xc))
-        g_c = torch.cat([inputs, r_t * prev_w], dim=1)
-        h_tilde = torch.tanh(self.htilda(g_c))
-        return z_t * prev_w + (1 - z_t) * h_tilde
 
 
 class FlareEvolveGCN(nn.Module):
@@ -234,32 +177,6 @@ class FlareTGCN(nn.Module):
             outputs.append(self.out(h))
         return outputs if isinstance(blob_or_graph, STGraphBlob) else outputs[-1], h
 
-
-class _LSTMCell(nn.Module):
-    """Custom LSTM cell matching FlareDTDG reference (returns tuple state, supports tuple addition)."""
-
-    def __init__(self, input_size: int, hidden_size: int) -> None:
-        super().__init__()
-        self.hidden_size = hidden_size
-        self.i_t = nn.Linear(input_size + hidden_size, hidden_size)
-        self.f_t = nn.Linear(input_size + hidden_size, hidden_size)
-        self.g_t = nn.Linear(input_size + hidden_size, hidden_size)
-        self.o_t = nn.Linear(input_size + hidden_size, hidden_size)
-
-    def forward(self, x: torch.Tensor, state: tuple[torch.Tensor, torch.Tensor] | None = None) -> tuple[torch.Tensor, torch.Tensor]:
-        if state is None:
-            h = torch.zeros(x.size(0), self.hidden_size, dtype=x.dtype, device=x.device)
-            c = torch.zeros_like(h)
-        else:
-            h, c = state
-        xh = torch.cat([x, h], dim=-1)
-        i = torch.sigmoid(self.i_t(xh))
-        f = torch.sigmoid(self.f_t(xh))
-        g = torch.tanh(self.g_t(xh))
-        o = torch.sigmoid(self.o_t(xh))
-        c = f * c + i * g
-        h = o * torch.tanh(c)
-        return h, c
 
 
 class FlareMPNNLSTM(nn.Module):

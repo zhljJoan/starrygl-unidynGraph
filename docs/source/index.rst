@@ -4,10 +4,10 @@ StarryUniGraph Documentation
 .. toctree::
    :maxdepth: 1
    :caption: Contents
-   
+
    guide/index
    tutorial/index
-   advanced/index
+   architecture/__init__
    api/python/index
 
 .. Indices and tables

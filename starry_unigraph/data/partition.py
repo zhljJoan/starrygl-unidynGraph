@@ -205,8 +205,7 @@ class TensorData:
     Supports integer/slice indexing, ``.to(device)``, ``pin_memory()``.
 
     Attributes:
-        ptr: Pointer array of length ``N + 1``.  ``ptr[0] == 0`` and
-            ``ptr[-1] == data.size(0)``.
+        ptr: Pointer array of length ``N + 1``. ``ptr[0] == 0`` and ``ptr[-1] == data.size(0)``.
         data: The packed tensor.
 
     Example::
@@ -300,12 +299,12 @@ class PartitionData:
 
     The class supports:
 
-    * **Indexing / slicing** — ``part[0:100]`` returns a new PartitionData
+    - **Indexing / slicing** — ``part[0:100]`` returns a new PartitionData
       with only the first 100 snapshots.
-    * **Device transfer** — ``part.to("cuda:0")`` / ``part.pin_memory()``.
-    * **Serialization** — ``part.save(path)`` / ``PartitionData.load(path)``.
-    * **DGL conversion** — ``part.to_blocks()`` returns a list of DGLBlocks.
-    * **Round-trip** — ``PartitionData.from_blocks(blocks)`` reconstructs
+    - **Device transfer** — ``part.to("cuda:0")`` / ``part.pin_memory()``.
+    - **Serialization** — ``part.save(path)`` / ``PartitionData.load(path)``.
+    - **DGL conversion** — ``part.to_blocks()`` returns a list of DGLBlocks.
+    - **Round-trip** — ``PartitionData.from_blocks(blocks)`` reconstructs
       a PartitionData from DGL blocks.
 
     Attributes:
@@ -314,11 +313,8 @@ class PartitionData:
         edge_ids: Global edge IDs per snapshot.
         edge_src: Edge source indices (into the combined src+dst space).
         edge_dst: Edge destination indices (into the dst-only space).
-        node_data: Dict of named per-snapshot node feature TensorData
-            (e.g. ``"x"`` for features, ``"y"`` for labels, ``"c"`` for
-            chunk assignment).
-        edge_data: Dict of named per-snapshot edge feature TensorData
-            (e.g. ``"w"`` for weights, ``"gcn_norm"``).
+        node_data: Dict of named per-snapshot node feature TensorData (e.g. ``"x"`` for features, ``"y"`` for labels, ``"c"`` for chunk assignment).
+        edge_data: Dict of named per-snapshot edge feature TensorData (e.g. ``"w"`` for weights, ``"gcn_norm"``).
         routes: Optional :class:`RouteData` for distributed communication.
 
     Example::
@@ -517,8 +513,7 @@ class PartitionData:
 
         Args:
             path: Path to the serialized file.
-            mmap: If True, memory-map the file (useful for large datasets
-                that don't fit in RAM).
+            mmap: If True, memory-map the file (useful for large datasets that don't fit in RAM).
 
         Returns:
             The deserialized :class:`PartitionData`.

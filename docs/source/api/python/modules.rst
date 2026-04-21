@@ -2,6 +2,6 @@ starry_unigraph
 ===============
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 3
 
    starry_unigraph

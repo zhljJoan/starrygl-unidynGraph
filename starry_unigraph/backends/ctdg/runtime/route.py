@@ -70,11 +70,10 @@ class CTDGFeatureRoute:
             ctx: :class:`DistributedContext` with rank / world_size.
             node_ids: Global node IDs to exchange, shape ``[N]``.
             values: Feature values to exchange, shape ``[N, D]``.
-            async_op: If True, return an :class:`AsyncExchangeHandle`
-                instead of blocking.
+            async_op: If True, return an :class:`AsyncExchangeHandle` instead of blocking.
 
         Returns:
-            If *async_op* is False: ``(merged_ids, merged_values)`` with
+            If ``async_op`` is False: ``(merged_ids, merged_values)`` with
             features from all ranks concatenated.  If True: an
             :class:`AsyncExchangeHandle` to call ``.wait()`` on later.
         """
