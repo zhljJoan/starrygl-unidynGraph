@@ -94,14 +94,12 @@ class NativeTemporalSampler:
         """Sample temporal neighbors for the given root nodes.
 
         Args:
-            split: ``"train"``, ``"val"``, or ``"test"`` — determines
-                which temporal graph to sample from.
+            split: ``"train"``, ``"val"``, or ``"test"`` — determines which temporal graph to sample from.
             root_nodes: Root node IDs to sample around, shape ``[R]``.
             timestamps: Timestamps for each root node, shape ``[R]``.
 
         Returns:
-            :class:`CTDGSampleOutput` with sampled nodes, edges, and
-            BTS blocks.
+            :class:`CTDGSampleOutput` with sampled nodes, edges, and BTS blocks.
 
         Raises:
             RuntimeError: If the native BTS sampler is not available.

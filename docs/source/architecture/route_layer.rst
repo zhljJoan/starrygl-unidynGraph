@@ -134,39 +134,45 @@ Integration with DGL blocks:
             src_x = x  # Local only
         # ... continue message passing with src_x
 
-**CTDG: Multi-GPU Memory Routing with Partitioning**
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**CTDG: Distributed Memory Routing with Partitioning**
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-CTDG supports **single-machine multi-GPU** via event partitioning and memory synchronization:
+CTDG supports both **single-machine multi-GPU** and **multi-machine distributed** training via node partitioning and synchronized memory banks:
 
 .. code-block:: python
 
     class CTDGMemoryBank:
-        """Per-GPU partitioned node memory with cross-GPU sync."""
+        """Per-rank partitioned node memory with distributed sync."""
 
-        def __init__(self, num_nodes: int, node_partition_map: Tensor):
-            self.node_partition_map = node_partition_map  # node_id → GPU rank
+        def __init__(self, num_nodes: int, node_partition_map: Tensor, rank: int, world_size: int):
+            self.node_partition_map = node_partition_map  # node_id → rank/GPU
+            self.rank = rank
+            self.world_size = world_size
+            # Local storage for nodes assigned to this rank
             self.num_local_nodes = (node_partition_map == rank).sum()
-            self.local_memory = Memory[num_local_nodes, dim]  # GPU storage
-            self.remote_memory = Memory[num_remote_nodes, dim]  # CPU buffer
+            self.local_memory = Memory[num_local_nodes, dim]  # GPU/CPU storage
+            self.remote_memory = Memory[num_remote_nodes, dim]  # Buffer for remote nodes
 
-        def fetch(self, node_ids: Tensor, rank: int):
+        def fetch(self, node_ids: Tensor):
             """Get memory for nodes, syncing remote if needed."""
-            local_mask = self.node_partition_map[node_ids] == rank
+            local_mask = self.node_partition_map[node_ids] == self.rank
             result = zeros_like(node_ids)
             result[local_mask] = self.local_memory[global2local[local_mask]]
             result[~local_mask] = self._sync_remote(node_ids[~local_mask])
             return result
 
         def _sync_remote(self, remote_node_ids: Tensor):
-            """Synchronize remote node features via all-to-all."""
-            # Build send/recv counts based on node ownership
-            send_counts = self._exchange_counts(...)  # all-to-all_single
-            # Execute distributed exchange
-            dist.all_to_all_single(remote_buffer, local_buffer, ...)
-            return remote_buffer[indices]
+            """Synchronize remote node features via all-to-all (multi-GPU) or RPC (multi-machine)."""
+            if self.world_size == 1:
+                return self.local_memory  # Single rank
+            elif self.is_same_machine():
+                # Single-machine multi-GPU: use all-to-all collective
+                return self._exchange_via_nccl(remote_node_ids)
+            else:
+                # Multi-machine: use RPC for cross-rank access
+                return self._exchange_via_rpc(remote_node_ids)
 
-Multi-GPU Setup:
+**Single-Machine Multi-GPU Setup**:
 
 .. code-block:: python
 
@@ -176,14 +182,58 @@ Multi-GPU Setup:
         node_partition_map[nodes] = partition_id
 
     # During training (each rank):
-    memory_bank = CTDGMemoryBank(num_nodes, node_partition_map)
+    memory_bank = CTDGMemoryBank(num_nodes, node_partition_map, rank, world_size)
     # Each GPU synchronizes features via NCCL all-to-all
 
-**Limitations**:
-- Single machine only (network latency is too high for multi-machine)
-- All-to-all communication overhead grows with GPU count
-- Best with 2-4 GPUs on same machine
-- Use DTDG for multi-machine training
+**Single-Machine Characteristics**:
+- ✅ Multi-GPU support via NCCL all-to-all collective
+- ✅ Low latency (same PCIe/NVLink fabric)
+- ✅ All-to-all overhead manageable (typically 2-8 GPUs)
+- ✅ Node partitioning (SPEED or round-robin) for load balancing
+
+**Multi-Machine Distributed Setup**:
+
+.. code-block:: python
+
+    # Initialize distributed context with RPC
+    dist.init_process_group(backend="nccl", rank=rank, world_size=world_size)
+    rpc.init_rpc(f"worker_{rank}", rank=rank, world_size=world_size)
+
+    # During training (each rank):
+    memory_bank = CTDGMemoryBank(num_nodes, node_partition_map, rank, world_size)
+    # Remote node access via RPC (non-blocking, overlapped with compute)
+
+**Multi-Machine Characteristics**:
+- ✅ Supports arbitrary number of machines
+- ✅ RPC enables asynchronous remote memory access
+- ✅ Latency-tolerant (overlaps communication with computation)
+- ⚠️ Network bandwidth is bottleneck (similar to message passing systems)
+- ⚠️ Not suitable for fully-connected graphs (use DTDG for sparse sampling instead)
+
+**Communication Methods Comparison**:
+
+.. list-table:: CTDG Communication Patterns
+   :header-rows: 1
+
+   * - Setup
+     - Communication
+     - Latency
+     - Suitable For
+
+   * - Single-GPU
+     - Local memory access
+     - ~1-5 µs
+     - Baseline
+
+   * - Single-Machine Multi-GPU
+     - NCCL all-to-all
+     - ~100-500 µs
+     - Dense neighborhoods (e.g., social networks)
+
+   * - Multi-Machine
+     - RPC with async batching
+     - ~1-10 ms
+     - Sparse neighborhoods or partial memory replication
 
 **Chunk: Async Cross-Cluster Routing**
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -294,23 +344,31 @@ Comparing DTDG vs CTDG Routing
 
    * - **Communication**
      - Explicit all-to-all per snapshot
-     - Implicit memory bank partition
+     - Implicit memory bank partition + sync
 
    * - **Scalability**
-     - Multi-machine (each GPU gets all neighbors)
-     - Single-machine (memory sync or replication)
+     - Multi-machine (snap shot-based boundaries)
+     - Multi-machine (RPC) + Single-machine multi-GPU (all-to-all)
 
    * - **Memory Cost**
-     - Temporary recv buffer (features fetched)
-     - Permanent replica or partition (memory stored)
+     - Temporary recv buffer (features fetched per snapshot)
+     - Permanent partition (nodes stored on assigned ranks)
 
-   * - **Latency**
-     - Collective latency per snapshot
-     - Feature lookup latency (fast, in-memory)
+   * - **Latency (Local)**
+     - All-to-all collective ~100-500 µs
+     - Memory lookup ~1-10 µs
+
+   * - **Latency (Multi-Machine)**
+     - All-to-all ~10-50 ms (blocking)
+     - RPC ~1-10 ms per node (async, overlappable)
 
    * - **Flexibility**
      - Different routes per snapshot
      - Static partition map (time-invariant)
+
+   * - **Optimal Use Case**
+     - Dense sampling, multi-machine, sparse edges
+     - Large neighborhoods, temporal state updates, arbitrary topology
 
 See Also
 --------

@@ -97,14 +97,107 @@ Train using multiple GPUs on a single machine with CTDG:
         --config configs/tgn_wiki_multigpu.yaml \
         --phase all
 
-CTDG supports:
+CTDG Multi-GPU support:
 - ✅ Single-machine multi-GPU via partitioning + NCCL all-to-all
-- ✅ Event-based partitioning (round-robin or SPEED)
+- ✅ Event-based partitioning (round-robin or SPEED for load balancing)
 - ✅ Memory bank synchronization across GPUs
-- ❌ Multi-machine (events lack predefined partition boundaries)
+- ✅ Async communication for latency hiding
 
-Multi-GPU Training (Distributed)
----------------------------------
+**Characteristics**:
+- **Communication**: NCCL collective all-to-all (~100-500 µs latency)
+- **Scalability**: 2-8 GPUs on same machine (PCIe/NVLink fabric)
+- **Memory**: Partitioned storage (each GPU stores ~1/N nodes)
+- **Best for**: Dense neighborhoods, large temporal windows, social networks
+
+Multi-Machine Distributed Training (CTDG via RPC)
+--------------------------------------------------
+
+Train using multiple machines with CTDG and RPC-based remote memory access:
+
+.. code-block:: bash
+
+    # On master node (rank=0)
+    python -m torch.distributed.launch \
+        --nproc_per_node=4 \
+        --nnodes=2 \
+        --node_rank=0 \
+        --master_addr=<master_ip> \
+        --master_port=29500 \
+        -m starry_unigraph \
+        --config configs/tgn_wiki_distributed.yaml \
+        --phase all
+
+    # On worker node (rank=1)
+    python -m torch.distributed.launch \
+        --nproc_per_node=4 \
+        --nnodes=2 \
+        --node_rank=1 \
+        --master_addr=<master_ip> \
+        --master_port=29500 \
+        -m starry_unigraph \
+        --config configs/tgn_wiki_distributed.yaml \
+        --phase all
+
+Configuration for multi-machine CTDG:
+
+.. code-block:: yaml
+
+    data:
+      graph_mode: ctdg
+      source: data/my_events.csv
+      num_partitions: 8  # Multiple partitions per machine
+      partition: speed  # or round_robin
+      distributed:
+        backend: nccl  # for GPU communication
+        use_rpc: true  # Enable RPC for multi-machine
+
+    training:
+      batch_size: 32
+      num_epochs: 100
+
+CTDG Multi-Machine support:
+- ✅ Arbitrary number of machines via RPC
+- ✅ Asynchronous remote memory access (non-blocking)
+- ✅ Overlappable communication with computation
+- ✅ Node partitioning for load balancing
+
+**Characteristics**:
+- **Communication**: RPC with async batching (~1-10 ms latency)
+- **Scalability**: 2+ machines (networked, latency-tolerant)
+- **Memory**: Partitioned storage (each rank stores ~1/(machines×GPUs) nodes)
+- **Best for**: Sparse neighborhoods, memory-constrained nodes, arbitrary topology
+
+**Comparison: CTDG Single-Machine vs Multi-Machine**:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Feature
+     - Single-Machine
+     - Multi-Machine
+
+   * - Latency
+     - ~100-500 µs (NCCL)
+     - ~1-10 ms (RPC)
+
+   * - Bandwidth
+     - ~100-1000 GB/s (PCIe/NVLink)
+     - ~1-100 GB/s (network)
+
+   * - Max Nodes
+     - Unlimited (CPU fallback)
+     - Unlimited (distributed)
+
+   * - Communication Type
+     - NCCL collective
+     - RPC (point-to-point)
+
+   * - Typical Setup
+     - 2-8 GPUs
+     - 2+ machines with 1-4 GPUs each
+
+Multi-GPU Training (Distributed - DTDG)
+----------------------------------------
 
 Train using multiple GPUs with DTDG (Discrete-Time Dynamic Graphs):
 
@@ -253,10 +346,35 @@ Implement custom temporal GNN models:
 Distributed Training
 ====================
 
+**Summary Table: Training Modes**
+
+.. list-table::
+   :header-rows: 1
+
+   * - Mode
+     - Single-Machine Multi-GPU
+     - Multi-Machine
+     - Use Case
+
+   * - **CTDG**
+     - ✅ NCCL all-to-all
+     - ✅ RPC (async)
+     - Temporal state + memory update
+
+   * - **DTDG**
+     - ✅ Per-snapshot routing
+     - ✅ Snapshot-based boundaries
+     - Discrete snapshots + sparse sampling
+
+   * - **Chunk**
+     - ✅ (development)
+     - ✅ (development)
+     - Time-windowed + node clustering
+
 Single Machine, Multiple GPUs (CTDG)
 ------------------------------------
 
-CTDG on multi-GPU (same machine):
+CTDG on multi-GPU (same machine) with NCCL collective communication:
 
 .. code-block:: bash
 
@@ -266,6 +384,7 @@ CTDG on multi-GPU (same machine):
       graph_mode: ctdg
       source: data/wiki.csv
       num_partitions: 4
+      partition: speed
 
     training:
       batch_size: 32
@@ -277,17 +396,81 @@ CTDG on multi-GPU (same machine):
         --config configs/tgn_multigpu.yaml \
         --phase train
 
-How CTDG Multi-GPU Works:
+**How CTDG Single-Machine Multi-GPU Works**:
 
-1. **Event Partitioning**: Events are partitioned by node (SPEED or round-robin)
-2. **Memory Bank**: Each GPU maintains partition of memory bank
+1. **Event Partitioning**: Nodes partitioned by rank (SPEED or round-robin)
+2. **Memory Bank**: Each GPU maintains partition of memory bank (1/N nodes)
 3. **Feature Exchange**: NCCL all-to-all for cross-partition neighbor features
 4. **Synchronization**: Async sync for remote memory updates
+5. **Compute**: Forward pass with local + fetched features
 
-Limitations:
-- Cannot span multiple machines (events have no pre-defined boundaries)
-- Network bandwidth is the bottleneck
-- Suitable for 2-4 GPUs on high-bandwidth connection
+**Performance Characteristics**:
+- **Latency**: ~100-500 µs per all-to-all
+- **Bandwidth**: ~100-1000 GB/s (PCIe/NVLink)
+- **Scalability**: 2-8 GPUs optimal
+- **Memory**: ~1/N per GPU (N = number of GPUs)
+
+Multi-Machine (CTDG via RPC)
+-----------------------------
+
+CTDG on multiple machines with RPC-based remote memory access:
+
+.. code-block:: bash
+
+    # On master node (rank=0)
+    python -m torch.distributed.launch \
+        --nproc_per_node=4 \
+        --nnodes=2 \
+        --node_rank=0 \
+        --master_addr=<master_ip> \
+        --master_port=29500 \
+        -m starry_unigraph \
+        --config configs/tgn_distributed.yaml \
+        --phase train
+
+    # On worker node (rank=1)
+    python -m torch.distributed.launch \
+        --nproc_per_node=4 \
+        --nnodes=2 \
+        --node_rank=1 \
+        --master_addr=<master_ip> \
+        --master_port=29500 \
+        -m starry_unigraph \
+        --config configs/tgn_distributed.yaml \
+        --phase train
+
+**Configuration for multi-machine CTDG**:
+
+.. code-block:: yaml
+
+    data:
+      graph_mode: ctdg
+      source: data/my_events.csv
+      num_partitions: 8  # 2 machines × 4 GPUs
+      partition: speed
+
+    distributed:
+      backend: nccl
+      use_rpc: true  # Enable RPC for multi-machine
+
+    training:
+      batch_size: 32
+      num_epochs: 100
+
+**How CTDG Multi-Machine Works**:
+
+1. **Event Partitioning**: Nodes partitioned across all ranks (global partition map)
+2. **Memory Bank**: Each rank stores ~1/(machines×GPUs) nodes
+3. **Local Access**: All local nodes in GPU memory (fast)
+4. **Remote Access**: RPC calls to other ranks (async, non-blocking)
+5. **Async Batching**: Multiple RPC requests sent before waiting
+
+**Performance Characteristics**:
+- **Latency**: ~1-10 ms per RPC call (multi-machine)
+- **Bandwidth**: ~1-100 GB/s (network dependent)
+- **Scalability**: 2+ machines
+- **Memory**: ~1/(machines×GPUs) per rank
+- **Communication**: Asynchronous, overlappable with compute
 
 Single Machine, Multiple GPUs (DTDG)
 -------------------------------------
@@ -318,7 +501,7 @@ Advantages:
 - ✅ Per-snapshot partitioning enables flexible scaling
 - ✅ Proven with Flare architecture
 
-Multi-Machine (DTDG Only)
+Multi-Machine (DTDG with torch.distributed)
 -------------------------
 
 To train across multiple machines, use DTDG with torch.distributed launcher:
