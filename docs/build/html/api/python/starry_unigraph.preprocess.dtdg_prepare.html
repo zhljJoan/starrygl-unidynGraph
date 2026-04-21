@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.preprocess.dtdg_prepare module &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="starry_unigraph.providers package" href="starry_unigraph.providers.html" />
+    <link rel="prev" title="starry_unigraph.preprocess.base module" href="starry_unigraph.preprocess.base.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="modules.html">starry_unigraph</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.html">starry_unigraph package</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.preprocess.html">starry_unigraph.preprocess package</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.preprocess.dtdg_prepare module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/api/python/starry_unigraph.preprocess.dtdg_prepare.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-starry_unigraph.preprocess.dtdg_prepare">
+<span id="starry-unigraph-preprocess-dtdg-prepare-module"></span><h1>starry_unigraph.preprocess.dtdg_prepare module<a class="headerlink" href="#module-starry_unigraph.preprocess.dtdg_prepare" title="Link to this heading"></a></h1>
+<p>DTDG data preparation: partitioning, block building, and Flare export.</p>
+<p>Public API:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#starry_unigraph.preprocess.dtdg_prepare.build_partition_input_from_raw_dataset" title="starry_unigraph.preprocess.dtdg_prepare.build_partition_input_from_raw_dataset"><code class="xref py py-func docutils literal notranslate"><span class="pre">build_partition_input_from_raw_dataset()</span></code></a> — extract snapshot list
+and metadata from a raw dataset dict.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.preprocess.dtdg_prepare.build_dtdg_partitions" title="starry_unigraph.preprocess.dtdg_prepare.build_dtdg_partitions"><code class="xref py py-func docutils literal notranslate"><span class="pre">build_dtdg_partitions()</span></code></a> — run graph partitioning (METIS or random)
+on the merged lifetime edge index.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.preprocess.dtdg_prepare.build_flare_partition_data_list" title="starry_unigraph.preprocess.dtdg_prepare.build_flare_partition_data_list"><code class="xref py py-func docutils literal notranslate"><span class="pre">build_flare_partition_data_list()</span></code></a> — build per-partition
+<code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code> objects with node features, labels, GCN norms,
+routes, and chunk assignments.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader" title="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">WebDataLoader</span></code></a> — load temporal edge-list files (various formats)
+into snapshot datasets.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.preprocess.dtdg_prepare.build_web_data_loader" title="starry_unigraph.preprocess.dtdg_prepare.build_web_data_loader"><code class="xref py py-func docutils literal notranslate"><span class="pre">build_web_data_loader()</span></code></a> — create a <a class="reference internal" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader" title="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">WebDataLoader</span></code></a> with
+per-dataset presets.</p></li>
+</ul>
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.dtdg_prepare.</span></span><span class="sig-name descname"><span class="pre">WebDataLoader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_batch_split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'bool'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skiprows</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'\\s+'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skiptime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lags</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fallback_snaps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/dtdg_prepare.html#WebDataLoader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.batch_size">
+<span class="sig-name descname"><span class="pre">batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.batch_size" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.edge_file">
+<span class="sig-name descname"><span class="pre">edge_file</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.edge_file" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.fallback_snaps">
+<span class="sig-name descname"><span class="pre">fallback_snaps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8</span></em><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.fallback_snaps" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.get_dataset">
+<span class="sig-name descname"><span class="pre">get_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/dtdg_prepare.html#WebDataLoader.get_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.get_dataset" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.lags">
+<span class="sig-name descname"><span class="pre">lags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.lags" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.sep">
+<span class="sig-name descname"><span class="pre">sep</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'\\s+'</span></em><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.sep" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.skiprows">
+<span class="sig-name descname"><span class="pre">skiprows</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.skiprows" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.skiptime">
+<span class="sig-name descname"><span class="pre">skiptime</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.skiptime" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.use_batch_split">
+<span class="sig-name descname"><span class="pre">use_batch_split</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.use_batch_split" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.window">
+<span class="sig-name descname"><span class="pre">window</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.window" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.apply_partition">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.dtdg_prepare.</span></span><span class="sig-name descname"><span class="pre">apply_partition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">edge_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_parts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/dtdg_prepare.html#apply_partition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.apply_partition" title="Link to this definition"></a></dt>
+<dd><p>Partition a graph into <code class="docutils literal notranslate"><span class="pre">num_parts</span></code> using METIS (or random fallback).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>edge_index: <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">E]</span></code> edge list tensor.
+num_nodes: Total number of nodes.
+num_parts: Desired number of partitions.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Tensor <code class="docutils literal notranslate"><span class="pre">[num_nodes]</span></code> mapping each node to a partition ID
+in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">num_parts)</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.build_dtdg_partitions">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.dtdg_prepare.</span></span><span class="sig-name descname"><span class="pre">build_dtdg_partitions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">graph_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_parts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">algo</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/dtdg_prepare.html#build_dtdg_partitions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.build_dtdg_partitions" title="Link to this definition"></a></dt>
+<dd><p>Run graph partitioning on the merged lifetime edge index.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>graph_data: Output of <a class="reference internal" href="#starry_unigraph.preprocess.dtdg_prepare.build_partition_input_from_raw_dataset" title="starry_unigraph.preprocess.dtdg_prepare.build_partition_input_from_raw_dataset"><code class="xref py py-func docutils literal notranslate"><span class="pre">build_partition_input_from_raw_dataset()</span></code></a>.
+num_parts: Number of partitions.
+algo: Partition algorithm name (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;metis&quot;</span></code>).
+config: Full session config (used for window_size).</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict with <code class="docutils literal notranslate"><span class="pre">&quot;algo&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;num_parts&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;node_parts&quot;</span></code> (tensor),
+<code class="docutils literal notranslate"><span class="pre">&quot;parts&quot;</span></code> (list of per-partition dicts), <code class="docutils literal notranslate"><span class="pre">&quot;graph_stats&quot;</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.build_flare_partition_data_list">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.dtdg_prepare.</span></span><span class="sig-name descname"><span class="pre">build_flare_partition_data_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partition_result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">route_plan</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.SnapshotRoutePlan" title="starry_unigraph.core.dtdg_kernel.SnapshotRoutePlan"><span class="pre">SnapshotRoutePlan</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="starry_unigraph.data.partition.html#starry_unigraph.data.partition.PartitionData" title="starry_unigraph.data.partition.PartitionData"><span class="pre">PartitionData</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/dtdg_prepare.html#build_flare_partition_data_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.build_flare_partition_data_list" title="Link to this definition"></a></dt>
+<dd><p>Build per-partition PartitionData objects for Flare training.</p>
+<p>For each partition:
+1. Build DGL blocks from per-snapshot edges using <code class="docutils literal notranslate"><span class="pre">Route.from_graph</span></code>.
+2. Attach node features (<code class="docutils literal notranslate"><span class="pre">&quot;x&quot;</span></code>), labels (<code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code>), edge weights</p>
+<blockquote>
+<div><p>(<code class="docutils literal notranslate"><span class="pre">&quot;w&quot;</span></code>), and GCN normalization (<code class="docutils literal notranslate"><span class="pre">&quot;gcn_norm&quot;</span></code>).</p>
+</div></blockquote>
+<ol class="arabic simple" start="3">
+<li><p>Convert blocks to <code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code> via <code class="docutils literal notranslate"><span class="pre">from_blocks</span></code>.</p></li>
+<li><p>Add chunk assignment (<code class="docutils literal notranslate"><span class="pre">&quot;c&quot;</span></code>) and partition ID (<code class="docutils literal notranslate"><span class="pre">&quot;partition_id&quot;</span></code>)
+node data.</p></li>
+</ol>
+<dl class="simple">
+<dt>Args:</dt><dd><p>raw_dataset: Raw dataset dict with <code class="docutils literal notranslate"><span class="pre">&quot;dataset&quot;</span></code> snapshot list.
+partition_result: Output of <a class="reference internal" href="#starry_unigraph.preprocess.dtdg_prepare.build_dtdg_partitions" title="starry_unigraph.preprocess.dtdg_prepare.build_dtdg_partitions"><code class="xref py py-func docutils literal notranslate"><span class="pre">build_dtdg_partitions()</span></code></a>.
+route_plan: <code class="xref py py-class docutils literal notranslate"><span class="pre">SnapshotRoutePlan</span></code> for route metadata.
+config: Full session config (used for cluster count).</p>
+</dd>
+<dt>Returns:</dt><dd><p>List of <code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code>, one per partition, ready for
+<code class="docutils literal notranslate"><span class="pre">torch.save</span></code> and Flare training.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">parts</span> <span class="o">=</span> <span class="n">build_flare_partition_data_list</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">part_result</span><span class="p">,</span> <span class="n">route</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">parts</span><span class="p">):</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;artifacts/flare/part_</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">.pth&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.build_partition_input_from_raw_dataset">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.dtdg_prepare.</span></span><span class="sig-name descname"><span class="pre">build_partition_input_from_raw_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/dtdg_prepare.html#build_partition_input_from_raw_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.build_partition_input_from_raw_dataset" title="Link to this definition"></a></dt>
+<dd><p>Extract a partition-ready input dict from a raw dataset.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><dl class="simple">
+<dt>raw_dataset: Dict with keys <code class="docutils literal notranslate"><span class="pre">&quot;num_nodes&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;num_edges&quot;</span></code>,</dt><dd><p><code class="docutils literal notranslate"><span class="pre">&quot;num_snapshots&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;dataset&quot;</span></code> (list of snapshot dicts).</p>
+</dd>
+</dl>
+</dd>
+<dt>Returns:</dt><dd><p>Dict with <code class="docutils literal notranslate"><span class="pre">&quot;num_nodes&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;num_edges&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;num_snapshots&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;merged_edge_count&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;snapshots&quot;</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.build_web_data_loader">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.dtdg_prepare.</span></span><span class="sig-name descname"><span class="pre">build_web_data_loader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">snaps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader" title="starry_unigraph.preprocess.dtdg_prepare.WebDataLoader"><span class="pre">WebDataLoader</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/dtdg_prepare.html#build_web_data_loader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.build_web_data_loader" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.preprocess.dtdg_prepare.normalize_snapshot_count">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.preprocess.dtdg_prepare.</span></span><span class="sig-name descname"><span class="pre">normalize_snapshot_count</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">snaps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/preprocess/dtdg_prepare.html#normalize_snapshot_count"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.preprocess.dtdg_prepare.normalize_snapshot_count" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="starry_unigraph.preprocess.base.html" class="btn btn-neutral float-left" title="starry_unigraph.preprocess.base module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.providers.html" class="btn btn-neutral float-right" title="starry_unigraph.providers package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

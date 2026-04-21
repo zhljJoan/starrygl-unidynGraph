@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.runtime.flare package &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="starry_unigraph.runtime.flare.loader module" href="starry_unigraph.runtime.flare.loader.html" />
+    <link rel="prev" title="starry_unigraph.runtime.base module" href="starry_unigraph.runtime.base.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="modules.html">starry_unigraph</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.html">starry_unigraph package</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.runtime.html">starry_unigraph.runtime package</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.runtime.flare package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/api/python/starry_unigraph.runtime.flare.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-starry_unigraph.runtime.flare">
+<span id="starry-unigraph-runtime-flare-package"></span><h1>starry_unigraph.runtime.flare package<a class="headerlink" href="#module-starry_unigraph.runtime.flare" title="Link to this heading"></a></h1>
+<p>Flare runtime — high-performance DTDG (Discrete-Time Dynamic Graph) backend.</p>
+<p>This subpackage implements the Flare pipeline for snapshot-based temporal
+graph neural networks with:</p>
+<ul class="simple">
+<li><p><strong>Async GPU prefetch</strong> — <a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphLoader" title="starry_unigraph.runtime.flare.STGraphLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphLoader</span></code></a> pins partition data and
+streams snapshots to GPU via a dedicated CUDA stream.</p></li>
+<li><p><strong>RNN state management</strong> — <a class="reference internal" href="#starry_unigraph.runtime.flare.RNNStateManager" title="starry_unigraph.runtime.flare.RNNStateManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">RNNStateManager</span></code></a> / <a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphBlob</span></code></a>
+handle per-snapshot hidden state padding, mixing, and persistence across
+the sliding window.</p></li>
+<li><p><strong>Gradient-aware distributed routing</strong> — <a class="reference internal" href="#starry_unigraph.runtime.flare.Route" title="starry_unigraph.runtime.flare.Route"><code class="xref py py-class docutils literal notranslate"><span class="pre">Route</span></code></a> / <a class="reference internal" href="#starry_unigraph.runtime.flare.RouteAgent" title="starry_unigraph.runtime.flare.RouteAgent"><code class="xref py py-class docutils literal notranslate"><span class="pre">RouteAgent</span></code></a>
+perform differentiable all-to-all feature exchange with autograd support.</p></li>
+<li><p><strong>Flare model zoo</strong> — <a class="reference internal" href="#starry_unigraph.runtime.flare.build_flare_model" title="starry_unigraph.runtime.flare.build_flare_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">build_flare_model()</span></code></a> instantiates
+EvolveGCN / TGCN / MPNN-LSTM with built-in GCN message passing.</p></li>
+<li><p><strong>Training utilities</strong> — <a class="reference internal" href="#starry_unigraph.runtime.flare.init_flare_training" title="starry_unigraph.runtime.flare.init_flare_training"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_flare_training()</span></code></a> sets up DDP + loss
+scaling; <code class="docutils literal notranslate"><span class="pre">run_flare_{train,eval,predict}_step</span></code> execute one forward/backward.</p></li>
+</ul>
+<p>Typical usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.flare</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">STGraphLoader</span><span class="p">,</span> <span class="n">build_flare_model</span><span class="p">,</span> <span class="n">init_flare_training</span><span class="p">,</span>
+    <span class="n">run_flare_train_step</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.data</span> <span class="kn">import</span> <span class="n">PartitionData</span>
+
+<span class="n">part</span> <span class="o">=</span> <span class="n">PartitionData</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;artifacts/flare/part_000.pth&quot;</span><span class="p">)</span>
+<span class="n">loader</span> <span class="o">=</span> <span class="n">STGraphLoader</span><span class="o">.</span><span class="n">from_partition_data</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
+                                            <span class="n">chunk_index</span><span class="o">=</span><span class="n">chunk_idx</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">blob</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">run_flare_train_step</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">blob</span><span class="p">,</span> <span class="p">{})</span>
+</pre></div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.FlareEvolveGCN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">FlareEvolveGCN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareEvolveGCN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.FlareEvolveGCN" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>EvolveGCN-H: GRU-evolving GCN weight matrix.</p>
+<p>At each snapshot the GCN weight matrix is evolved via a MatGRU cell
+conditioned on a pooled graph context vector.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>input_size: Node feature dimension.
+hidden_size: GCN hidden / GRU state dimension.
+output_size: Output dimension (default 1 for regression).</p>
+</dd>
+</dl>
+<p>Forward signature:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">outputs</span><span class="p">,</span> <span class="n">new_state</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">blob_or_graph</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="c1"># outputs: list[Tensor] if blob, single Tensor if graph</span>
+<span class="c1"># new_state: evolved weight matrix</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.FlareEvolveGCN.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob_or_graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><span class="pre">STGraphBlob</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DGLGraph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareEvolveGCN.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.FlareEvolveGCN.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.FlareEvolveGCN.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.FlareEvolveGCN.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.FlareMPNNLSTM">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">FlareMPNNLSTM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareMPNNLSTM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.FlareMPNNLSTM" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>MPNN-LSTM: GCN message passing + two stacked LSTM cells.</p>
+<p>Uses <a class="reference internal" href="#starry_unigraph.runtime.flare.RNNStateManager" title="starry_unigraph.runtime.flare.RNNStateManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">RNNStateManager</span></code></a> for per-snapshot state persistence.
+The hidden state is a 4-tuple <code class="docutils literal notranslate"><span class="pre">(h1,</span> <span class="pre">c1,</span> <span class="pre">h2,</span> <span class="pre">c2)</span></code> obtained by Python
+tuple concatenation <code class="docutils literal notranslate"><span class="pre">s1</span> <span class="pre">+</span> <span class="pre">s2</span></code> (NOT element-wise addition).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>input_size: Node feature dimension.
+hidden_size: LSTM hidden state dimension.
+output_size: Output dimension (default 1).</p>
+</dd>
+</dl>
+<p>Forward signature:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">outputs</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">blob_or_graph</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="c1"># h is a 4-tuple: (h_layer1, c_layer1, h_layer2, c_layer2)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.FlareMPNNLSTM.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob_or_graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><span class="pre">STGraphBlob</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DGLGraph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareMPNNLSTM.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.FlareMPNNLSTM.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.FlareMPNNLSTM.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.FlareMPNNLSTM.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.FlareTGCN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">FlareTGCN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareTGCN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.FlareTGCN" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Temporal GCN: GCN message passing + GRU update per snapshot.</p>
+<p>The GCN produces 3x hidden features which are split into update (u),
+reset (r), and candidate (c) gates for the GRU cell.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>input_size: Node feature dimension.
+hidden_size: GRU hidden state dimension.
+output_size: Output dimension (default 1).</p>
+</dd>
+</dl>
+<p>Forward signature:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">outputs</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">blob_or_graph</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.FlareTGCN.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob_or_graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><span class="pre">STGraphBlob</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DGLGraph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareTGCN.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.FlareTGCN.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.FlareTGCN.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.FlareTGCN.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.GCNStack">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">GCNStack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_layers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#GCNStack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.GCNStack" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Multi-layer GCN with message passing on DGL graphs/blocks.</p>
+<p>Each layer performs normalized message passing (<code class="docutils literal notranslate"><span class="pre">GCN_norm</span> <span class="pre">*</span> <span class="pre">src_feats</span></code>)
+followed by a linear transform.  ReLU is applied between layers.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>input_size: Input feature dimension.
+hidden_size: Hidden and output dimension for all layers.
+num_layers: Number of GCN layers (default 2).</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">gcn</span> <span class="o">=</span> <span class="n">GCNStack</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">h</span> <span class="o">=</span> <span class="n">gcn</span><span class="o">.</span><span class="n">forward_graph</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>              <span class="c1"># single graph</span>
+<span class="n">h_list</span> <span class="o">=</span> <span class="n">gcn</span><span class="o">.</span><span class="n">layerwise</span><span class="p">(</span><span class="n">blob</span><span class="p">)</span>              <span class="c1"># per-frame outputs</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.GCNStack.forward_graph">
+<span class="sig-name descname"><span class="pre">forward_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DGLGraph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#GCNStack.forward_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.GCNStack.forward_graph" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.GCNStack.layerwise">
+<span class="sig-name descname"><span class="pre">layerwise</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob_or_graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><span class="pre">STGraphBlob</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DGLGraph</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#GCNStack.layerwise"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.GCNStack.layerwise" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.GCNStack.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.GCNStack.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RNNStateManager">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">RNNStateManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ends_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'pad'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable_routes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#RNNStateManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RNNStateManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Per-snapshot RNN state storage with padding / mixing support.</p>
+<p>Manages a sliding window of DGL graphs.  Each graph is monkey-patched
+with <code class="docutils literal notranslate"><span class="pre">flare_fetch_state(h)</span></code> and <code class="docutils literal notranslate"><span class="pre">flare_store_state(h)</span></code> methods so
+that models can transparently read/write per-snapshot hidden state
+without knowing the underlying state management strategy.</p>
+<p>Two modes are supported:</p>
+<ul class="simple">
+<li><p><strong>pad</strong> — always zero-pad state to the required number of nodes
+(used during chunk-decay warmup or eval).</p></li>
+<li><p><strong>mix</strong> — merge current state with a detached copy of the previous
+state (used during multi-frame training with overlapping windows).</p></li>
+</ul>
+<dl>
+<dt>Args:</dt><dd><dl class="simple">
+<dt>ends_list: List of truncation endpoints (one per window slot).</dt><dd><p><code class="docutils literal notranslate"><span class="pre">None</span></code> means “full snapshot, no truncation”.</p>
+</dd>
+</dl>
+<p>mode: <code class="docutils literal notranslate"><span class="pre">&quot;pad&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;mix&quot;</span></code> — state initialization strategy.
+disable_routes: If True, remove routing info from added graphs.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">states</span> <span class="o">=</span> <span class="n">RNNStateManager</span><span class="p">(</span><span class="n">ends_list</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;pad&quot;</span><span class="p">)</span>
+<span class="n">states</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+<span class="n">blob</span> <span class="o">=</span> <span class="n">STGraphBlob</span><span class="p">(</span><span class="n">states</span><span class="p">)</span>
+<span class="c1"># model.forward(blob) will call graph.flare_fetch_state / flare_store_state</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RNNStateManager.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#RNNStateManager.add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RNNStateManager.add" title="Link to this definition"></a></dt>
+<dd><p>Add a new graph to the sliding window.</p>
+<p>Evicts the oldest graph if the window is full, then patches all
+graphs with state fetch/store methods bound to this manager.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>g: A DGL graph (block or plain) for the next snapshot.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RNNStateManager.apply_state">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">apply_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">old_state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#RNNStateManager.apply_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RNNStateManager.apply_state" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RNNStateManager.patch_dummy_methods">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">patch_dummy_methods</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#RNNStateManager.patch_dummy_methods"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RNNStateManager.patch_dummy_methods" title="Link to this definition"></a></dt>
+<dd><p>Attach no-op <code class="docutils literal notranslate"><span class="pre">flare_fetch_state</span></code> / <code class="docutils literal notranslate"><span class="pre">flare_store_state</span></code> to a graph.</p>
+<p>Used for single-graph eval/predict where no state manager exists.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>g: A DGL graph or block.</p>
+</dd>
+<dt>Returns:</dt><dd><p>The same graph <em>g</em> with dummy methods attached in-place.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RNNStateManager.state_detach">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">state_detach</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#RNNStateManager.state_detach"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RNNStateManager.state_detach" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RNNStateManager.state_mixing">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">state_mixing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">old_state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#RNNStateManager.state_mixing"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RNNStateManager.state_mixing" title="Link to this definition"></a></dt>
+<dd><p>Mix current state with a previous state to fill <em>end</em> rows.</p>
+<p>Rows <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">cur_size)</span></code> come from <em>state</em>; remaining rows
+<code class="docutils literal notranslate"><span class="pre">[cur_size,</span> <span class="pre">end)</span></code> come from <em>old_state</em> (detached).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>state: Current hidden state tensors.
+old_state: Previous hidden state tensors (same structure).
+end: Target number of rows.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Mixed state with exactly <em>end</em> rows per tensor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RNNStateManager.state_padding">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">state_padding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#RNNStateManager.state_padding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RNNStateManager.state_padding" title="Link to this definition"></a></dt>
+<dd><p>Pad or truncate every tensor in <em>state</em> to <em>end</em> rows.</p>
+<dl>
+<dt>Args:</dt><dd><dl class="simple">
+<dt>state: Nested structure (tensor, tuple, list, dict) of hidden</dt><dd><p>state tensors.</p>
+</dd>
+</dl>
+<p>end: Target number of rows for dim-0.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Same nested structure with all tensors resized to <em>end</em> rows.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">Route</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">send_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recv_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">send_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dist.ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#Route"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.Route" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Per-snapshot routing descriptor for distributed feature exchange.</p>
+<p>Describes how one partition communicates with all peers: which local
+nodes to send (<code class="docutils literal notranslate"><span class="pre">send_index</span></code>), how many features to send/recv per
+peer (<code class="docutils literal notranslate"><span class="pre">send_sizes</span></code> / <code class="docutils literal notranslate"><span class="pre">recv_sizes</span></code>), and the process group.</p>
+<dl>
+<dt>Attributes:</dt><dd><p>send_sizes: <code class="docutils literal notranslate"><span class="pre">[world_size]</span></code> — number of features to send to each peer.
+recv_sizes: <code class="docutils literal notranslate"><span class="pre">[world_size]</span></code> — number of features to receive from each peer.
+send_index: Local node indices to gather before sending.  <code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+<blockquote>
+<div><p>disables routing (single-rank mode).</p>
+</div></blockquote>
+<p>group: <code class="docutils literal notranslate"><span class="pre">torch.distributed</span></code> process group.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create per-partition blocks from a global graph</span>
+<span class="n">blocks</span> <span class="o">=</span> <span class="n">Route</span><span class="o">.</span><span class="n">from_graph</span><span class="p">(</span><span class="n">node_parts</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">,</span> <span class="n">num_parts</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">block</span> <span class="o">=</span> <span class="n">blocks</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span>
+<span class="n">route</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">route</span>           <span class="c1"># Route instance</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">route</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>        <span class="c1"># differentiable all-to-all exchange</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.async_forward">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">async_forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dist.ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#Route.async_forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.async_forward" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#Route.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.describe" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dist.ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#Route.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.forward" title="Link to this definition"></a></dt>
+<dd><p>Differentiable all-to-all feature exchange (blocking).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>x: Local feature tensor, shape <code class="docutils literal notranslate"><span class="pre">[num_dst_nodes,</span> <span class="pre">D]</span></code>.
+reverse: If True, run the reverse (gradient) direction.
+group: Override process group (defaults to <code class="docutils literal notranslate"><span class="pre">self.group</span></code>).</p>
+</dd>
+<dt>Returns:</dt><dd><p>Tensor <code class="docutils literal notranslate"><span class="pre">[num_dst_nodes</span> <span class="pre">+</span> <span class="pre">recv_len,</span> <span class="pre">D]</span></code> with received remote
+features appended after local features.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.from_empty">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_empty</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dtype</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">torch.int32</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">DGLBlock</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#Route.from_empty"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.from_empty" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.from_graph">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_parts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_parts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.dtype</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">torch.int32</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">DGLBlock</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#Route.from_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.from_graph" title="Link to this definition"></a></dt>
+<dd><p>Partition a global graph into per-partition DGL blocks with routing.</p>
+<dl>
+<dt>Args:</dt><dd><dl class="simple">
+<dt>node_parts: Per-node partition assignment tensor, shape</dt><dd><p><code class="docutils literal notranslate"><span class="pre">[num_nodes]</span></code>, or an <code class="docutils literal notranslate"><span class="pre">int</span></code> for single-partition mode
+(no routing, all nodes belong to one partition).</p>
+</dd>
+</dl>
+<p>edge_index: <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">num_edges]</span></code> global edge list.
+num_parts: Total number of partitions (inferred from</p>
+<blockquote>
+<div><p><em>node_parts</em> if not given).</p>
+</div></blockquote>
+<p>idtype: DGL integer dtype for the blocks.</p>
+</dd>
+<dt>Returns:</dt><dd><p>List of <code class="xref py py-class docutils literal notranslate"><span class="pre">DGLBlock</span></code> (length <code class="docutils literal notranslate"><span class="pre">num_parts</span></code>), each with
+global IDs in <code class="docutils literal notranslate"><span class="pre">srcdata[NID]</span></code> / <code class="docutils literal notranslate"><span class="pre">dstdata[NID]</span></code> /
+<code class="docutils literal notranslate"><span class="pre">edata[EID]</span></code> and a <code class="docutils literal notranslate"><span class="pre">block.route</span></code> <a class="reference internal" href="#starry_unigraph.runtime.flare.Route" title="starry_unigraph.runtime.flare.Route"><code class="xref py py-class docutils literal notranslate"><span class="pre">Route</span></code></a> attached.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">node_parts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">edge_index</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">],[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">]])</span>
+<span class="n">blocks</span> <span class="o">=</span> <span class="n">Route</span><span class="o">.</span><span class="n">from_graph</span><span class="p">(</span><span class="n">node_parts</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">,</span> <span class="n">num_parts</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.group">
+<span class="sig-name descname"><span class="pre">group</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dist.ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.group" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.pin_memory">
+<span class="sig-name descname"><span class="pre">pin_memory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.runtime.flare.Route" title="starry_unigraph.runtime.flare.Route"><span class="pre">Route</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#Route.pin_memory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.pin_memory" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.recv">
+<span class="sig-name descname"><span class="pre">recv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#Route.recv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.recv" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.recv_len">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">recv_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.recv_len" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.recv_sizes">
+<span class="sig-name descname"><span class="pre">recv_sizes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.recv_sizes" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.send">
+<span class="sig-name descname"><span class="pre">send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dist.ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#Route.send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.send" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.send_index">
+<span class="sig-name descname"><span class="pre">send_index</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.send_index" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.send_len">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">send_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.send_len" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.send_sizes">
+<span class="sig-name descname"><span class="pre">send_sizes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.send_sizes" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.Route.to">
+<span class="sig-name descname"><span class="pre">to</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">torch.device</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.dtype</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">non_blocking</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.runtime.flare.Route" title="starry_unigraph.runtime.flare.Route"><span class="pre">Route</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#Route.to"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.Route.to" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RouteAgent">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">RouteAgent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">route</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.flare.Route" title="starry_unigraph.runtime.flare.Route"><span class="pre">Route</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dist.ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#RouteAgent"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RouteAgent" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Executes a Route exchange with autograd support.</p>
+<p>Wraps <code class="xref py py-class docutils literal notranslate"><span class="pre">RouteSendFunction</span></code> and <code class="xref py py-class docutils literal notranslate"><span class="pre">RouteRecvFunction</span></code> to
+provide a two-phase (send → recv) API that records backward hooks for
+gradient propagation through the distributed exchange.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>route: The <a class="reference internal" href="#starry_unigraph.runtime.flare.Route" title="starry_unigraph.runtime.flare.Route"><code class="xref py py-class docutils literal notranslate"><span class="pre">Route</span></code></a> descriptor.
+reverse: If True, swap send/recv directions (for backward pass).
+group: Process group for collective communication.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RouteAgent.async_forward">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">async_forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#RouteAgent.async_forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RouteAgent.async_forward" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RouteAgent.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#RouteAgent.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RouteAgent.forward" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RouteAgent.recv">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">recv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#RouteAgent.recv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RouteAgent.recv" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.RouteAgent.send">
+<span class="sig-name descname"><span class="pre">send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/route.html#RouteAgent.send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.RouteAgent.send" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STGraphBlob">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">STGraphBlob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.RNNStateManager" title="starry_unigraph.runtime.flare.state.RNNStateManager"><span class="pre">RNNStateManager</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#STGraphBlob"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.STGraphBlob" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Sequence of DGL graphs with attached RNN state management.</p>
+<p>In <strong>training</strong>, backed by <a class="reference internal" href="#starry_unigraph.runtime.flare.RNNStateManager" title="starry_unigraph.runtime.flare.RNNStateManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">RNNStateManager</span></code></a> (multi-frame
+window, state padding/mixing).  In <strong>eval/predict</strong>, typically wraps
+a single graph with dummy state methods.</p>
+<p>The blob is iterable and supports <code class="docutils literal notranslate"><span class="pre">len()</span></code> and <code class="docutils literal notranslate"><span class="pre">__getitem__</span></code>.
+The most recent graph is accessible via <a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphBlob.current_graph" title="starry_unigraph.runtime.flare.STGraphBlob.current_graph"><code class="xref py py-attr docutils literal notranslate"><span class="pre">current_graph</span></code></a>.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>state: The <a class="reference internal" href="#starry_unigraph.runtime.flare.RNNStateManager" title="starry_unigraph.runtime.flare.RNNStateManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">RNNStateManager</span></code></a> that owns the graph window.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">blob</span> <span class="o">=</span> <span class="n">STGraphBlob</span><span class="p">(</span><span class="n">states</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">graph</span> <span class="ow">in</span> <span class="n">blob</span><span class="p">:</span>          <span class="c1"># iterate over window frames</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">dstdata</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span>
+<span class="n">last</span> <span class="o">=</span> <span class="n">blob</span><span class="o">.</span><span class="n">current_graph</span>   <span class="c1"># most recent snapshot</span>
+</pre></div>
+</div>
+<dl class="py property">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STGraphBlob.current_graph">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">current_graph</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Any</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.STGraphBlob.current_graph" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STGraphBlob.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#STGraphBlob.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.STGraphBlob.describe" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STGraphBlob.flare_is_full_snapshot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">flare_is_full_snapshot</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.STGraphBlob.flare_is_full_snapshot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STGraphBlob.snapshot_index">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">snapshot_index</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.STGraphBlob.snapshot_index" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STGraphLoader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">STGraphLoader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.PartitionData" title="starry_unigraph.data.PartitionData"><span class="pre">PartitionData</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.device</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_count</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stream</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.cuda.Stream</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/loader.html#STGraphLoader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.STGraphLoader" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Loads partition snapshots as DGL blocks with optional GPU prefetch.</p>
+<p>The loader owns a <code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code>, a CUDA stream for async
+transfer, and chunk-order metadata.  Iterating (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> or
+<code class="docutils literal notranslate"><span class="pre">__iter__</span></code>) yields <a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphBlob</span></code></a> objects that carry an
+<a class="reference internal" href="#starry_unigraph.runtime.flare.RNNStateManager" title="starry_unigraph.runtime.flare.RNNStateManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">RNNStateManager</span></code></a> for stateful training.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>rank: This worker’s distributed rank.
+size: Total number of distributed workers.
+data: The <code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code> to iterate over.
+device: Target <code class="docutils literal notranslate"><span class="pre">torch.device</span></code> for output blocks.
+chunk_count: Number of intra-partition chunks (for chunk-decay).
+chunk_index: Per-node chunk assignment tensor on <em>device</em>.
+stream: Optional dedicated CUDA stream for async H2D copies.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">loader</span> <span class="o">=</span> <span class="n">STGraphLoader</span><span class="o">.</span><span class="n">from_partition_data</span><span class="p">(</span>
+    <span class="n">data</span><span class="o">=</span><span class="n">partition_data</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
+    <span class="n">chunk_index</span><span class="o">=</span><span class="n">chunk_idx</span><span class="p">,</span>
+    <span class="n">rank</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">for</span> <span class="n">blob</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+    <span class="n">pred</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">blob</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STGraphLoader.build_snapshot_index">
+<span class="sig-name descname"><span class="pre">build_snapshot_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/loader.html#STGraphLoader.build_snapshot_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.STGraphLoader.build_snapshot_index" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STGraphLoader.fetch_graph">
+<span class="sig-name descname"><span class="pre">fetch_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">perm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ends</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable_routes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable_states</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DGLBlock</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/loader.html#STGraphLoader.fetch_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.STGraphLoader.fetch_graph" title="Link to this definition"></a></dt>
+<dd><p>Fetch a single snapshot as a DGLBlock, transferring to GPU.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>index: Snapshot index within this loader’s data.
+perm: Optional node permutation for chunk-decay reordering.
+ends: If set, truncate the block to this many dst nodes.
+disable_routes: If True, force <code class="docutils literal notranslate"><span class="pre">block.route</span> <span class="pre">=</span> <span class="pre">None</span></code>.
+disable_states: If True, do not attach RNN state methods.</p>
+</dd>
+<dt>Returns:</dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">DGLBlock</span></code> on <code class="docutils literal notranslate"><span class="pre">self.device</span></code> with global IDs in
+<code class="docutils literal notranslate"><span class="pre">srcdata[NID]</span></code> / <code class="docutils literal notranslate"><span class="pre">dstdata[NID]</span></code> / <code class="docutils literal notranslate"><span class="pre">edata[EID]</span></code>, plus
+node/edge features and optional <code class="docutils literal notranslate"><span class="pre">block.route</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STGraphLoader.from_partition_data">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_partition_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.PartitionData" title="starry_unigraph.data.PartitionData"><span class="pre">PartitionData</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">torch.device</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphLoader" title="starry_unigraph.runtime.flare.STGraphLoader"><span class="pre">STGraphLoader</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/loader.html#STGraphLoader.from_partition_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.STGraphLoader.from_partition_data" title="Link to this definition"></a></dt>
+<dd><p>Create a loader from a PartitionData with automatic pin_memory.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>data: Source partition data (kept on CPU, optionally pinned).
+device: Target device (<code class="docutils literal notranslate"><span class="pre">&quot;cuda:0&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code>, etc.).
+chunk_index: Per-node chunk assignment, shape <code class="docutils literal notranslate"><span class="pre">[num_dst_nodes]</span></code>.
+rank: Distributed rank (default 0 for single-rank).
+size: Distributed world size (default 1).</p>
+</dd>
+<dt>Returns:</dt><dd><p>A configured <a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphLoader" title="starry_unigraph.runtime.flare.STGraphLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphLoader</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STGraphLoader.reorder_chunks">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">reorder_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/loader.html#STGraphLoader.reorder_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.STGraphLoader.reorder_chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STWindowState">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">STWindowState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">full_snapshot_limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#STWindowState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.STWindowState" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Lightweight metadata tracker (not used in training path).</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.STWindowState.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/state.html#STWindowState.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.STWindowState.describe" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.build_flare_model">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">build_flare_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Module</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#build_flare_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.build_flare_model" title="Link to this definition"></a></dt>
+<dd><p>Instantiate a Flare temporal GNN model by name.</p>
+<dl>
+<dt>Args:</dt><dd><dl class="simple">
+<dt>model_name: One of <code class="docutils literal notranslate"><span class="pre">&quot;evolvegcn&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tgcn&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;mpnn_lstm&quot;</span></code>,</dt><dd><p><code class="docutils literal notranslate"><span class="pre">&quot;gcn&quot;</span></code> (case-insensitive).</p>
+</dd>
+</dl>
+<p>input_size: Input node feature dimension.
+hidden_size: Hidden dimension for GCN + recurrent layers.
+output_size: Output dimension (e.g. 1 for regression).</p>
+</dd>
+<dt>Returns:</dt><dd><p>An <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> ready for <code class="docutils literal notranslate"><span class="pre">.to(device)</span></code> and training.</p>
+</dd>
+<dt>Raises:</dt><dd><p>KeyError: If <em>model_name</em> is not recognized.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">build_flare_model</span><span class="p">(</span><span class="s2">&quot;mpnn_lstm&quot;</span><span class="p">,</span> <span class="n">input_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                           <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">output_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.extract_graph_labels">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">extract_graph_labels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob_or_graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><span class="pre">STGraphBlob</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DGLGraph</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#extract_graph_labels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.extract_graph_labels" title="Link to this definition"></a></dt>
+<dd><p>Extract ground-truth labels from the last graph in a blob or a single graph.</p>
+<p>Looks for <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code> in <code class="docutils literal notranslate"><span class="pre">dstdata</span></code> (block) or <code class="docutils literal notranslate"><span class="pre">ndata</span></code> (plain graph).
+Returns a <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">K]</span></code> tensor reshaped to column format, or <code class="docutils literal notranslate"><span class="pre">None</span></code>
+if no labels are present.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>blob_or_graph: An <a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphBlob</span></code></a> or a single DGL graph.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Labels tensor of shape <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">K]</span></code>, or <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.init_flare_training">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">init_flare_training</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runtime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle" title="starry_unigraph.types.RuntimeBundle"><span class="pre">RuntimeBundle</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext" title="starry_unigraph.types.SessionContext"><span class="pre">SessionContext</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">partition_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/training.html#init_flare_training"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.init_flare_training" title="Link to this definition"></a></dt>
+<dd><p>Initialize model, optimizer, and DDP for Flare DTDG training.</p>
+<p>Builds a Flare model (via <a class="reference internal" href="#starry_unigraph.runtime.flare.build_flare_model" title="starry_unigraph.runtime.flare.build_flare_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">build_flare_model()</span></code></a>), wraps it in
+<code class="docutils literal notranslate"><span class="pre">DistributedDataParallel</span></code> when distributed training is active,
+creates an Adam optimizer, computes a per-partition loss scale factor,
+and stores everything into the given <em>runtime</em>.</p>
+<dl>
+<dt>Args:</dt><dd><p>runtime: Shared <code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeBundle</span></code> to populate.
+session_ctx: Session context with config and distributed info.
+partition_data: <code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code> used to infer feature dims.
+device: Target device string (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;cuda:0&quot;</span></code>).  If <code class="docutils literal notranslate"><span class="pre">None</span></code>,</p>
+<blockquote>
+<div><p>read from <code class="docutils literal notranslate"><span class="pre">session_ctx.config[&quot;runtime&quot;][&quot;device&quot;]</span></code>.</p>
+</div></blockquote>
+</dd>
+<dt>Side effects:</dt><dd><p>Sets <code class="docutils literal notranslate"><span class="pre">runtime.model</span></code>, <code class="docutils literal notranslate"><span class="pre">runtime.optimizer</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">runtime.state[&quot;flare_model&quot;]</span></code> / <code class="docutils literal notranslate"><span class="pre">runtime.state[&quot;part_loss_scale&quot;]</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.run_flare_eval_step">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">run_flare_eval_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runtime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle" title="starry_unigraph.types.RuntimeBundle"><span class="pre">RuntimeBundle</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kernel_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/training.html#run_flare_eval_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.run_flare_eval_step" title="Link to this definition"></a></dt>
+<dd><p>Execute one Flare evaluation step (no-grad forward).</p>
+<p>For warmup batches (<code class="docutils literal notranslate"><span class="pre">batch.chain</span> <span class="pre">==</span> <span class="pre">&quot;snapshot_warmup&quot;</span></code>), only updates
+the persistent RNN state without computing loss.  Returns <code class="docutils literal notranslate"><span class="pre">{}</span></code> for
+warmup batches so the session loop skips them.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>runtime: <code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeBundle</span></code> with <code class="docutils literal notranslate"><span class="pre">model</span></code>.
+batch: A <code class="xref py py-class docutils literal notranslate"><span class="pre">DTDGBatch</span></code> with <code class="docutils literal notranslate"><span class="pre">batch.graph</span></code>.
+kernel_output: Extra metadata dict.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict with <code class="docutils literal notranslate"><span class="pre">&quot;loss&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;predictions&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;targets&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;meta&quot;</span></code>,
+or empty dict <code class="docutils literal notranslate"><span class="pre">{}</span></code> for warmup batches.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.run_flare_predict_step">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">run_flare_predict_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runtime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle" title="starry_unigraph.types.RuntimeBundle"><span class="pre">RuntimeBundle</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kernel_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/training.html#run_flare_predict_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.run_flare_predict_step" title="Link to this definition"></a></dt>
+<dd><p>Execute one Flare prediction step (no-grad forward, no loss).</p>
+<p>Same warmup handling as <a class="reference internal" href="#starry_unigraph.runtime.flare.run_flare_eval_step" title="starry_unigraph.runtime.flare.run_flare_eval_step"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_flare_eval_step()</span></code></a>.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>runtime: <code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeBundle</span></code> with <code class="docutils literal notranslate"><span class="pre">model</span></code>.
+batch: A <code class="xref py py-class docutils literal notranslate"><span class="pre">DTDGBatch</span></code> with <code class="docutils literal notranslate"><span class="pre">batch.graph</span></code>.
+kernel_output: Extra metadata dict.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict with <code class="docutils literal notranslate"><span class="pre">&quot;predictions&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;targets&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;meta&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">{}</span></code>
+for warmup batches.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.run_flare_train_step">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.</span></span><span class="sig-name descname"><span class="pre">run_flare_train_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runtime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle" title="starry_unigraph.types.RuntimeBundle"><span class="pre">RuntimeBundle</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kernel_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/training.html#run_flare_train_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.run_flare_train_step" title="Link to this definition"></a></dt>
+<dd><p>Execute one Flare training step (forward + backward + optimizer).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>runtime: <code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeBundle</span></code> with <code class="docutils literal notranslate"><span class="pre">model</span></code> and <code class="docutils literal notranslate"><span class="pre">optimizer</span></code>.
+batch: An <a class="reference internal" href="#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphBlob</span></code></a> (multi-frame training blob).
+kernel_output: Extra metadata dict (passed through to output).</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict with keys <code class="docutils literal notranslate"><span class="pre">&quot;loss&quot;</span></code> (float), <code class="docutils literal notranslate"><span class="pre">&quot;predictions&quot;</span></code> (list),
+<code class="docutils literal notranslate"><span class="pre">&quot;targets&quot;</span></code> (list or None), <code class="docutils literal notranslate"><span class="pre">&quot;meta&quot;</span></code> (dict).</p>
+</dd>
+<dt>Raises:</dt><dd><p>RuntimeError: If no labels are found in the batch.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.flare.loader.html">starry_unigraph.runtime.flare.loader module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.loader.html#starry_unigraph.runtime.flare.loader.STGraphLoader"><code class="docutils literal notranslate"><span class="pre">STGraphLoader</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.loader.html#starry_unigraph.runtime.flare.loader.STGraphLoader.build_snapshot_index"><code class="docutils literal notranslate"><span class="pre">STGraphLoader.build_snapshot_index()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.loader.html#starry_unigraph.runtime.flare.loader.STGraphLoader.fetch_graph"><code class="docutils literal notranslate"><span class="pre">STGraphLoader.fetch_graph()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.loader.html#starry_unigraph.runtime.flare.loader.STGraphLoader.from_partition_data"><code class="docutils literal notranslate"><span class="pre">STGraphLoader.from_partition_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.loader.html#starry_unigraph.runtime.flare.loader.STGraphLoader.reorder_chunks"><code class="docutils literal notranslate"><span class="pre">STGraphLoader.reorder_chunks()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html">starry_unigraph.runtime.flare.state module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.RNNStateManager"><code class="docutils literal notranslate"><span class="pre">RNNStateManager</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.RNNStateManager.add"><code class="docutils literal notranslate"><span class="pre">RNNStateManager.add()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.RNNStateManager.apply_state"><code class="docutils literal notranslate"><span class="pre">RNNStateManager.apply_state()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.RNNStateManager.patch_dummy_methods"><code class="docutils literal notranslate"><span class="pre">RNNStateManager.patch_dummy_methods()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.RNNStateManager.state_detach"><code class="docutils literal notranslate"><span class="pre">RNNStateManager.state_detach()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.RNNStateManager.state_mixing"><code class="docutils literal notranslate"><span class="pre">RNNStateManager.state_mixing()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.RNNStateManager.state_padding"><code class="docutils literal notranslate"><span class="pre">RNNStateManager.state_padding()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.STGraphBlob"><code class="docutils literal notranslate"><span class="pre">STGraphBlob</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.STGraphBlob.current_graph"><code class="docutils literal notranslate"><span class="pre">STGraphBlob.current_graph</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.STGraphBlob.describe"><code class="docutils literal notranslate"><span class="pre">STGraphBlob.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.STGraphBlob.flare_is_full_snapshot"><code class="docutils literal notranslate"><span class="pre">STGraphBlob.flare_is_full_snapshot</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.STGraphBlob.snapshot_index"><code class="docutils literal notranslate"><span class="pre">STGraphBlob.snapshot_index</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.STWindowState"><code class="docutils literal notranslate"><span class="pre">STWindowState</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.state.html#starry_unigraph.runtime.flare.state.STWindowState.describe"><code class="docutils literal notranslate"><span class="pre">STWindowState.describe()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html">starry_unigraph.runtime.flare.route module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route"><code class="docutils literal notranslate"><span class="pre">Route</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.async_forward"><code class="docutils literal notranslate"><span class="pre">Route.async_forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.describe"><code class="docutils literal notranslate"><span class="pre">Route.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.forward"><code class="docutils literal notranslate"><span class="pre">Route.forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.from_empty"><code class="docutils literal notranslate"><span class="pre">Route.from_empty()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.from_graph"><code class="docutils literal notranslate"><span class="pre">Route.from_graph()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.group"><code class="docutils literal notranslate"><span class="pre">Route.group</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.pin_memory"><code class="docutils literal notranslate"><span class="pre">Route.pin_memory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.recv"><code class="docutils literal notranslate"><span class="pre">Route.recv()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.recv_len"><code class="docutils literal notranslate"><span class="pre">Route.recv_len</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.recv_sizes"><code class="docutils literal notranslate"><span class="pre">Route.recv_sizes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.send"><code class="docutils literal notranslate"><span class="pre">Route.send()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.send_index"><code class="docutils literal notranslate"><span class="pre">Route.send_index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.send_len"><code class="docutils literal notranslate"><span class="pre">Route.send_len</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.send_sizes"><code class="docutils literal notranslate"><span class="pre">Route.send_sizes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route.to"><code class="docutils literal notranslate"><span class="pre">Route.to()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteAgent"><code class="docutils literal notranslate"><span class="pre">RouteAgent</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteAgent.async_forward"><code class="docutils literal notranslate"><span class="pre">RouteAgent.async_forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteAgent.forward"><code class="docutils literal notranslate"><span class="pre">RouteAgent.forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteAgent.recv"><code class="docutils literal notranslate"><span class="pre">RouteAgent.recv()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteAgent.send"><code class="docutils literal notranslate"><span class="pre">RouteAgent.send()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteContext"><code class="docutils literal notranslate"><span class="pre">RouteContext</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteContext.backward_recv"><code class="docutils literal notranslate"><span class="pre">RouteContext.backward_recv()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteContext.backward_send"><code class="docutils literal notranslate"><span class="pre">RouteContext.backward_send()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteContext.forward_recv"><code class="docutils literal notranslate"><span class="pre">RouteContext.forward_recv()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteContext.forward_send"><code class="docutils literal notranslate"><span class="pre">RouteContext.forward_send()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteRecvFunction"><code class="docutils literal notranslate"><span class="pre">RouteRecvFunction</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteRecvFunction.backward"><code class="docutils literal notranslate"><span class="pre">RouteRecvFunction.backward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteRecvFunction.forward"><code class="docutils literal notranslate"><span class="pre">RouteRecvFunction.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteSendFunction"><code class="docutils literal notranslate"><span class="pre">RouteSendFunction</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteSendFunction.backward"><code class="docutils literal notranslate"><span class="pre">RouteSendFunction.backward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.RouteSendFunction.forward"><code class="docutils literal notranslate"><span class="pre">RouteSendFunction.forward()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html">starry_unigraph.runtime.flare.models module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareEvolveGCN"><code class="docutils literal notranslate"><span class="pre">FlareEvolveGCN</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareEvolveGCN.forward"><code class="docutils literal notranslate"><span class="pre">FlareEvolveGCN.forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareEvolveGCN.training"><code class="docutils literal notranslate"><span class="pre">FlareEvolveGCN.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareMPNNLSTM"><code class="docutils literal notranslate"><span class="pre">FlareMPNNLSTM</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareMPNNLSTM.forward"><code class="docutils literal notranslate"><span class="pre">FlareMPNNLSTM.forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareMPNNLSTM.training"><code class="docutils literal notranslate"><span class="pre">FlareMPNNLSTM.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareModelSpec"><code class="docutils literal notranslate"><span class="pre">FlareModelSpec</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareModelSpec.model_cls"><code class="docutils literal notranslate"><span class="pre">FlareModelSpec.model_cls</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareTGCN"><code class="docutils literal notranslate"><span class="pre">FlareTGCN</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareTGCN.forward"><code class="docutils literal notranslate"><span class="pre">FlareTGCN.forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.FlareTGCN.training"><code class="docutils literal notranslate"><span class="pre">FlareTGCN.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.GCNStack"><code class="docutils literal notranslate"><span class="pre">GCNStack</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.GCNStack.forward_graph"><code class="docutils literal notranslate"><span class="pre">GCNStack.forward_graph()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.GCNStack.layerwise"><code class="docutils literal notranslate"><span class="pre">GCNStack.layerwise()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.GCNStack.training"><code class="docutils literal notranslate"><span class="pre">GCNStack.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.MatGRUCell"><code class="docutils literal notranslate"><span class="pre">MatGRUCell</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.MatGRUCell.forward"><code class="docutils literal notranslate"><span class="pre">MatGRUCell.forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.MatGRUCell.training"><code class="docutils literal notranslate"><span class="pre">MatGRUCell.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.build_flare_model"><code class="docutils literal notranslate"><span class="pre">build_flare_model()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.models.html#starry_unigraph.runtime.flare.models.extract_graph_labels"><code class="docutils literal notranslate"><span class="pre">extract_graph_labels()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.flare.training.html">starry_unigraph.runtime.flare.training module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.training.html#starry_unigraph.runtime.flare.training.init_flare_training"><code class="docutils literal notranslate"><span class="pre">init_flare_training()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.training.html#starry_unigraph.runtime.flare.training.run_flare_eval_step"><code class="docutils literal notranslate"><span class="pre">run_flare_eval_step()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.training.html#starry_unigraph.runtime.flare.training.run_flare_predict_step"><code class="docutils literal notranslate"><span class="pre">run_flare_predict_step()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.flare.training.html#starry_unigraph.runtime.flare.training.run_flare_train_step"><code class="docutils literal notranslate"><span class="pre">run_flare_train_step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="starry_unigraph.runtime.base.html" class="btn btn-neutral float-left" title="starry_unigraph.runtime.base module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.runtime.flare.loader.html" class="btn btn-neutral float-right" title="starry_unigraph.runtime.flare.loader module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

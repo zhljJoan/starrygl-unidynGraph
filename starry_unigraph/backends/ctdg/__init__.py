@@ -1,9 +1,20 @@
-from .data import CTDGDataBatch, TGTemporalDataset
-from .historical_cache import AdaParameter, CTDGHistoricalCache
-from .memory import CTDGMemoryBank
-from .model import CTDGLinkPredictor, CTDGMemoryUpdater
-from .route import AsyncExchangeHandle, CTDGFeatureRoute
-from .sampler import CTDGSampleOutput, NativeTemporalSampler
+# CTDG backend moved to starry_unigraph.runtime.online
+# This module is kept for backward compatibility re-exports.
+from starry_unigraph.runtime.online import (
+    AdaParameter,
+    AsyncExchangeHandle,
+    CTDGDataBatch,
+    CTDGFeatureRoute,
+    CTDGHistoricalCache,
+    CTDGLinkPredictor,
+    CTDGMemoryBank,
+    CTDGMemoryUpdater,
+    CTDGModelOutput,
+    CTDGOnlineRuntime,
+    CTDGSampleOutput,
+    NativeTemporalSampler,
+    TGTemporalDataset,
+)
 
 __all__ = [
     "AdaParameter",
@@ -14,6 +25,8 @@ __all__ = [
     "CTDGLinkPredictor",
     "CTDGMemoryBank",
     "CTDGMemoryUpdater",
+    "CTDGModelOutput",
+    "CTDGOnlineRuntime",
     "CTDGSampleOutput",
     "NativeTemporalSampler",
     "TGTemporalDataset",

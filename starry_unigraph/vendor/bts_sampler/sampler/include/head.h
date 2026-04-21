@@ -50,7 +50,6 @@ template <class K, class V>
 using HashM  = phmap::parallel_flat_hash_map<K, V EXTRAARGS>;
 
 
-// ��������
 template<typename T>
 inline py::array vec2npy(const std::vector<T> &vec)
 {

@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -7,15 +5,19 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph.core package &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -34,6 +36,9 @@
           <a href="../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -343,7 +348,7 @@
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="starry_unigraph.core.CTDGSamplerCore.attach_native_sampler">
-<span class="sig-name descname"><span class="pre">attach_native_sampler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">graph_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">row</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_part</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_part</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_part</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">probability</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/core/ctdg_kernel.html#CTDGSamplerCore.attach_native_sampler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.core.CTDGSamplerCore.attach_native_sampler" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">attach_native_sampler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">graph_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">row</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_part</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_part</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_part</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">probability</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/core/ctdg_kernel.html#CTDGSamplerCore.attach_native_sampler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.core.CTDGSamplerCore.attach_native_sampler" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -363,7 +368,7 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="starry_unigraph.core.CTDGSamplerCore.feature_route">
-<span class="sig-name descname"><span class="pre">feature_route</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.FeatureRoutePlan" title="starry_unigraph.core.ctdg_kernel.FeatureRoutePlan"><span class="pre">FeatureRoutePlan</span></a></em><a class="headerlink" href="#starry_unigraph.core.CTDGSamplerCore.feature_route" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">feature_route</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#starry_unigraph.core.FeatureRoutePlan" title="starry_unigraph.core.FeatureRoutePlan"><span class="pre">FeatureRoutePlan</span></a></em><a class="headerlink" href="#starry_unigraph.core.CTDGSamplerCore.feature_route" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -373,7 +378,7 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="starry_unigraph.core.CTDGSamplerCore.native_sampler">
-<span class="sig-name descname"><span class="pre">native_sampler</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.native.bts_sampler.html#starry_unigraph.native.bts_sampler.BTSNativeSampler" title="starry_unigraph.native.bts_sampler.BTSNativeSampler"><span class="pre">BTSNativeSampler</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.core.CTDGSamplerCore.native_sampler" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">native_sampler</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.native.html#starry_unigraph.native.BTSNativeSampler" title="starry_unigraph.native.BTSNativeSampler"><span class="pre">BTSNativeSampler</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.core.CTDGSamplerCore.native_sampler" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -393,7 +398,7 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="starry_unigraph.core.CTDGSamplerCore.state_sync">
-<span class="sig-name descname"><span class="pre">state_sync</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.StateSyncPlan" title="starry_unigraph.core.ctdg_kernel.StateSyncPlan"><span class="pre">StateSyncPlan</span></a></em><a class="headerlink" href="#starry_unigraph.core.CTDGSamplerCore.state_sync" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">state_sync</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#starry_unigraph.core.StateSyncPlan" title="starry_unigraph.core.StateSyncPlan"><span class="pre">StateSyncPlan</span></a></em><a class="headerlink" href="#starry_unigraph.core.CTDGSamplerCore.state_sync" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -952,7 +957,7 @@
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="starry_unigraph.core.StateWriteback.delta">
-<span class="sig-name descname"><span class="pre">delta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.StateDelta" title="starry_unigraph.core.protocol.StateDelta"><span class="pre">StateDelta</span></a></em><a class="headerlink" href="#starry_unigraph.core.StateWriteback.delta" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">delta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#starry_unigraph.core.StateDelta" title="starry_unigraph.core.StateDelta"><span class="pre">StateDelta</span></a></em><a class="headerlink" href="#starry_unigraph.core.StateWriteback.delta" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -962,7 +967,7 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="starry_unigraph.core.StateWriteback.handle">
-<span class="sig-name descname"><span class="pre">handle</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.core.protocol.html#starry_unigraph.core.protocol.StateHandle" title="starry_unigraph.core.protocol.StateHandle"><span class="pre">StateHandle</span></a></em><a class="headerlink" href="#starry_unigraph.core.StateWriteback.handle" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">handle</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#starry_unigraph.core.StateHandle" title="starry_unigraph.core.StateHandle"><span class="pre">StateHandle</span></a></em><a class="headerlink" href="#starry_unigraph.core.StateWriteback.handle" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -970,6 +975,64 @@
 <span class="sig-name descname"><span class="pre">version</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.core.StateWriteback.version" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.core.normalize_split_ratio">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.core.</span></span><span class="sig-name descname"><span class="pre">normalize_split_ratio</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split_ratio</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/core/data_split.html#normalize_split_ratio"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.core.normalize_split_ratio" title="Link to this definition"></a></dt>
+<dd><p>Normalize a split ratio dict so its values sum to 1.0.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><dl class="simple">
+<dt>split_ratio: Dictionary with keys <code class="docutils literal notranslate"><span class="pre">&quot;train&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;val&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;test&quot;</span></code></dt><dd><p>mapping to non-negative floats.  <code class="docutils literal notranslate"><span class="pre">None</span></code> or missing keys use
+defaults (0.7 / 0.15 / 0.15).</p>
+</dd>
+</dl>
+</dd>
+<dt>Returns:</dt><dd><p>A new dict whose three values sum to exactly 1.0.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">normalize_split_ratio</span><span class="p">({</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span>
+<span class="go">{&#39;train&#39;: 0.8, &#39;val&#39;: 0.1, &#39;test&#39;: 0.1}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">normalize_split_ratio</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+<span class="go">{&#39;train&#39;: 0.7, &#39;val&#39;: 0.15, &#39;test&#39;: 0.15}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.core.split_bounds">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.core.</span></span><span class="sig-name descname"><span class="pre">split_bounds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">total</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_ratio</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/core/data_split.html#split_bounds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.core.split_bounds" title="Link to this definition"></a></dt>
+<dd><p>Return <code class="docutils literal notranslate"><span class="pre">(start,</span> <span class="pre">end)</span></code> index range for the requested <em>split</em>.</p>
+<p>The sequence <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">total)</span></code> is divided contiguously into three consecutive
+segments: train <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">t)</span></code>, val <code class="docutils literal notranslate"><span class="pre">[t,</span> <span class="pre">v)</span></code>, test <code class="docutils literal notranslate"><span class="pre">[v,</span> <span class="pre">total)</span></code>.  Rounding
+remainders are given to the splits with the largest fractional parts, and
+every split with a positive ratio is guaranteed at least one element when
+<em>total &gt;= 3</em>.</p>
+<dl>
+<dt>Args:</dt><dd><p>total: Length of the full sequence (number of snapshots or events).
+split: One of <code class="docutils literal notranslate"><span class="pre">&quot;train&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;val&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;test&quot;</span></code>.
+split_ratio: Normalized ratio dict (values sum to 1.0), typically</p>
+<blockquote>
+<div><p>produced by <a class="reference internal" href="#starry_unigraph.core.normalize_split_ratio" title="starry_unigraph.core.normalize_split_ratio"><code class="xref py py-func docutils literal notranslate"><span class="pre">normalize_split_ratio()</span></code></a>.</p>
+</div></blockquote>
+</dd>
+<dt>Returns:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">(start,</span> <span class="pre">end)</span></code> — a half-open index range suitable for
+<code class="docutils literal notranslate"><span class="pre">range(start,</span> <span class="pre">end)</span></code> or slice <code class="docutils literal notranslate"><span class="pre">[start:end]</span></code>.</p>
+</dd>
+<dt>Raises:</dt><dd><p>KeyError: If <em>split</em> is not <code class="docutils literal notranslate"><span class="pre">&quot;train&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;val&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;test&quot;</span></code>.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ratio</span> <span class="o">=</span> <span class="n">normalize_split_ratio</span><span class="p">({</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">split_bounds</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">ratio</span><span class="p">)</span>
+<span class="go">(0, 140)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">split_bounds</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">,</span> <span class="n">ratio</span><span class="p">)</span>
+<span class="go">(140, 170)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">split_bounds</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="n">ratio</span><span class="p">)</span>
+<span class="go">(170, 200)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <section id="submodules">
@@ -1160,6 +1223,11 @@
 <li class="toctree-l3"><a class="reference internal" href="starry_unigraph.core.ctdg_kernel.html#starry_unigraph.core.ctdg_kernel.StateSyncPlan.version"><code class="docutils literal notranslate"><span class="pre">StateSyncPlan.version</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.core.data_split.html">starry_unigraph.core.data_split module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.data_split.html#starry_unigraph.core.data_split.normalize_split_ratio"><code class="docutils literal notranslate"><span class="pre">normalize_split_ratio()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.core.data_split.html#starry_unigraph.core.data_split.split_bounds"><code class="docutils literal notranslate"><span class="pre">split_bounds()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="starry_unigraph.core.dtdg.html">starry_unigraph.core.dtdg module</a><ul>

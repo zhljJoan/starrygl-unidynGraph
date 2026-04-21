@@ -86,3 +86,42 @@ set_target_properties(libstarrygl_sampler PROPERTIES
   BUILD_RPATH "${TORCH_LIBRARY_DIRS_RAW}"
   INSTALL_RPATH "${TORCH_LIBRARY_DIRS_RAW}"
 )
+
+set(SPLIT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/starry_unigraph/vendor/bts_sampler/split")
+
+add_library(adaptive_split_cpp MODULE
+  "${SPLIT_ROOT}/time_split.cpp"
+)
+
+target_include_directories(adaptive_split_cpp PRIVATE
+  "${Python3_INCLUDE_DIRS}"
+  ${TORCH_INCLUDE_DIRS}
+)
+
+target_link_directories(adaptive_split_cpp PRIVATE
+  ${TORCH_LIBRARY_DIRS}
+)
+
+target_compile_options(adaptive_split_cpp PRIVATE -O3)
+target_compile_definitions(adaptive_split_cpp PRIVATE
+  TORCH_EXTENSION_NAME=adaptive_split_cpp
+  _GLIBCXX_USE_CXX11_ABI=${TORCH_CXX11_ABI}
+)
+
+target_link_libraries(adaptive_split_cpp PRIVATE
+  c10
+  torch
+  torch_cpu
+)
+
+if(TORCH_PYTHON_LIBRARY)
+  target_link_libraries(adaptive_split_cpp PRIVATE "${TORCH_PYTHON_LIBRARY}")
+endif()
+
+set_target_properties(adaptive_split_cpp PROPERTIES
+  PREFIX ""
+  SUFFIX ".so"
+  LIBRARY_OUTPUT_DIRECTORY "${BTS_OUTPUT_DIR}"
+  BUILD_RPATH "${TORCH_LIBRARY_DIRS_RAW}"
+  INSTALL_RPATH "${TORCH_LIBRARY_DIRS_RAW}"
+)

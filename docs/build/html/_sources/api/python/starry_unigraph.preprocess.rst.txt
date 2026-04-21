@@ -13,3 +13,4 @@ Submodules
    :maxdepth: 4
 
    starry_unigraph.preprocess.base
+   starry_unigraph.preprocess.dtdg_prepare

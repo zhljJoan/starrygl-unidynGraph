@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.runtime.online package &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="starry_unigraph.runtime.online.data module" href="starry_unigraph.runtime.online.data.html" />
+    <link rel="prev" title="starry_unigraph.runtime.flare.training module" href="starry_unigraph.runtime.flare.training.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="modules.html">starry_unigraph</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.html">starry_unigraph package</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.runtime.html">starry_unigraph.runtime package</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.runtime.online package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/api/python/starry_unigraph.runtime.online.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-starry_unigraph.runtime.online">
+<span id="starry-unigraph-runtime-online-package"></span><h1>starry_unigraph.runtime.online package<a class="headerlink" href="#module-starry_unigraph.runtime.online" title="Link to this heading"></a></h1>
+<p>Online runtime — CTDG (Continuous-Time Dynamic Graph) backend.</p>
+<p>This subpackage implements the online pipeline for event-driven temporal
+graph neural networks (e.g. TGN / MemShare) with:</p>
+<ul class="simple">
+<li><p><strong>Per-node memory + K-slot mailbox</strong> — <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGMemoryBank" title="starry_unigraph.runtime.online.CTDGMemoryBank"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGMemoryBank</span></code></a> stores
+and updates node embeddings and mailbox slots, with distributed async
+sync support via <code class="docutils literal notranslate"><span class="pre">all_to_all</span></code>.</p></li>
+<li><p><strong>Native BTS temporal sampler</strong> — <a class="reference internal" href="#starry_unigraph.runtime.online.NativeTemporalSampler" title="starry_unigraph.runtime.online.NativeTemporalSampler"><code class="xref py py-class docutils literal notranslate"><span class="pre">NativeTemporalSampler</span></code></a> wraps
+the C++ BTS sampler for multi-hop temporal neighbor sampling.</p></li>
+<li><p><strong>Historical cache</strong> — <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGHistoricalCache" title="starry_unigraph.runtime.online.CTDGHistoricalCache"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGHistoricalCache</span></code></a> with adaptive
+threshold (<a class="reference internal" href="#starry_unigraph.runtime.online.AdaParameter" title="starry_unigraph.runtime.online.AdaParameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">AdaParameter</span></code></a>) to skip unnecessary syncs.</p></li>
+<li><p><strong>Temporal transformer attention</strong> — <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGLinkPredictor" title="starry_unigraph.runtime.online.CTDGLinkPredictor"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGLinkPredictor</span></code></a> with
+<a class="reference internal" href="#starry_unigraph.runtime.online.CTDGMemoryUpdater" title="starry_unigraph.runtime.online.CTDGMemoryUpdater"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGMemoryUpdater</span></code></a> (GRU over mailbox history).</p></li>
+<li><p><strong>End-to-end runtime</strong> — <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGOnlineRuntime" title="starry_unigraph.runtime.online.CTDGOnlineRuntime"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGOnlineRuntime</span></code></a> orchestrates the
+full train/eval/predict loop including negative sampling, memory update,
+conv, scoring, and async distributed sync.</p></li>
+</ul>
+<p>Typical usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.online</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TGTemporalDataset</span><span class="p">,</span> <span class="n">NativeTemporalSampler</span><span class="p">,</span> <span class="n">CTDGMemoryBank</span><span class="p">,</span>
+    <span class="n">CTDGLinkPredictor</span><span class="p">,</span> <span class="n">CTDGOnlineRuntime</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">TGTemporalDataset</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+<span class="n">runtime</span> <span class="o">=</span> <span class="n">CTDGOnlineRuntime</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span> <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">,</span>
+                             <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">runtime</span><span class="o">.</span><span class="n">iter_batches</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">200</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">train_step</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AdaParameter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">AdaParameter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.95</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/cache.html#AdaParameter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.AdaParameter" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Adaptive threshold for HistoricalCache — adjusts based on sync/compute latency ratio.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AdaParameter.alpha">
+<span class="sig-name descname"><span class="pre">alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.5</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.AdaParameter.alpha" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AdaParameter.max_alpha">
+<span class="sig-name descname"><span class="pre">max_alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.95</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.AdaParameter.max_alpha" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AdaParameter.min_alpha">
+<span class="sig-name descname"><span class="pre">min_alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.AdaParameter.min_alpha" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AdaParameter.update_from_latency">
+<span class="sig-name descname"><span class="pre">update_from_latency</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sync_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compute_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/cache.html#AdaParameter.update_from_latency"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.AdaParameter.update_from_latency" title="Link to this definition"></a></dt>
+<dd><p>Tighten threshold when sync is cheap relative to compute; loosen otherwise.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AsyncExchangeHandle">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">AsyncExchangeHandle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_buffer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recv_counts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slot_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/route.html#AsyncExchangeHandle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.AsyncExchangeHandle" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Handle for a non-blocking all_to_all_single exchange.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AsyncExchangeHandle.device">
+<span class="sig-name descname"><span class="pre">device</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.AsyncExchangeHandle.device" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AsyncExchangeHandle.handle">
+<span class="sig-name descname"><span class="pre">handle</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Any</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.AsyncExchangeHandle.handle" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AsyncExchangeHandle.output_buffer">
+<span class="sig-name descname"><span class="pre">output_buffer</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.AsyncExchangeHandle.output_buffer" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AsyncExchangeHandle.recv_counts">
+<span class="sig-name descname"><span class="pre">recv_counts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.runtime.online.AsyncExchangeHandle.recv_counts" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AsyncExchangeHandle.slot_width">
+<span class="sig-name descname"><span class="pre">slot_width</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.AsyncExchangeHandle.slot_width" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AsyncExchangeHandle.value_dim">
+<span class="sig-name descname"><span class="pre">value_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.AsyncExchangeHandle.value_dim" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.AsyncExchangeHandle.wait">
+<span class="sig-name descname"><span class="pre">wait</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/route.html#AsyncExchangeHandle.wait"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.AsyncExchangeHandle.wait" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGDataBatch">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">CTDGDataBatch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_feat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/data.html#CTDGDataBatch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGDataBatch" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A mini-batch of continuous-time temporal events.</p>
+<dl class="simple">
+<dt>Attributes:</dt><dd><p>index: Batch index within the current epoch.
+split: <code class="docutils literal notranslate"><span class="pre">&quot;train&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;val&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;test&quot;</span></code>.
+event_ids: Global event indices, shape <code class="docutils literal notranslate"><span class="pre">[B]</span></code>.
+src: Source node IDs, shape <code class="docutils literal notranslate"><span class="pre">[B]</span></code>.
+dst: Destination node IDs, shape <code class="docutils literal notranslate"><span class="pre">[B]</span></code>.
+ts: Timestamps, shape <code class="docutils literal notranslate"><span class="pre">[B]</span></code>.
+edge_feat: Edge feature matrix, shape <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">E]</span></code>.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGDataBatch.dst">
+<span class="sig-name descname"><span class="pre">dst</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGDataBatch.dst" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGDataBatch.edge_feat">
+<span class="sig-name descname"><span class="pre">edge_feat</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGDataBatch.edge_feat" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGDataBatch.event_ids">
+<span class="sig-name descname"><span class="pre">event_ids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGDataBatch.event_ids" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGDataBatch.index">
+<span class="sig-name descname"><span class="pre">index</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGDataBatch.index" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGDataBatch.size">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGDataBatch.size" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGDataBatch.split">
+<span class="sig-name descname"><span class="pre">split</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGDataBatch.split" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGDataBatch.src">
+<span class="sig-name descname"><span class="pre">src</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGDataBatch.src" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGDataBatch.ts">
+<span class="sig-name descname"><span class="pre">ts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGDataBatch.ts" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGFeatureRoute">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">CTDGFeatureRoute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">route_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">world_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">replicated_memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'bool'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/route.html#CTDGFeatureRoute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGFeatureRoute" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGFeatureRoute.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/route.html#CTDGFeatureRoute.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGFeatureRoute.describe" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGFeatureRoute.exchange">
+<span class="sig-name descname"><span class="pre">exchange</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext" title="starry_unigraph.types.DistributedContext"><span class="pre">DistributedContext</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_op</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">torch.Tensor</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#starry_unigraph.runtime.online.AsyncExchangeHandle" title="starry_unigraph.runtime.online.AsyncExchangeHandle"><span class="pre">AsyncExchangeHandle</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/route.html#CTDGFeatureRoute.exchange"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGFeatureRoute.exchange" title="Link to this definition"></a></dt>
+<dd><p>Exchange node features with all peers via all-to-all.</p>
+<dl>
+<dt>Args:</dt><dd><p>ctx: <code class="xref py py-class docutils literal notranslate"><span class="pre">DistributedContext</span></code> with rank / world_size.
+node_ids: Global node IDs to exchange, shape <code class="docutils literal notranslate"><span class="pre">[N]</span></code>.
+values: Feature values to exchange, shape <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">D]</span></code>.
+async_op: If True, return an <a class="reference internal" href="#starry_unigraph.runtime.online.AsyncExchangeHandle" title="starry_unigraph.runtime.online.AsyncExchangeHandle"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncExchangeHandle</span></code></a></p>
+<blockquote>
+<div><p>instead of blocking.</p>
+</div></blockquote>
+</dd>
+<dt>Returns:</dt><dd><p>If <em>async_op</em> is False: <code class="docutils literal notranslate"><span class="pre">(merged_ids,</span> <span class="pre">merged_values)</span></code> with
+features from all ranks concatenated.  If True: an
+<a class="reference internal" href="#starry_unigraph.runtime.online.AsyncExchangeHandle" title="starry_unigraph.runtime.online.AsyncExchangeHandle"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncExchangeHandle</span></code></a> to call <code class="docutils literal notranslate"><span class="pre">.wait()</span></code> on later.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGFeatureRoute.replicated_memory">
+<span class="sig-name descname"><span class="pre">replicated_memory</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGFeatureRoute.replicated_memory" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGFeatureRoute.route_type">
+<span class="sig-name descname"><span class="pre">route_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGFeatureRoute.route_type" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGFeatureRoute.world_size">
+<span class="sig-name descname"><span class="pre">world_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGFeatureRoute.world_size" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGHistoricalCache">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">CTDGHistoricalCache</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_shared</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shared_node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ada_param</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.online.AdaParameter" title="starry_unigraph.runtime.online.AdaParameter"><span class="pre">AdaParameter</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/cache.html#CTDGHistoricalCache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGHistoricalCache" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Per-rank cache for shared-node memory snapshots.</p>
+<p>Tracks the last-synced memory for shared nodes and provides a boolean mask
+indicating which nodes have changed enough to warrant a new sync.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGHistoricalCache.bind_shared_nodes">
+<span class="sig-name descname"><span class="pre">bind_shared_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shared_node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/cache.html#CTDGHistoricalCache.bind_shared_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGHistoricalCache.bind_shared_nodes" title="Link to this definition"></a></dt>
+<dd><p>Bind fixed global shared-node IDs to cache slot indices.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGHistoricalCache.historical_check">
+<span class="sig-name descname"><span class="pre">historical_check</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shared_node_local_indices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">current_memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/cache.html#CTDGHistoricalCache.historical_check"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGHistoricalCache.historical_check" title="Link to this definition"></a></dt>
+<dd><p>Check which shared nodes have drifted beyond the sync threshold.</p>
+<p>Computes cosine distance between current and cached memory and
+returns True for nodes that exceed <code class="docutils literal notranslate"><span class="pre">(1</span> <span class="pre">-</span> <span class="pre">alpha)</span></code>.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>shared_node_local_indices: Local node IDs of shared nodes, <code class="docutils literal notranslate"><span class="pre">[S]</span></code>.
+current_memory: Current memory vectors, <code class="docutils literal notranslate"><span class="pre">[S,</span> <span class="pre">D]</span></code>.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Boolean mask <code class="docutils literal notranslate"><span class="pre">[S]</span></code>, True for nodes needing sync.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGHistoricalCache.slot_indices">
+<span class="sig-name descname"><span class="pre">slot_indices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/cache.html#CTDGHistoricalCache.slot_indices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGHistoricalCache.slot_indices" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGHistoricalCache.synchronize_shared_update">
+<span class="sig-name descname"><span class="pre">synchronize_shared_update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">received_node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">received_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">received_ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/cache.html#CTDGHistoricalCache.synchronize_shared_update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGHistoricalCache.synchronize_shared_update" title="Link to this definition"></a></dt>
+<dd><p>Apply received updates to cached snapshot, keeping only newer timestamps.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGHistoricalCache.update_cache">
+<span class="sig-name descname"><span class="pre">update_cache</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shared_indices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/cache.html#CTDGHistoricalCache.update_cache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGHistoricalCache.update_cache" title="Link to this definition"></a></dt>
+<dd><p>Update cache after a successful sync.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGLinkPredictor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">CTDGLinkPredictor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_feat_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim_time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_head</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dropout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">att_dropout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/models.html#CTDGLinkPredictor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGLinkPredictor" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Temporal link prediction module with transformer attention.</p>
+<p>Combines a <code class="xref py py-class docutils literal notranslate"><span class="pre">TemporalTransformerConv</span></code> for computing node
+representations from sampled neighborhoods, with an edge predictor
+that scores <code class="docutils literal notranslate"><span class="pre">(src,</span> <span class="pre">dst)</span></code> and <code class="docutils literal notranslate"><span class="pre">(src,</span> <span class="pre">neg_dst)</span></code> pairs.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>num_nodes: Total number of nodes in the graph.
+hidden_dim: Node memory / representation dimension.
+edge_feat_dim: Edge feature dimension.
+dim_time: Time encoding dimension (default 100).
+num_head: Number of attention heads (default 2).
+dropout: Dropout rate for output projection.
+att_dropout: Dropout rate for attention weights.</p>
+</dd>
+</dl>
+<p>Forward signature:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">output</span> <span class="o">=</span> <span class="n">predictor</span><span class="p">(</span><span class="n">src_conv</span><span class="p">,</span> <span class="n">dst_conv</span><span class="p">,</span> <span class="n">neg_conv</span><span class="p">)</span>
+<span class="c1"># Returns CTDGModelOutput with .pos_logits and .neg_logits</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGLinkPredictor.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">src_conv</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_conv</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neg_conv</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.CTDGModelOutput" title="starry_unigraph.runtime.online.models.CTDGModelOutput"><span class="pre">CTDGModelOutput</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/models.html#CTDGLinkPredictor.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGLinkPredictor.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGLinkPredictor.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGLinkPredictor.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">CTDGMemoryBank</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mailbox_slots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_feat_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">world_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_sync</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Per-node memory + K-slot mailbox.</p>
+<p>In distributed mode each rank only allocates storage for its own partition
+(<code class="docutils literal notranslate"><span class="pre">num_local_nodes</span></code> nodes).  Global node IDs are mapped to local IDs via
+<code class="docutils literal notranslate"><span class="pre">global2local</span></code>.  Nodes not owned by this rank use a temporary CPU buffer
+(<code class="docutils literal notranslate"><span class="pre">remote_memory</span></code>) that is filled by async sync operations.</p>
+<p>In single-rank mode <code class="docutils literal notranslate"><span class="pre">num_local_nodes</span> <span class="pre">==</span> <span class="pre">num_nodes</span></code> and the mapping is the
+identity, so all existing call sites work unchanged.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.async_sync">
+<span class="sig-name descname"><span class="pre">async_sync</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.async_sync" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.describe" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.device">
+<span class="sig-name descname"><span class="pre">device</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.device" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.edge_feat_dim">
+<span class="sig-name descname"><span class="pre">edge_feat_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.edge_feat_dim" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.gather">
+<span class="sig-name descname"><span class="pre">gather</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank.gather"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.gather" title="Link to this definition"></a></dt>
+<dd><p>Read memory vectors for the given global node IDs.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>node_ids: 1-D tensor of global node IDs (any device).</p>
+</dd>
+<dt>Returns:</dt><dd><p>Tensor <code class="docutils literal notranslate"><span class="pre">[len(node_ids),</span> <span class="pre">hidden_dim]</span></code> on <code class="docutils literal notranslate"><span class="pre">self.device</span></code>.
+Nodes not owned by this rank get zero vectors.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.gather_mailbox">
+<span class="sig-name descname"><span class="pre">gather_mailbox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank.gather_mailbox"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.gather_mailbox" title="Link to this definition"></a></dt>
+<dd><p>Legacy single-slot gather (slot 0).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.hidden_dim">
+<span class="sig-name descname"><span class="pre">hidden_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.hidden_dim" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.last_update">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">last_update</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.last_update" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.mailbox_slots">
+<span class="sig-name descname"><span class="pre">mailbox_slots</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.mailbox_slots" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.num_nodes">
+<span class="sig-name descname"><span class="pre">num_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.num_nodes" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.rank">
+<span class="sig-name descname"><span class="pre">rank</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.rank" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.read_mailbox">
+<span class="sig-name descname"><span class="pre">read_mailbox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank.read_mailbox"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.read_mailbox" title="Link to this definition"></a></dt>
+<dd><p>Read K-slot mailbox for the given global node IDs.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>node_ids: 1-D tensor of global node IDs.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Tensor <code class="docutils literal notranslate"><span class="pre">[len(node_ids),</span> <span class="pre">K,</span> <span class="pre">slot_width]</span></code> on <code class="docutils literal notranslate"><span class="pre">self.device</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.read_mailbox_ts">
+<span class="sig-name descname"><span class="pre">read_mailbox_ts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank.read_mailbox_ts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.read_mailbox_ts" title="Link to this definition"></a></dt>
+<dd><p>Return mailbox timestamps [M, K] on self.device.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.submit_async_mail_sync">
+<span class="sig-name descname"><span class="pre">submit_async_mail_sync</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext" title="starry_unigraph.types.DistributedContext"><span class="pre">DistributedContext</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mail_slots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mail_ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank.submit_async_mail_sync"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.submit_async_mail_sync" title="Link to this definition"></a></dt>
+<dd><p>No-op for single rank; distributed path mirrors memory sync.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.submit_async_memory_sync">
+<span class="sig-name descname"><span class="pre">submit_async_memory_sync</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext" title="starry_unigraph.types.DistributedContext"><span class="pre">DistributedContext</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank.submit_async_memory_sync"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.submit_async_memory_sync" title="Link to this definition"></a></dt>
+<dd><p>Submit an async distributed memory sync for remote nodes.</p>
+<p>Packs updated memory for nodes owned by other ranks and sends via
+<code class="docutils literal notranslate"><span class="pre">all_to_all_single</span></code>.  In single-rank mode, falls back to a local
+memory update.  Uses <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGHistoricalCache" title="starry_unigraph.runtime.online.CTDGHistoricalCache"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGHistoricalCache</span></code></a> (if available) to
+skip syncs for nodes that haven’t changed significantly.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>ctx: <code class="xref py py-class docutils literal notranslate"><span class="pre">DistributedContext</span></code> with rank / world_size.
+node_ids: Global node IDs with updated memory, shape <code class="docutils literal notranslate"><span class="pre">[N]</span></code>.
+values: Updated memory vectors (detached), shape <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">D]</span></code>.
+timestamps: Update timestamps, shape <code class="docutils literal notranslate"><span class="pre">[N]</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.sync_updates">
+<span class="sig-name descname"><span class="pre">sync_updates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank.sync_updates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.sync_updates" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.wait_pending_syncs">
+<span class="sig-name descname"><span class="pre">wait_pending_syncs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank.wait_pending_syncs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.wait_pending_syncs" title="Link to this definition"></a></dt>
+<dd><p>Block until all pending async memory and mailbox syncs complete.</p>
+<p>Drains <code class="docutils literal notranslate"><span class="pre">_pending_memory_syncs</span></code> and <code class="docutils literal notranslate"><span class="pre">_pending_mail_syncs</span></code>,
+applies received updates to local storage, and updates the
+historical cache if present.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.world_size">
+<span class="sig-name descname"><span class="pre">world_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.world_size" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryBank.write_mailbox">
+<span class="sig-name descname"><span class="pre">write_mailbox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">src_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_mem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_mem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_feat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/memory.html#CTDGMemoryBank.write_mailbox"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryBank.write_mailbox" title="Link to this definition"></a></dt>
+<dd><p>Write new messages into the mailbox for src and dst nodes.</p>
+<p>Each message slot contains <code class="docutils literal notranslate"><span class="pre">[src_mem</span> <span class="pre">||</span> <span class="pre">dst_mem</span> <span class="pre">||</span> <span class="pre">edge_feat]</span></code>
+concatenated.  Messages are written in timestamp order using a
+circular buffer (<code class="docutils literal notranslate"><span class="pre">next_mail_pos</span></code>).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src_ids: Source node global IDs, shape <code class="docutils literal notranslate"><span class="pre">[B]</span></code>.
+dst_ids: Destination node global IDs, shape <code class="docutils literal notranslate"><span class="pre">[B]</span></code>.
+src_mem: Source memory before update, shape <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">D]</span></code>.
+dst_mem: Destination memory before update, shape <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">D]</span></code>.
+edge_feat: Edge features, shape <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">E]</span></code>.
+timestamps: Event timestamps, shape <code class="docutils literal notranslate"><span class="pre">[B]</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryUpdater">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">CTDGMemoryUpdater</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hidden_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mailbox_slot_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mailbox_slots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/models.html#CTDGMemoryUpdater"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryUpdater" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>GRU-based memory updater over K-slot mailbox history.</p>
+<p>Aggregates K mailbox slots via a GRU (<code class="docutils literal notranslate"><span class="pre">mail_aggregator</span></code>), then fuses
+the aggregated message with the current node memory via a GRU cell.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>hidden_dim: Node memory dimension.
+mailbox_slot_dim: Width of each mailbox slot (<code class="docutils literal notranslate"><span class="pre">2*D</span> <span class="pre">+</span> <span class="pre">E</span></code>).
+mailbox_slots: Number of mailbox slots (K).</p>
+</dd>
+</dl>
+<p>Forward signature:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">new_memory</span> <span class="o">=</span> <span class="n">updater</span><span class="p">(</span><span class="n">mailbox_history</span><span class="p">,</span> <span class="n">current_memory</span><span class="p">)</span>
+<span class="c1"># mailbox_history: [M, K, slot_dim]</span>
+<span class="c1"># current_memory:  [M, D]</span>
+<span class="c1"># returns:         [M, D]</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryUpdater.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mailbox_history</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">current_memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/models.html#CTDGMemoryUpdater.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryUpdater.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGMemoryUpdater.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGMemoryUpdater.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGModelOutput">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">CTDGModelOutput</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos_logits</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neg_logits</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor'</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/models.html#CTDGModelOutput"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGModelOutput" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGModelOutput.neg_logits">
+<span class="sig-name descname"><span class="pre">neg_logits</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGModelOutput.neg_logits" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGModelOutput.pos_logits">
+<span class="sig-name descname"><span class="pre">pos_logits</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGModelOutput.pos_logits" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGOnlineRuntime">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">CTDGOnlineRuntime</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.online.TGTemporalDataset" title="starry_unigraph.runtime.online.TGTemporalDataset"><span class="pre">TGTemporalDataset</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampler</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.online.NativeTemporalSampler" title="starry_unigraph.runtime.online.NativeTemporalSampler"><span class="pre">NativeTemporalSampler</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.online.CTDGMemoryBank" title="starry_unigraph.runtime.online.CTDGMemoryBank"><span class="pre">CTDGMemoryBank</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.online.CTDGLinkPredictor" title="starry_unigraph.runtime.online.CTDGLinkPredictor"><span class="pre">CTDGLinkPredictor</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimizer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.optim.Optimizer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">route</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.online.CTDGFeatureRoute" title="starry_unigraph.runtime.online.CTDGFeatureRoute"><span class="pre">CTDGFeatureRoute</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dist_ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext" title="starry_unigraph.types.DistributedContext"><span class="pre">DistributedContext</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_updater</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.runtime.online.CTDGMemoryUpdater" title="starry_unigraph.runtime.online.CTDGMemoryUpdater"><span class="pre">CTDGMemoryUpdater</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/runtime.html#CTDGOnlineRuntime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGOnlineRuntime" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>End-to-end CTDG online runtime for temporal link prediction.</p>
+<p>Orchestrates the full pipeline per batch:</p>
+<ol class="arabic simple">
+<li><p><strong>Negative sampling</strong> — sample negatives from the dst node pool.</p></li>
+<li><p><strong>BTS temporal neighbor sampling</strong> — via <a class="reference internal" href="#starry_unigraph.runtime.online.NativeTemporalSampler" title="starry_unigraph.runtime.online.NativeTemporalSampler"><code class="xref py py-class docutils literal notranslate"><span class="pre">NativeTemporalSampler</span></code></a>.</p></li>
+<li><p><strong>Memory read &amp; update</strong> — read old memory, run <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGMemoryUpdater" title="starry_unigraph.runtime.online.CTDGMemoryUpdater"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGMemoryUpdater</span></code></a>,
+write updated memory back to <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGMemoryBank" title="starry_unigraph.runtime.online.CTDGMemoryBank"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGMemoryBank</span></code></a>.</p></li>
+<li><p><strong>Mailbox write</strong> — store <code class="docutils literal notranslate"><span class="pre">[src_mem,</span> <span class="pre">dst_mem,</span> <span class="pre">edge_feat]</span></code> slots.</p></li>
+<li><p><strong>Temporal attention</strong> — <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGLinkPredictor" title="starry_unigraph.runtime.online.CTDGLinkPredictor"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGLinkPredictor</span></code></a> conv over sampled
+DGL block with memory as node features.</p></li>
+<li><p><strong>Loss &amp; metrics</strong> — BPR loss + AP / AUC / MRR.</p></li>
+<li><p><strong>Async distributed sync</strong> — submit memory/mail syncs for remote nodes.</p></li>
+</ol>
+<dl class="simple">
+<dt>Args:</dt><dd><p>dataset: <a class="reference internal" href="#starry_unigraph.runtime.online.TGTemporalDataset" title="starry_unigraph.runtime.online.TGTemporalDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">TGTemporalDataset</span></code></a> for batching.
+sampler: <a class="reference internal" href="#starry_unigraph.runtime.online.NativeTemporalSampler" title="starry_unigraph.runtime.online.NativeTemporalSampler"><code class="xref py py-class docutils literal notranslate"><span class="pre">NativeTemporalSampler</span></code></a> for neighbor sampling.
+memory: <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGMemoryBank" title="starry_unigraph.runtime.online.CTDGMemoryBank"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGMemoryBank</span></code></a> for per-node state.
+model: <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGLinkPredictor" title="starry_unigraph.runtime.online.CTDGLinkPredictor"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGLinkPredictor</span></code></a> (possibly DDP-wrapped).
+optimizer: PyTorch optimizer.
+route: <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGFeatureRoute" title="starry_unigraph.runtime.online.CTDGFeatureRoute"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGFeatureRoute</span></code></a> for distributed exchange.
+device: Target device string.
+dist_ctx: <code class="xref py py-class docutils literal notranslate"><span class="pre">DistributedContext</span></code>.
+memory_updater: Optional <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGMemoryUpdater" title="starry_unigraph.runtime.online.CTDGMemoryUpdater"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGMemoryUpdater</span></code></a>.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">runtime</span> <span class="o">=</span> <span class="n">CTDGOnlineRuntime</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">runtime</span><span class="o">.</span><span class="n">iter_batches</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">200</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">train_step</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">],</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">][</span><span class="s2">&quot;metrics&quot;</span><span class="p">][</span><span class="s2">&quot;ap&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGOnlineRuntime.eval_step">
+<span class="sig-name descname"><span class="pre">eval_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch" title="starry_unigraph.runtime.online.data.CTDGDataBatch"><span class="pre">CTDGDataBatch</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/runtime.html#CTDGOnlineRuntime.eval_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGOnlineRuntime.eval_step" title="Link to this definition"></a></dt>
+<dd><p>Execute one evaluation step (no-grad, with memory update).</p>
+<p>Memory and mailbox are still updated during eval to maintain
+temporal consistency (mirrors the MemShare validation loop).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>batch: A <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGDataBatch" title="starry_unigraph.runtime.online.CTDGDataBatch"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGDataBatch</span></code></a> mini-batch.
+split: <code class="docutils literal notranslate"><span class="pre">&quot;val&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;test&quot;</span></code>.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict with <code class="docutils literal notranslate"><span class="pre">&quot;loss&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;predictions&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;targets&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;meta&quot;</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGOnlineRuntime.iter_batches">
+<span class="sig-name descname"><span class="pre">iter_batches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch" title="starry_unigraph.runtime.online.data.CTDGDataBatch"><span class="pre">CTDGDataBatch</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/runtime.html#CTDGOnlineRuntime.iter_batches"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGOnlineRuntime.iter_batches" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGOnlineRuntime.predict_step">
+<span class="sig-name descname"><span class="pre">predict_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch" title="starry_unigraph.runtime.online.data.CTDGDataBatch"><span class="pre">CTDGDataBatch</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/runtime.html#CTDGOnlineRuntime.predict_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGOnlineRuntime.predict_step" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGOnlineRuntime.train_step">
+<span class="sig-name descname"><span class="pre">train_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch" title="starry_unigraph.runtime.online.data.CTDGDataBatch"><span class="pre">CTDGDataBatch</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/runtime.html#CTDGOnlineRuntime.train_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGOnlineRuntime.train_step" title="Link to this definition"></a></dt>
+<dd><p>Execute one training step.</p>
+<p>Steps: drain pending syncs -&gt; negative sample -&gt; BTS sample -&gt;
+memory update -&gt; mailbox write -&gt; conv forward -&gt; loss + backward -&gt;
+optimizer step -&gt; submit async syncs.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>batch: A <a class="reference internal" href="#starry_unigraph.runtime.online.CTDGDataBatch" title="starry_unigraph.runtime.online.CTDGDataBatch"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGDataBatch</span></code></a> mini-batch.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict with <code class="docutils literal notranslate"><span class="pre">&quot;loss&quot;</span></code> (float), <code class="docutils literal notranslate"><span class="pre">&quot;predictions&quot;</span></code> (list),
+<code class="docutils literal notranslate"><span class="pre">&quot;targets&quot;</span></code> (list), <code class="docutils literal notranslate"><span class="pre">&quot;meta&quot;</span></code> (dict with metrics, timings).</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGSampleOutput">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">CTDGSampleOutput</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampled_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampled_eids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[object]'</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/sampler.html#CTDGSampleOutput"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGSampleOutput" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGSampleOutput.blocks">
+<span class="sig-name descname"><span class="pre">blocks</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">object</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGSampleOutput.blocks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGSampleOutput.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/sampler.html#CTDGSampleOutput.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGSampleOutput.describe" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGSampleOutput.root_nodes">
+<span class="sig-name descname"><span class="pre">root_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGSampleOutput.root_nodes" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGSampleOutput.sampled_eids">
+<span class="sig-name descname"><span class="pre">sampled_eids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGSampleOutput.sampled_eids" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGSampleOutput.sampled_nodes">
+<span class="sig-name descname"><span class="pre">sampled_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGSampleOutput.sampled_nodes" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGSampleOutput.split">
+<span class="sig-name descname"><span class="pre">split</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGSampleOutput.split" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.CTDGSampleOutput.timestamps">
+<span class="sig-name descname"><span class="pre">timestamps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.runtime.online.CTDGSampleOutput.timestamps" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.NativeTemporalSampler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">NativeTemporalSampler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.TGTemporalDataset" title="starry_unigraph.runtime.online.data.TGTemporalDataset"><span class="pre">TGTemporalDataset</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">fanout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">history</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/sampler.html#NativeTemporalSampler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.NativeTemporalSampler" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Multi-hop temporal neighbor sampler backed by the C++ BTS library.</p>
+<p>Lazily builds a per-split BTS sampler on first call and caches it.</p>
+<dl>
+<dt>Args:</dt><dd><p>dataset: <a class="reference internal" href="#starry_unigraph.runtime.online.TGTemporalDataset" title="starry_unigraph.runtime.online.TGTemporalDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">TGTemporalDataset</span></code></a> providing the event graph.
+fanout: Per-layer fanout list, e.g. <code class="docutils literal notranslate"><span class="pre">[10,</span> <span class="pre">10]</span></code> for 2-hop with</p>
+<blockquote>
+<div><p>10 neighbors each.</p>
+</div></blockquote>
+<p>history: Number of sampler layers (typically <code class="docutils literal notranslate"><span class="pre">len(fanout)</span></code>).
+strategy: Sampling strategy string (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;recent&quot;</span></code>).
+workers: Number of BTS sampler worker threads.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">NativeTemporalSampler</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">fanout</span><span class="o">=</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">],</span>
+                                 <span class="n">history</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;recent&quot;</span><span class="p">)</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">root_nodes</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.NativeTemporalSampler.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.CTDGSampleOutput" title="starry_unigraph.runtime.online.sampler.CTDGSampleOutput"><span class="pre">CTDGSampleOutput</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/sampler.html#NativeTemporalSampler.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.NativeTemporalSampler.sample" title="Link to this definition"></a></dt>
+<dd><p>Sample temporal neighbors for the given root nodes.</p>
+<dl>
+<dt>Args:</dt><dd><dl class="simple">
+<dt>split: <code class="docutils literal notranslate"><span class="pre">&quot;train&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;val&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;test&quot;</span></code> — determines</dt><dd><p>which temporal graph to sample from.</p>
+</dd>
+</dl>
+<p>root_nodes: Root node IDs to sample around, shape <code class="docutils literal notranslate"><span class="pre">[R]</span></code>.
+timestamps: Timestamps for each root node, shape <code class="docutils literal notranslate"><span class="pre">[R]</span></code>.</p>
+</dd>
+<dt>Returns:</dt><dd><p><a class="reference internal" href="#starry_unigraph.runtime.online.CTDGSampleOutput" title="starry_unigraph.runtime.online.CTDGSampleOutput"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGSampleOutput</span></code></a> with sampled nodes, edges, and
+BTS blocks.</p>
+</dd>
+<dt>Raises:</dt><dd><p>RuntimeError: If the native BTS sampler is not available.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.TGTemporalDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.online.</span></span><span class="sig-name descname"><span class="pre">TGTemporalDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_ratio</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/data.html#TGTemporalDataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.TGTemporalDataset" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Temporal graph dataset with train/val/test splitting.</p>
+<p>Loads raw temporal events via <code class="xref py py-func docutils literal notranslate"><span class="pre">load_raw_temporal_events()</span></code>, stores
+them as flat tensors (src, dst, ts, edge_feat), and provides batched
+iteration with distributed sharding.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>root: Root directory containing dataset folders.
+name: Dataset name (subdirectory under <em>root</em>).
+split_ratio: Optional custom split ratio dict.
+config: Full session config dict.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dataset</span> <span class="o">=</span> <span class="n">TGTemporalDataset</span><span class="p">(</span><span class="s2">&quot;/data/raw&quot;</span><span class="p">,</span> <span class="s2">&quot;wikipedia&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">iter_batches</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">200</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">src</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.TGTemporalDataset.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/data.html#TGTemporalDataset.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.TGTemporalDataset.describe" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.TGTemporalDataset.iter_batches">
+<span class="sig-name descname"><span class="pre">iter_batches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">world_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterator</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch" title="starry_unigraph.runtime.online.data.CTDGDataBatch"><span class="pre">CTDGDataBatch</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/data.html#TGTemporalDataset.iter_batches"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.TGTemporalDataset.iter_batches" title="Link to this definition"></a></dt>
+<dd><p>Iterate over mini-batches for the given split.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>split: <code class="docutils literal notranslate"><span class="pre">&quot;train&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;val&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;test&quot;</span></code>.
+batch_size: Number of events per batch.
+rank: This worker’s distributed rank (for sharding).
+world_size: Total number of workers.</p>
+</dd>
+<dt>Yields:</dt><dd><p><a class="reference internal" href="#starry_unigraph.runtime.online.CTDGDataBatch" title="starry_unigraph.runtime.online.CTDGDataBatch"><code class="xref py py-class docutils literal notranslate"><span class="pre">CTDGDataBatch</span></code></a> instances.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.TGTemporalDataset.sampler_graph">
+<span class="sig-name descname"><span class="pre">sampler_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/data.html#TGTemporalDataset.sampler_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.TGTemporalDataset.sampler_graph" title="Link to this definition"></a></dt>
+<dd><p>Build the temporal neighbor graph for the BTS sampler.</p>
+<p>Returns a dict with <code class="docutils literal notranslate"><span class="pre">&quot;row&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;col&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;eid&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;ts&quot;</span></code>
+tensors covering all events visible to the given split (train
+events for <code class="docutils literal notranslate"><span class="pre">&quot;train&quot;</span></code>, train+val for <code class="docutils literal notranslate"><span class="pre">&quot;val&quot;</span></code>, all for <code class="docutils literal notranslate"><span class="pre">&quot;test&quot;</span></code>).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>split: <code class="docutils literal notranslate"><span class="pre">&quot;train&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;val&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;test&quot;</span></code>.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict of CPU tensors suitable for <code class="xref py py-func docutils literal notranslate"><span class="pre">build_temporal_neighbor_block()</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.online.TGTemporalDataset.split_event_ids">
+<span class="sig-name descname"><span class="pre">split_event_ids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/online/data.html#TGTemporalDataset.split_event_ids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.online.TGTemporalDataset.split_event_ids" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.online.data.html">starry_unigraph.runtime.online.data module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch"><code class="docutils literal notranslate"><span class="pre">CTDGDataBatch</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch.dst"><code class="docutils literal notranslate"><span class="pre">CTDGDataBatch.dst</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch.edge_feat"><code class="docutils literal notranslate"><span class="pre">CTDGDataBatch.edge_feat</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch.event_ids"><code class="docutils literal notranslate"><span class="pre">CTDGDataBatch.event_ids</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch.index"><code class="docutils literal notranslate"><span class="pre">CTDGDataBatch.index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch.size"><code class="docutils literal notranslate"><span class="pre">CTDGDataBatch.size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch.split"><code class="docutils literal notranslate"><span class="pre">CTDGDataBatch.split</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch.src"><code class="docutils literal notranslate"><span class="pre">CTDGDataBatch.src</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.CTDGDataBatch.ts"><code class="docutils literal notranslate"><span class="pre">CTDGDataBatch.ts</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.TGTemporalDataset"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.TGTemporalDataset.describe"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.TGTemporalDataset.iter_batches"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset.iter_batches()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.TGTemporalDataset.sampler_graph"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset.sampler_graph()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.data.html#starry_unigraph.runtime.online.data.TGTemporalDataset.split_event_ids"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset.split_event_ids()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html">starry_unigraph.runtime.online.memory module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.async_sync"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.async_sync</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.describe"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.device"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.device</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.edge_feat_dim"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.edge_feat_dim</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.gather"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.gather()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.gather_mailbox"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.gather_mailbox()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.hidden_dim"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.hidden_dim</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.last_update"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.last_update</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.mailbox_slots"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.mailbox_slots</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.num_nodes"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.num_nodes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.rank"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.rank</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.read_mailbox"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.read_mailbox()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.read_mailbox_ts"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.read_mailbox_ts()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.submit_async_mail_sync"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.submit_async_mail_sync()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.submit_async_memory_sync"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.submit_async_memory_sync()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.sync_updates"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.sync_updates()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.wait_pending_syncs"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.wait_pending_syncs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.world_size"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.world_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.memory.html#starry_unigraph.runtime.online.memory.CTDGMemoryBank.write_mailbox"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank.write_mailbox()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html">starry_unigraph.runtime.online.cache module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.AdaParameter"><code class="docutils literal notranslate"><span class="pre">AdaParameter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.AdaParameter.alpha"><code class="docutils literal notranslate"><span class="pre">AdaParameter.alpha</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.AdaParameter.max_alpha"><code class="docutils literal notranslate"><span class="pre">AdaParameter.max_alpha</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.AdaParameter.min_alpha"><code class="docutils literal notranslate"><span class="pre">AdaParameter.min_alpha</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.AdaParameter.update_from_latency"><code class="docutils literal notranslate"><span class="pre">AdaParameter.update_from_latency()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.CTDGHistoricalCache"><code class="docutils literal notranslate"><span class="pre">CTDGHistoricalCache</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.CTDGHistoricalCache.bind_shared_nodes"><code class="docutils literal notranslate"><span class="pre">CTDGHistoricalCache.bind_shared_nodes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.CTDGHistoricalCache.historical_check"><code class="docutils literal notranslate"><span class="pre">CTDGHistoricalCache.historical_check()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.CTDGHistoricalCache.slot_indices"><code class="docutils literal notranslate"><span class="pre">CTDGHistoricalCache.slot_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.CTDGHistoricalCache.synchronize_shared_update"><code class="docutils literal notranslate"><span class="pre">CTDGHistoricalCache.synchronize_shared_update()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.cache.html#starry_unigraph.runtime.online.cache.CTDGHistoricalCache.update_cache"><code class="docutils literal notranslate"><span class="pre">CTDGHistoricalCache.update_cache()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html">starry_unigraph.runtime.online.sampler module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.CTDGSampleOutput"><code class="docutils literal notranslate"><span class="pre">CTDGSampleOutput</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.CTDGSampleOutput.blocks"><code class="docutils literal notranslate"><span class="pre">CTDGSampleOutput.blocks</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.CTDGSampleOutput.describe"><code class="docutils literal notranslate"><span class="pre">CTDGSampleOutput.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.CTDGSampleOutput.root_nodes"><code class="docutils literal notranslate"><span class="pre">CTDGSampleOutput.root_nodes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.CTDGSampleOutput.sampled_eids"><code class="docutils literal notranslate"><span class="pre">CTDGSampleOutput.sampled_eids</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.CTDGSampleOutput.sampled_nodes"><code class="docutils literal notranslate"><span class="pre">CTDGSampleOutput.sampled_nodes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.CTDGSampleOutput.split"><code class="docutils literal notranslate"><span class="pre">CTDGSampleOutput.split</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.CTDGSampleOutput.timestamps"><code class="docutils literal notranslate"><span class="pre">CTDGSampleOutput.timestamps</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.NativeTemporalSampler"><code class="docutils literal notranslate"><span class="pre">NativeTemporalSampler</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.sampler.html#starry_unigraph.runtime.online.sampler.NativeTemporalSampler.sample"><code class="docutils literal notranslate"><span class="pre">NativeTemporalSampler.sample()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.online.models.html">starry_unigraph.runtime.online.models module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.CTDGLinkPredictor"><code class="docutils literal notranslate"><span class="pre">CTDGLinkPredictor</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.CTDGLinkPredictor.forward"><code class="docutils literal notranslate"><span class="pre">CTDGLinkPredictor.forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.CTDGLinkPredictor.training"><code class="docutils literal notranslate"><span class="pre">CTDGLinkPredictor.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.CTDGMemoryUpdater"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryUpdater</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.CTDGMemoryUpdater.forward"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryUpdater.forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.CTDGMemoryUpdater.training"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryUpdater.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.CTDGModelOutput"><code class="docutils literal notranslate"><span class="pre">CTDGModelOutput</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.CTDGModelOutput.neg_logits"><code class="docutils literal notranslate"><span class="pre">CTDGModelOutput.neg_logits</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.CTDGModelOutput.pos_logits"><code class="docutils literal notranslate"><span class="pre">CTDGModelOutput.pos_logits</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.TemporalTransformerConv"><code class="docutils literal notranslate"><span class="pre">TemporalTransformerConv</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.TemporalTransformerConv.forward"><code class="docutils literal notranslate"><span class="pre">TemporalTransformerConv.forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.TemporalTransformerConv.training"><code class="docutils literal notranslate"><span class="pre">TemporalTransformerConv.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.TimeEncode"><code class="docutils literal notranslate"><span class="pre">TimeEncode</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.TimeEncode.forward"><code class="docutils literal notranslate"><span class="pre">TimeEncode.forward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.TimeEncode.training"><code class="docutils literal notranslate"><span class="pre">TimeEncode.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.models.html#starry_unigraph.runtime.online.models.build_dgl_block"><code class="docutils literal notranslate"><span class="pre">build_dgl_block()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.online.route.html">starry_unigraph.runtime.online.route module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.AsyncExchangeHandle"><code class="docutils literal notranslate"><span class="pre">AsyncExchangeHandle</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.AsyncExchangeHandle.device"><code class="docutils literal notranslate"><span class="pre">AsyncExchangeHandle.device</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.AsyncExchangeHandle.handle"><code class="docutils literal notranslate"><span class="pre">AsyncExchangeHandle.handle</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.AsyncExchangeHandle.output_buffer"><code class="docutils literal notranslate"><span class="pre">AsyncExchangeHandle.output_buffer</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.AsyncExchangeHandle.recv_counts"><code class="docutils literal notranslate"><span class="pre">AsyncExchangeHandle.recv_counts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.AsyncExchangeHandle.slot_width"><code class="docutils literal notranslate"><span class="pre">AsyncExchangeHandle.slot_width</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.AsyncExchangeHandle.value_dim"><code class="docutils literal notranslate"><span class="pre">AsyncExchangeHandle.value_dim</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.AsyncExchangeHandle.wait"><code class="docutils literal notranslate"><span class="pre">AsyncExchangeHandle.wait()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.CTDGFeatureRoute"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.CTDGFeatureRoute.describe"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute.describe()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.CTDGFeatureRoute.exchange"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute.exchange()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.CTDGFeatureRoute.replicated_memory"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute.replicated_memory</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.CTDGFeatureRoute.route_type"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute.route_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.route.html#starry_unigraph.runtime.online.route.CTDGFeatureRoute.world_size"><code class="docutils literal notranslate"><span class="pre">CTDGFeatureRoute.world_size</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.runtime.online.runtime.html">starry_unigraph.runtime.online.runtime module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.runtime.html#starry_unigraph.runtime.online.runtime.CTDGOnlineRuntime"><code class="docutils literal notranslate"><span class="pre">CTDGOnlineRuntime</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.runtime.html#starry_unigraph.runtime.online.runtime.CTDGOnlineRuntime.eval_step"><code class="docutils literal notranslate"><span class="pre">CTDGOnlineRuntime.eval_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.runtime.html#starry_unigraph.runtime.online.runtime.CTDGOnlineRuntime.iter_batches"><code class="docutils literal notranslate"><span class="pre">CTDGOnlineRuntime.iter_batches()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.runtime.html#starry_unigraph.runtime.online.runtime.CTDGOnlineRuntime.predict_step"><code class="docutils literal notranslate"><span class="pre">CTDGOnlineRuntime.predict_step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.runtime.html#starry_unigraph.runtime.online.runtime.CTDGOnlineRuntime.train_step"><code class="docutils literal notranslate"><span class="pre">CTDGOnlineRuntime.train_step()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.runtime.online.runtime.html#starry_unigraph.runtime.online.runtime.CTDGPreparedBatch"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.runtime.html#starry_unigraph.runtime.online.runtime.CTDGPreparedBatch.batch"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch.batch</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.runtime.html#starry_unigraph.runtime.online.runtime.CTDGPreparedBatch.neg_dst"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch.neg_dst</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.runtime.online.runtime.html#starry_unigraph.runtime.online.runtime.CTDGPreparedBatch.sample"><code class="docutils literal notranslate"><span class="pre">CTDGPreparedBatch.sample</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="starry_unigraph.runtime.flare.training.html" class="btn btn-neutral float-left" title="starry_unigraph.runtime.flare.training module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.runtime.online.data.html" class="btn btn-neutral float-right" title="starry_unigraph.runtime.online.data module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

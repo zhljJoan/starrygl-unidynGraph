@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.runtime.flare.training &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.runtime.flare.training</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for starry_unigraph.runtime.flare.training</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Flare DTDG training, evaluation, and prediction step functions.</span>
+
+<span class="sd">Provides:</span>
+
+<span class="sd">- :func:`init_flare_training` — build model + optimizer + DDP wrapper and</span>
+<span class="sd">  store them into the shared :class:`RuntimeBundle`.</span>
+<span class="sd">- :func:`run_flare_train_step` — one forward + backward + optimizer step.</span>
+<span class="sd">- :func:`run_flare_eval_step` — one no-grad forward for validation.</span>
+<span class="sd">- :func:`run_flare_predict_step` — one no-grad forward for inference.</span>
+
+<span class="sd">All step functions accept either :class:`STGraphBlob` (training, multi-frame)</span>
+<span class="sd">or :class:`DTDGBatch` (eval/predict, single-frame with stateful RNN state</span>
+<span class="sd">carried in ``runtime.state[&quot;eval_rnn_state&quot;]``).</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+
+<span class="kn">from</span> <span class="nn">.models</span> <span class="kn">import</span> <span class="n">build_flare_model</span><span class="p">,</span> <span class="n">extract_graph_labels</span>
+<span class="kn">from</span> <span class="nn">.state</span> <span class="kn">import</span> <span class="n">RNNStateManager</span><span class="p">,</span> <span class="n">STGraphBlob</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.core</span> <span class="kn">import</span> <span class="n">DTDGBatch</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.types</span> <span class="kn">import</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">SessionContext</span>
+
+
+<span class="k">def</span> <span class="nf">_infer_dims</span><span class="p">(</span><span class="n">partition_data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+    <span class="n">input_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">partition_data</span><span class="o">.</span><span class="n">node_data</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">partition_data</span><span class="o">.</span><span class="n">node_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">labels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">input_size</span><span class="p">,</span> <span class="mi">1</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">data</span>
+    <span class="k">if</span> <span class="n">y</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">input_size</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">y</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">y</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">input_size</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="n">y</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">y</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_compute_part_loss_scale</span><span class="p">(</span><span class="n">local_nodes</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute loss scale = local_nodes / total_nodes across all ranks.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+        <span class="k">return</span> <span class="mf">1.0</span>
+    <span class="n">rank</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">()</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cuda:</span><span class="si">{</span><span class="n">rank</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">local_nodes</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">dist</span><span class="o">.</span><span class="n">ReduceOp</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">local_nodes</span> <span class="o">/</span> <span class="n">total</span> <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1.0</span>
+
+
+<div class="viewcode-block" id="init_flare_training">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.runtime.flare.training.html#starry_unigraph.runtime.flare.init_flare_training">[docs]</a>
+<span class="k">def</span> <span class="nf">init_flare_training</span><span class="p">(</span><span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">partition_data</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize model, optimizer, and DDP for Flare DTDG training.</span>
+
+<span class="sd">    Builds a Flare model (via :func:`build_flare_model`), wraps it in</span>
+<span class="sd">    ``DistributedDataParallel`` when distributed training is active,</span>
+<span class="sd">    creates an Adam optimizer, computes a per-partition loss scale factor,</span>
+<span class="sd">    and stores everything into the given *runtime*.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        runtime: Shared :class:`RuntimeBundle` to populate.</span>
+<span class="sd">        session_ctx: Session context with config and distributed info.</span>
+<span class="sd">        partition_data: :class:`PartitionData` used to infer feature dims.</span>
+<span class="sd">        device: Target device string (e.g. ``&quot;cuda:0&quot;``).  If ``None``,</span>
+<span class="sd">            read from ``session_ctx.config[&quot;runtime&quot;][&quot;device&quot;]``.</span>
+
+<span class="sd">    Side effects:</span>
+<span class="sd">        Sets ``runtime.model``, ``runtime.optimizer``, and</span>
+<span class="sd">        ``runtime.state[&quot;flare_model&quot;]`` / ``runtime.state[&quot;part_loss_scale&quot;]``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">input_size</span><span class="p">,</span> <span class="n">output_size</span> <span class="o">=</span> <span class="n">_infer_dims</span><span class="p">(</span><span class="n">partition_data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;runtime&quot;</span><span class="p">][</span><span class="s2">&quot;device&quot;</span><span class="p">]</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">build_flare_model</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+        <span class="n">input_size</span><span class="o">=</span><span class="n">input_size</span><span class="p">,</span>
+        <span class="n">hidden_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;hidden_dim&quot;</span><span class="p">]),</span>
+        <span class="n">output_size</span><span class="o">=</span><span class="n">output_size</span><span class="p">,</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="c1"># Wrap with DDP when distributed is active; specify device_ids for correct GPU binding</span>
+    <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="ow">and</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+        <span class="n">local_rank</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">parallel</span><span class="o">.</span><span class="n">DistributedDataParallel</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">device_ids</span><span class="o">=</span><span class="p">[</span><span class="n">local_rank</span><span class="p">])</span>
+
+    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span>
+        <span class="n">lr</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;lr&quot;</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">)),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># part_loss_scale: compensate for unequal partition sizes across ranks</span>
+    <span class="n">local_nodes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">partition_data</span><span class="o">.</span><span class="n">num_dst_nodes</span><span class="p">)</span>
+    <span class="n">part_loss_scale</span> <span class="o">=</span> <span class="n">_compute_part_loss_scale</span><span class="p">(</span><span class="n">local_nodes</span><span class="p">)</span>
+
+    <span class="n">runtime</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+    <span class="n">runtime</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span>
+    <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;flare_model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;input_size&quot;</span><span class="p">:</span> <span class="n">input_size</span><span class="p">,</span>
+        <span class="s2">&quot;hidden_size&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;hidden_dim&quot;</span><span class="p">]),</span>
+        <span class="s2">&quot;output_size&quot;</span><span class="p">:</span> <span class="n">output_size</span><span class="p">,</span>
+        <span class="s2">&quot;part_loss_scale&quot;</span><span class="p">:</span> <span class="n">part_loss_scale</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;part_loss_scale&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">part_loss_scale</span></div>
+
+
+
+<span class="k">def</span> <span class="nf">_get_labels</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract labels from a single DGL graph (block or plain).&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">graph</span><span class="o">.</span><span class="n">is_block</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;y&quot;</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">dstdata</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">dstdata</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="s2">&quot;y&quot;</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">srcdata</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">srcdata</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">][:</span> <span class="n">graph</span><span class="o">.</span><span class="n">num_dst_nodes</span><span class="p">()]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">ndata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">y</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">y</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">y</span>
+
+
+<span class="k">def</span> <span class="nf">_forward_single_graph</span><span class="p">(</span>
+    <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span>
+    <span class="n">graph</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run model forward on a single graph with external RNN state. Returns (pred, new_state).&quot;&quot;&quot;</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">model</span>
+    <span class="c1"># Patch dummy state methods so model.forward can call flare_fetch/store_state on it</span>
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">RNNStateManager</span><span class="o">.</span><span class="n">patch_dummy_methods</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+    <span class="c1"># DDP wraps module; access inner model for single-graph stateful eval</span>
+    <span class="n">inner</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">module</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;module&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">model</span>
+    <span class="n">pred</span><span class="p">,</span> <span class="n">new_state</span> <span class="o">=</span> <span class="n">inner</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pred</span><span class="p">,</span> <span class="n">new_state</span>
+
+
+<span class="k">def</span> <span class="nf">_loss_and_predictions</span><span class="p">(</span>
+    <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span>
+    <span class="n">blob_or_batch</span><span class="p">:</span> <span class="n">STGraphBlob</span> <span class="o">|</span> <span class="n">DTDGBatch</span><span class="p">,</span>
+    <span class="n">training</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">model</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="o">.</span><span class="n">device</span>
+
+    <span class="k">if</span> <span class="n">training</span><span class="p">:</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+    <span class="c1"># Resolve input: training receives STGraphBlob, eval/predict receives DTDGBatch</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">blob_or_batch</span><span class="p">,</span> <span class="n">STGraphBlob</span><span class="p">):</span>
+        <span class="n">blob</span> <span class="o">=</span> <span class="n">blob_or_batch</span>
+        <span class="n">preds</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">blob</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Stateful single-graph eval/predict: use persisted RNN state across snapshots</span>
+        <span class="n">graph</span> <span class="o">=</span> <span class="n">blob_or_batch</span><span class="o">.</span><span class="n">graph</span>
+        <span class="k">if</span> <span class="n">graph</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;flare_native batch.graph is not available&quot;</span><span class="p">)</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;eval_rnn_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">pred</span><span class="p">,</span> <span class="n">new_state</span> <span class="o">=</span> <span class="n">_forward_single_graph</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">graph</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+        <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;eval_rnn_state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_state</span>
+        <span class="n">preds</span> <span class="o">=</span> <span class="n">pred</span>
+
+    <span class="c1"># preds: list[Tensor] when blob is STGraphBlob, single Tensor otherwise</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">preds</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="n">pred_tensor</span> <span class="o">=</span> <span class="n">preds</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">pred_tensor</span> <span class="o">=</span> <span class="n">preds</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">blob_or_batch</span><span class="p">,</span> <span class="n">STGraphBlob</span><span class="p">):</span>
+        <span class="n">last_graph</span> <span class="o">=</span> <span class="n">blob_or_batch</span><span class="o">.</span><span class="n">current_graph</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">last_graph</span> <span class="o">=</span> <span class="n">blob_or_batch</span><span class="o">.</span><span class="n">graph</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">_get_labels</span><span class="p">(</span><span class="n">last_graph</span><span class="p">)</span>
+
+    <span class="n">pred_values</span> <span class="o">=</span> <span class="n">pred_tensor</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">labels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">pred_values</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pred_tensor</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="n">labels</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">labels</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span> <span class="n">pred_tensor</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)]</span>
+    <span class="n">part_loss_scale</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;part_loss_scale&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">pred_tensor</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="o">*</span> <span class="n">part_loss_scale</span>
+    <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">pred_values</span><span class="p">,</span> <span class="n">labels</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="run_flare_train_step">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.runtime.flare.training.html#starry_unigraph.runtime.flare.run_flare_train_step">[docs]</a>
+<span class="k">def</span> <span class="nf">run_flare_train_step</span><span class="p">(</span>
+    <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span>
+    <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">kernel_output</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Execute one Flare training step (forward + backward + optimizer).</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        runtime: :class:`RuntimeBundle` with ``model`` and ``optimizer``.</span>
+<span class="sd">        batch: An :class:`STGraphBlob` (multi-frame training blob).</span>
+<span class="sd">        kernel_output: Extra metadata dict (passed through to output).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Dict with keys ``&quot;loss&quot;`` (float), ``&quot;predictions&quot;`` (list),</span>
+<span class="sd">        ``&quot;targets&quot;`` (list or None), ``&quot;meta&quot;`` (dict).</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        RuntimeError: If no labels are found in the batch.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">loss</span><span class="p">,</span> <span class="n">predictions</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="n">_loss_and_predictions</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">loss</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Training labels are required for flare_native train_step&quot;</span><span class="p">)</span>
+    <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="n">runtime</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    <span class="n">runtime</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">(</span><span class="n">set_to_none</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()),</span>
+        <span class="s2">&quot;predictions&quot;</span><span class="p">:</span> <span class="n">predictions</span><span class="p">,</span>
+        <span class="s2">&quot;targets&quot;</span><span class="p">:</span> <span class="n">targets</span><span class="p">,</span>
+        <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="n">kernel_output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="o">|</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;flare_model&quot;</span><span class="p">],</span> <span class="s2">&quot;sequence_state&quot;</span><span class="p">:</span> <span class="s2">&quot;updated&quot;</span><span class="p">},</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="run_flare_eval_step">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.runtime.flare.training.html#starry_unigraph.runtime.flare.run_flare_eval_step">[docs]</a>
+<span class="k">def</span> <span class="nf">run_flare_eval_step</span><span class="p">(</span>
+    <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span>
+    <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">kernel_output</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Execute one Flare evaluation step (no-grad forward).</span>
+
+<span class="sd">    For warmup batches (``batch.chain == &quot;snapshot_warmup&quot;``), only updates</span>
+<span class="sd">    the persistent RNN state without computing loss.  Returns ``{}`` for</span>
+<span class="sd">    warmup batches so the session loop skips them.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        runtime: :class:`RuntimeBundle` with ``model``.</span>
+<span class="sd">        batch: A :class:`DTDGBatch` with ``batch.graph``.</span>
+<span class="sd">        kernel_output: Extra metadata dict.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Dict with ``&quot;loss&quot;``, ``&quot;predictions&quot;``, ``&quot;targets&quot;``, ``&quot;meta&quot;``,</span>
+<span class="sd">        or empty dict ``{}`` for warmup batches.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">is_warmup</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="s2">&quot;chain&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;snapshot_warmup&quot;</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">is_warmup</span><span class="p">:</span>
+            <span class="c1"># Warmup: run forward to update RNN state, no loss computed</span>
+            <span class="n">graph</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">graph</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;eval_rnn_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">new_state</span> <span class="o">=</span> <span class="n">_forward_single_graph</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">graph</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+            <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;eval_rnn_state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_state</span>
+            <span class="k">return</span> <span class="p">{}</span>  <span class="c1"># empty: session.run_epoch skips items with no &quot;loss&quot;</span>
+        <span class="n">loss</span><span class="p">,</span> <span class="n">predictions</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="n">_loss_and_predictions</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;predictions&quot;</span><span class="p">:</span> <span class="n">predictions</span><span class="p">,</span>
+        <span class="s2">&quot;targets&quot;</span><span class="p">:</span> <span class="n">targets</span><span class="p">,</span>
+        <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="n">kernel_output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="o">|</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;flare_model&quot;</span><span class="p">]},</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">loss</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">payload</span></div>
+
+
+
+<div class="viewcode-block" id="run_flare_predict_step">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.runtime.flare.training.html#starry_unigraph.runtime.flare.run_flare_predict_step">[docs]</a>
+<span class="k">def</span> <span class="nf">run_flare_predict_step</span><span class="p">(</span>
+    <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span>
+    <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">kernel_output</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Execute one Flare prediction step (no-grad forward, no loss).</span>
+
+<span class="sd">    Same warmup handling as :func:`run_flare_eval_step`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        runtime: :class:`RuntimeBundle` with ``model``.</span>
+<span class="sd">        batch: A :class:`DTDGBatch` with ``batch.graph``.</span>
+<span class="sd">        kernel_output: Extra metadata dict.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Dict with ``&quot;predictions&quot;``, ``&quot;targets&quot;``, ``&quot;meta&quot;``, or ``{}``</span>
+<span class="sd">        for warmup batches.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">is_warmup</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="s2">&quot;chain&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;snapshot_warmup&quot;</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">is_warmup</span><span class="p">:</span>
+            <span class="n">graph</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">graph</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;eval_rnn_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">new_state</span> <span class="o">=</span> <span class="n">_forward_single_graph</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">graph</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+            <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;eval_rnn_state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_state</span>
+            <span class="k">return</span> <span class="p">{}</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">predictions</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="n">_loss_and_predictions</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;predictions&quot;</span><span class="p">:</span> <span class="n">predictions</span><span class="p">,</span>
+        <span class="s2">&quot;targets&quot;</span><span class="p">:</span> <span class="n">targets</span><span class="p">,</span>
+        <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="n">kernel_output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="o">|</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;flare_model&quot;</span><span class="p">]},</span>
+    <span class="p">}</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

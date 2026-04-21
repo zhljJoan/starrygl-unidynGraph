@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.runtime.flare.training module &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="starry_unigraph.runtime.online package" href="starry_unigraph.runtime.online.html" />
+    <link rel="prev" title="starry_unigraph.runtime.flare.models module" href="starry_unigraph.runtime.flare.models.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="modules.html">starry_unigraph</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.html">starry_unigraph package</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.runtime.html">starry_unigraph.runtime package</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.runtime.flare.html">starry_unigraph.runtime.flare package</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.runtime.flare.training module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/api/python/starry_unigraph.runtime.flare.training.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-starry_unigraph.runtime.flare.training">
+<span id="starry-unigraph-runtime-flare-training-module"></span><h1>starry_unigraph.runtime.flare.training module<a class="headerlink" href="#module-starry_unigraph.runtime.flare.training" title="Link to this heading"></a></h1>
+<p>Flare DTDG training, evaluation, and prediction step functions.</p>
+<p>Provides:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#starry_unigraph.runtime.flare.training.init_flare_training" title="starry_unigraph.runtime.flare.training.init_flare_training"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_flare_training()</span></code></a> — build model + optimizer + DDP wrapper and
+store them into the shared <code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeBundle</span></code>.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.runtime.flare.training.run_flare_train_step" title="starry_unigraph.runtime.flare.training.run_flare_train_step"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_flare_train_step()</span></code></a> — one forward + backward + optimizer step.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.runtime.flare.training.run_flare_eval_step" title="starry_unigraph.runtime.flare.training.run_flare_eval_step"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_flare_eval_step()</span></code></a> — one no-grad forward for validation.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.runtime.flare.training.run_flare_predict_step" title="starry_unigraph.runtime.flare.training.run_flare_predict_step"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_flare_predict_step()</span></code></a> — one no-grad forward for inference.</p></li>
+</ul>
+<p>All step functions accept either <code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphBlob</span></code> (training, multi-frame)
+or <code class="xref py py-class docutils literal notranslate"><span class="pre">DTDGBatch</span></code> (eval/predict, single-frame with stateful RNN state
+carried in <code class="docutils literal notranslate"><span class="pre">runtime.state[&quot;eval_rnn_state&quot;]</span></code>).</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.training.init_flare_training">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.training.</span></span><span class="sig-name descname"><span class="pre">init_flare_training</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runtime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle" title="starry_unigraph.types.RuntimeBundle"><span class="pre">RuntimeBundle</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.SessionContext" title="starry_unigraph.types.SessionContext"><span class="pre">SessionContext</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">partition_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/training.html#init_flare_training"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.training.init_flare_training" title="Link to this definition"></a></dt>
+<dd><p>Initialize model, optimizer, and DDP for Flare DTDG training.</p>
+<p>Builds a Flare model (via <code class="xref py py-func docutils literal notranslate"><span class="pre">build_flare_model()</span></code>), wraps it in
+<code class="docutils literal notranslate"><span class="pre">DistributedDataParallel</span></code> when distributed training is active,
+creates an Adam optimizer, computes a per-partition loss scale factor,
+and stores everything into the given <em>runtime</em>.</p>
+<dl>
+<dt>Args:</dt><dd><p>runtime: Shared <code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeBundle</span></code> to populate.
+session_ctx: Session context with config and distributed info.
+partition_data: <code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code> used to infer feature dims.
+device: Target device string (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;cuda:0&quot;</span></code>).  If <code class="docutils literal notranslate"><span class="pre">None</span></code>,</p>
+<blockquote>
+<div><p>read from <code class="docutils literal notranslate"><span class="pre">session_ctx.config[&quot;runtime&quot;][&quot;device&quot;]</span></code>.</p>
+</div></blockquote>
+</dd>
+<dt>Side effects:</dt><dd><p>Sets <code class="docutils literal notranslate"><span class="pre">runtime.model</span></code>, <code class="docutils literal notranslate"><span class="pre">runtime.optimizer</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">runtime.state[&quot;flare_model&quot;]</span></code> / <code class="docutils literal notranslate"><span class="pre">runtime.state[&quot;part_loss_scale&quot;]</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.training.run_flare_eval_step">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.training.</span></span><span class="sig-name descname"><span class="pre">run_flare_eval_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runtime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle" title="starry_unigraph.types.RuntimeBundle"><span class="pre">RuntimeBundle</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kernel_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/training.html#run_flare_eval_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.training.run_flare_eval_step" title="Link to this definition"></a></dt>
+<dd><p>Execute one Flare evaluation step (no-grad forward).</p>
+<p>For warmup batches (<code class="docutils literal notranslate"><span class="pre">batch.chain</span> <span class="pre">==</span> <span class="pre">&quot;snapshot_warmup&quot;</span></code>), only updates
+the persistent RNN state without computing loss.  Returns <code class="docutils literal notranslate"><span class="pre">{}</span></code> for
+warmup batches so the session loop skips them.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>runtime: <code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeBundle</span></code> with <code class="docutils literal notranslate"><span class="pre">model</span></code>.
+batch: A <code class="xref py py-class docutils literal notranslate"><span class="pre">DTDGBatch</span></code> with <code class="docutils literal notranslate"><span class="pre">batch.graph</span></code>.
+kernel_output: Extra metadata dict.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict with <code class="docutils literal notranslate"><span class="pre">&quot;loss&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;predictions&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;targets&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;meta&quot;</span></code>,
+or empty dict <code class="docutils literal notranslate"><span class="pre">{}</span></code> for warmup batches.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.training.run_flare_predict_step">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.training.</span></span><span class="sig-name descname"><span class="pre">run_flare_predict_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runtime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle" title="starry_unigraph.types.RuntimeBundle"><span class="pre">RuntimeBundle</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kernel_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/training.html#run_flare_predict_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.training.run_flare_predict_step" title="Link to this definition"></a></dt>
+<dd><p>Execute one Flare prediction step (no-grad forward, no loss).</p>
+<p>Same warmup handling as <a class="reference internal" href="#starry_unigraph.runtime.flare.training.run_flare_eval_step" title="starry_unigraph.runtime.flare.training.run_flare_eval_step"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_flare_eval_step()</span></code></a>.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>runtime: <code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeBundle</span></code> with <code class="docutils literal notranslate"><span class="pre">model</span></code>.
+batch: A <code class="xref py py-class docutils literal notranslate"><span class="pre">DTDGBatch</span></code> with <code class="docutils literal notranslate"><span class="pre">batch.graph</span></code>.
+kernel_output: Extra metadata dict.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict with <code class="docutils literal notranslate"><span class="pre">&quot;predictions&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;targets&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;meta&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">{}</span></code>
+for warmup batches.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.training.run_flare_train_step">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.training.</span></span><span class="sig-name descname"><span class="pre">run_flare_train_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runtime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.RuntimeBundle" title="starry_unigraph.types.RuntimeBundle"><span class="pre">RuntimeBundle</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kernel_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/training.html#run_flare_train_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.training.run_flare_train_step" title="Link to this definition"></a></dt>
+<dd><p>Execute one Flare training step (forward + backward + optimizer).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>runtime: <code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeBundle</span></code> with <code class="docutils literal notranslate"><span class="pre">model</span></code> and <code class="docutils literal notranslate"><span class="pre">optimizer</span></code>.
+batch: An <code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphBlob</span></code> (multi-frame training blob).
+kernel_output: Extra metadata dict (passed through to output).</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict with keys <code class="docutils literal notranslate"><span class="pre">&quot;loss&quot;</span></code> (float), <code class="docutils literal notranslate"><span class="pre">&quot;predictions&quot;</span></code> (list),
+<code class="docutils literal notranslate"><span class="pre">&quot;targets&quot;</span></code> (list or None), <code class="docutils literal notranslate"><span class="pre">&quot;meta&quot;</span></code> (dict).</p>
+</dd>
+<dt>Raises:</dt><dd><p>RuntimeError: If no labels are found in the batch.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="starry_unigraph.runtime.flare.models.html" class="btn btn-neutral float-left" title="starry_unigraph.runtime.flare.models module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.runtime.online.html" class="btn btn-neutral float-right" title="starry_unigraph.runtime.online package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

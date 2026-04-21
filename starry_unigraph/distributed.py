@@ -3,10 +3,56 @@ from __future__ import annotations
 import os
 from copy import deepcopy
 from typing import Any
-
+from torch import Tensor
 from starry_unigraph.types import DistributedContext
 
 
+class DistRouteIndex:
+    # 编码方案: 
+    # [63]: 符号位 (尽量不用)
+    # [62]: shared flag
+    # [48-61]: part_id (14 bits, 支持 16384 个分区)
+    # [0-47]: local_index (48 bits, 支持 281 万亿个 ID)
+    
+    PART_SHIFT = 48
+    SHARED_BIT = 62
+    LOC_MASK = 0xFFFFFFFFFFFF # 48 bits
+    PART_MASK = 0x3FFF         # 14 bits (1<<14 - 1)
+
+    def __init__(self, index: Tensor, part_ids: Optional[Tensor] = None) -> None:
+        if part_ids is None:
+            self._data = index.long()
+        else:
+            # 确保在同一设备
+            index = index.long()
+            part_ids = part_ids.long().to(index.device)
+            self._data = (index & self.LOC_MASK) | ((part_ids & self.PART_MASK) << self.PART_SHIFT)
+       
+    @property
+    def loc(self) -> Tensor:
+        return self._data & self.LOC_MASK
+    
+    @property
+    def part(self) -> Tensor:
+        return (self._data >> self.PART_SHIFT) & self.PART_MASK
+    
+    def set_shared(self, indx: Union[slice, Tensor]):
+        self._data[indx] |= (1 << self.SHARED_BIT)
+
+    @property
+    def is_shared(self) -> Tensor:
+        return (self._data >> self.SHARED_BIT).to(torch.bool)
+    
+    @property
+    def dist(self) -> Tensor:
+        return self._data
+    @property
+    def device(self): return self._data.device
+    @property
+    def shape(self): return self._data.shape
+    
+    def to(self, device):
+        return DistRouteIndex(self._data.to(device))
 def _env_int(name: str, default: int) -> int:
     value = os.environ.get(name)
     if value is None:

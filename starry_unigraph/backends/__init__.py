@@ -1,3 +1,5 @@
+# Re-exports for backward compatibility.
+# Canonical locations: starry_unigraph.runtime.online, starry_unigraph.runtime.flare
 from .ctdg import CTDGFeatureRoute, CTDGLinkPredictor, CTDGMemoryBank, NativeTemporalSampler, TGTemporalDataset
 
 try:

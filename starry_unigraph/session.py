@@ -4,22 +4,34 @@ from pathlib import Path
 import time
 from typing import Any
 
+import torch
+import torch.distributed as dist
+
 from starry_unigraph.checkpoint import load_checkpoint, save_checkpoint
 from starry_unigraph.config.schema import detect_graph_mode, load_config, validate_config
 from starry_unigraph.distributed import apply_distributed_env, build_distributed_context
-from starry_unigraph.providers import CTDGProvider, DTDGProvider  # noqa: F401
-from starry_unigraph.registry import ModelRegistry, ProviderRegistry, TaskRegistry
+from starry_unigraph.preprocess.dtdg import FlareDTDGPreprocessor, load_prepared_from_disk, validate_artifacts
+from starry_unigraph.registry import ModelRegistry, TaskRegistry
+from starry_unigraph.runtime.flare import (
+    FlareRuntimeLoader,
+    init_flare_training,
+    run_flare_eval_step,
+    run_flare_predict_step,
+    run_flare_train_step,
+)
 from starry_unigraph.types import PredictionResult, PreparedArtifacts, RuntimeBundle, SessionContext
 
 
 class SchedulerSession:
-    def __init__(self, session_ctx: SessionContext, provider: Any, model_spec: Any, task_adapter: Any):
+    def __init__(self, session_ctx: SessionContext, model_spec: Any, task_adapter: Any):
         self.ctx = session_ctx
-        self.provider = provider
         self.model_spec = model_spec
         self.task_adapter = task_adapter
         self.current_epoch = 0
         self.global_step = 0
+        self.runtime = RuntimeBundle()
+        self.snapshot_core: FlareRuntimeLoader | None = None
+        self.prepared: PreparedArtifacts | None = None
 
     @classmethod
     def from_config(
@@ -34,8 +46,6 @@ class SchedulerSession:
             model_name=config["model"]["name"],
             family=config["model"]["family"],
         )
-        graph_mode = detect_graph_mode(config)
-        provider_cls = ProviderRegistry.resolve(graph_mode)
         task_cls = TaskRegistry.resolve(config["model"]["task"])
         artifact_root = Path("artifacts") / config["data"]["name"]
         ctx = SessionContext(
@@ -46,33 +56,78 @@ class SchedulerSession:
             dist=build_distributed_context(config),
             warnings=warnings,
         )
-        provider = provider_cls(task_adapter=task_cls())
-        return cls(session_ctx=ctx, provider=provider, model_spec=model_spec, task_adapter=task_cls())
+        return cls(session_ctx=ctx, model_spec=model_spec, task_adapter=task_cls())
 
     def prepare_data(self) -> PreparedArtifacts:
-        return self.provider.prepare_data(self.ctx)
+        preprocessor = FlareDTDGPreprocessor()
+        self.prepared = preprocessor.run(self.ctx)
+        return self.prepared
 
     def build_runtime(self) -> RuntimeBundle:
-        return self.provider.build_runtime(self.ctx)
+        if self.prepared is None:
+            self.prepared = load_prepared_from_disk(self.ctx.artifact_root)
+        validate_artifacts(self.prepared, expected_graph_mode="dtdg", expected_num_parts=self.ctx.dist.world_size)
+
+        flare_dir = self.prepared.directories["flare"]
+        if not (flare_dir / "manifest.json").exists():
+            raise FileNotFoundError(f"Missing flare manifest: {flare_dir / 'manifest.json'}")
+
+        part_id = min(self.ctx.dist.rank, self.ctx.dist.world_size - 1)
+        partition_path = flare_dir / f"part_{part_id:03d}.pth"
+        if not partition_path.exists():
+            raise FileNotFoundError(f"Missing flare partition artifact: {partition_path}")
+
+        partition_data = torch.load(partition_path, weights_only=False)
+
+        base_device = str(self.ctx.config["runtime"]["device"])
+        if base_device == "cuda" and dist.is_available() and dist.is_initialized():
+            device = f"cuda:{self.ctx.dist.local_rank}"
+        else:
+            device = base_device
+
+        self.snapshot_core = FlareRuntimeLoader.from_partition_data(
+            data=partition_data,
+            device=device,
+            rank=self.ctx.dist.rank,
+            world_size=self.ctx.dist.world_size,
+            config=self.ctx.config,
+        )
+
+        self.runtime = RuntimeBundle(state={"graph_mode": "dtdg"})
+        init_flare_training(runtime=self.runtime, session_ctx=self.ctx, partition_data=partition_data, device=device)
+        self.runtime.state.update(
+            {
+                "dtdg_pipeline": "flare_native",
+                "flare_partition_path": str(partition_path),
+                "window_state": self.snapshot_core.describe_window_state(),
+                "snapshot_state": self.snapshot_core.dump_state(),
+                "route_cache": self.snapshot_core.describe_route_cache(),
+            }
+        )
+        return self.runtime
 
     def run_epoch(self, split: str = "train") -> dict[str, Any]:
-        iterator = (
-            self.provider.build_train_iterator(self.ctx, split=split)
-            if split == "train"
-            else self.provider.build_eval_iterator(self.ctx, split=split)
-        )
+        assert self.snapshot_core is not None, "Call build_runtime() first"
+        if split == "train":
+            iterator = self.snapshot_core.iter_train(split=split)
+        else:
+            self.runtime.state.pop("eval_rnn_state", None)
+            iterator = self.snapshot_core.iter_eval(split=split)
+
         start_time = time.perf_counter()
         outputs = []
         if split == "train":
             for batch in iterator:
-                outputs.append(self.provider.run_train_step(batch))
+                outputs.append(run_flare_train_step(self.runtime, batch, {"meta": {}}))
                 self.global_step += 1
         else:
             for batch in iterator:
-                outputs.append(self.provider.run_eval_step(batch))
+                outputs.append(run_flare_eval_step(self.runtime, batch, {"meta": {}}))
         elapsed = time.perf_counter() - start_time
+
         if split == "train":
             self.current_epoch += 1
+
         losses = [self.task_adapter.compute_loss(item) for item in outputs if "loss" in item]
         metric_accumulator: dict[str, list[float]] = {}
         for item in outputs:
@@ -100,7 +155,6 @@ class SchedulerSession:
         }
 
     def run_task(self) -> dict[str, Any]:
-        #self.prepare_data()
         self.build_runtime()
         train_summary = []
         eval_summary = []
@@ -126,13 +180,13 @@ class SchedulerSession:
         return self.run_epoch(split=split)
 
     def predict(self, split: str = "test") -> PredictionResult:
-        #if self.provider.runtime.model is None:
-        #    self.build_runtime()
+        assert self.snapshot_core is not None, "Call build_runtime() first"
+        self.runtime.state.pop("eval_rnn_state", None)
         predictions = []
         targets = []
         meta = {"split": split, "graph_mode": self.model_spec.graph_mode}
-        for batch in self.provider.build_predict_iterator(self.ctx, split=split):
-            output = self.provider.run_predict_step(batch)
+        for batch in self.snapshot_core.iter_predict(split=split):
+            output = run_flare_predict_step(self.runtime, batch, {"meta": {}})
             predictions.extend(output.get("predictions", []))
             if output.get("targets") is not None:
                 targets.extend(output.get("targets", []))
@@ -145,9 +199,6 @@ class SchedulerSession:
     def _distributed_epoch_stats(self, loss_sum: float, step_count: int, elapsed: float) -> tuple[float, int, float]:
         if not self.ctx.dist.is_distributed:
             return loss_sum, step_count, elapsed
-        import torch
-        import torch.distributed as dist
-
         if not dist.is_initialized():
             return loss_sum, step_count, elapsed
         device = "cuda" if str(self.ctx.config["runtime"]["device"]).startswith("cuda") else "cpu"
@@ -157,13 +208,10 @@ class SchedulerSession:
         return float(stats[0].item()), int(stats[1].item()), float(stats[2].item())
 
     def save_checkpoint(self, path: str | Path) -> Path:
-        runtime_state = self.provider.runtime_adapter.dump_runtime_state(self.provider.runtime)
         payload = {
-            "model_state": self.provider.runtime.model,
-            "optimizer_state": self.provider.runtime.optimizer,
-            "scheduler_state": self.provider.runtime.scheduler,
-            "runtime_state": runtime_state,
-            "provider_meta": getattr(self.provider.prepared, "provider_meta", {}),
+            "model_state": self.runtime.model,
+            "optimizer_state": self.runtime.optimizer,
+            "scheduler_state": self.runtime.scheduler,
             "config": self.ctx.config,
             "epoch": self.current_epoch,
             "global_step": self.global_step,
@@ -172,12 +220,11 @@ class SchedulerSession:
 
     def load_checkpoint(self, path: str | Path) -> dict[str, Any]:
         payload = load_checkpoint(path)
-        if self.provider.runtime.model is None:
+        if self.runtime.model is None:
             self.build_runtime()
-        self.provider.runtime.model = payload.get("model_state")
-        self.provider.runtime.optimizer = payload.get("optimizer_state")
-        self.provider.runtime.scheduler = payload.get("scheduler_state")
-        self.provider.runtime_adapter.load_runtime_state(self.provider.runtime, payload.get("runtime_state", {}))
+        self.runtime.model = payload.get("model_state")
+        self.runtime.optimizer = payload.get("optimizer_state")
+        self.runtime.scheduler = payload.get("scheduler_state")
         self.current_epoch = int(payload.get("epoch", 0))
         self.global_step = int(payload.get("global_step", 0))
         return payload

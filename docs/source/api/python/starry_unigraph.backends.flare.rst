@@ -6,15 +6,8 @@ starry\_unigraph.backends.flare package
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
+.. note::
 
-.. toctree::
-   :maxdepth: 4
-
-   starry_unigraph.backends.flare.collection
-   starry_unigraph.backends.flare.models
-   starry_unigraph.backends.flare.partition_data
-   starry_unigraph.backends.flare.route
-   starry_unigraph.backends.flare.stgraph_blob
-   starry_unigraph.backends.flare.stgraph_loader
+   This package is a backward-compatibility shim that re-exports classes from
+   ``starry_unigraph.runtime.flare``. See the runtime/flare subpackage for
+   the canonical implementations.

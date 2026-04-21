@@ -1,5 +1,5 @@
-StarryGL Documentation
-======================
+StarryUniGraph Documentation
+=============================
 
 .. toctree::
    :maxdepth: 1

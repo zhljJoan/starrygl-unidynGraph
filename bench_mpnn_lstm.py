@@ -26,17 +26,15 @@ def _log(msg: str) -> None:
 
 
 def _build_session():
-    from starry_unigraph.config.schema import load_config, validate_config, detect_graph_mode
+    from starry_unigraph.config.schema import load_config, validate_config
     from starry_unigraph.distributed import apply_distributed_env, build_distributed_context
-    from starry_unigraph.registry import ModelRegistry, ProviderRegistry, TaskRegistry
+    from starry_unigraph.registry import ModelRegistry, TaskRegistry
     from starry_unigraph.types import SessionContext
     from starry_unigraph.session import SchedulerSession
 
     config = apply_distributed_env(load_config(CONFIG_PATH))
     validate_config(config)
     model_spec = ModelRegistry.resolve(model_name=config["model"]["name"], family=config["model"]["family"])
-    graph_mode = detect_graph_mode(config)
-    provider_cls = ProviderRegistry.resolve(graph_mode)
     task_cls = TaskRegistry.resolve(config["model"]["task"])
     ctx = SessionContext(
         config=config,
@@ -46,8 +44,7 @@ def _build_session():
         dist=build_distributed_context(config),
         warnings=[],
     )
-    provider = provider_cls(task_adapter=task_cls())
-    return SchedulerSession(session_ctx=ctx, provider=provider, model_spec=model_spec, task_adapter=task_cls())
+    return SchedulerSession(session_ctx=ctx, model_spec=model_spec, task_adapter=task_cls())
 
 
 def run_prepare():

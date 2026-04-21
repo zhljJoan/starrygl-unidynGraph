@@ -1,20 +1,22 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph.registry.model_registry &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -31,6 +33,9 @@
           <a href="../../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -72,15 +77,15 @@
            <div itemprop="articleBody">
              
   <h1>Source code for starry_unigraph.registry.model_registry</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 
 
 <div class="viewcode-block" id="ModelSpec">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.registry.model_registry.html#starry_unigraph.registry.ModelSpec">[docs]</a>
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ModelSpec</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">ModelSpec</span><span class="p">:</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">family</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">graph_mode</span><span class="p">:</span> <span class="nb">str</span></div>
@@ -89,7 +94,7 @@
 
 <div class="viewcode-block" id="ModelRegistry">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.registry.model_registry.html#starry_unigraph.registry.ModelRegistry">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">ModelRegistry</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">ModelRegistry</span><span class="p">:</span>
     <span class="n">_models</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ModelSpec</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;tgn&quot;</span><span class="p">:</span> <span class="n">ModelSpec</span><span class="p">(</span><span class="s2">&quot;tgn&quot;</span><span class="p">,</span> <span class="s2">&quot;tgn&quot;</span><span class="p">,</span> <span class="s2">&quot;ctdg&quot;</span><span class="p">),</span>
         <span class="s2">&quot;dyrep&quot;</span><span class="p">:</span> <span class="n">ModelSpec</span><span class="p">(</span><span class="s2">&quot;dyrep&quot;</span><span class="p">,</span> <span class="s2">&quot;dyrep&quot;</span><span class="p">,</span> <span class="s2">&quot;ctdg&quot;</span><span class="p">),</span>
@@ -105,7 +110,7 @@
 <div class="viewcode-block" id="ModelRegistry.resolve">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.registry.model_registry.html#starry_unigraph.registry.ModelRegistry.resolve">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">family</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelSpec</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">resolve</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">family</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelSpec</span><span class="p">:</span>
         <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">family</span> <span class="ow">or</span> <span class="n">model_name</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_models</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown model/family: </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>

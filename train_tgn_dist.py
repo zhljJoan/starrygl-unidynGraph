@@ -78,8 +78,8 @@ def main():
         artifact_root=Path("artifacts") / cfg["data"]["name"],
     )
 
-    from starry_unigraph.providers.ctdg import CTDGProvider
-    provider = CTDGProvider(task_adapter=None)
+    from starry_unigraph.runtime.online import CTDGSession
+    session = CTDGSession()
 
     if rank == 0:
         print(f"[dist] world_size={world_size}  dataset={cfg['data']['name']}"
@@ -87,13 +87,13 @@ def main():
 
     # prepare (rank 0 writes artifacts, others wait)
     t_prep = time.time()
-    provider.prepare_data(ctx)
+    session.prepare_data(ctx)
     dist.barrier()
     if rank == 0:
         print(f"[prepare] {time.time()-t_prep:.1f}s", flush=True)
 
     t_build = time.time()
-    provider.build_runtime(ctx)
+    session.build_runtime(ctx)
     dist.barrier()
     if rank == 0:
         print(f"[build_runtime] {time.time()-t_build:.1f}s", flush=True)
@@ -109,8 +109,8 @@ def main():
         n_batches = 0
         t_log = t0
 
-        for batch in provider.build_train_iterator(ctx, split="train"):
-            result = provider.run_train_step(batch)
+        for batch in session.iter_train(ctx):
+            result = session.train_step(batch)
             train_losses.append(result["loss"])
             train_aps.append(result["meta"]["metrics"].get("ap", 0))
             n_batches += 1
@@ -134,8 +134,8 @@ def main():
         # Val
         t1 = time.time()
         val_losses, val_aps = [], []
-        for batch in provider.build_eval_iterator(ctx, split="val"):
-            result = provider.run_eval_step(batch)
+        for batch in session.iter_eval(ctx, split="val"):
+            result = session.eval_step(batch)
             val_losses.append(result["loss"])
             val_aps.append(result["meta"]["metrics"].get("ap", 0))
         dist.barrier()
@@ -152,7 +152,7 @@ def main():
             saved = ""
             if float(vap_t) > best_val_ap:
                 best_val_ap = float(vap_t)
-                provider.save_checkpoint(ckpt_path)
+                session.save_checkpoint(ckpt_path)
                 saved = "  [saved]"
             print(
                 f"Epoch {epoch:3d}/{epochs}"

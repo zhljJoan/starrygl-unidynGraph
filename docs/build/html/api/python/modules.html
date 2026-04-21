@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -7,15 +5,19 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -34,6 +36,9 @@
           <a href="../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -104,12 +109,7 @@
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGLinkPredictor"><code class="docutils literal notranslate"><span class="pre">CTDGLinkPredictor</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.CTDGMemoryBank"><code class="docutils literal notranslate"><span class="pre">CTDGMemoryBank</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.NativeTemporalSampler"><code class="docutils literal notranslate"><span class="pre">NativeTemporalSampler</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.PartitionData"><code class="docutils literal notranslate"><span class="pre">PartitionData</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphBlob"><code class="docutils literal notranslate"><span class="pre">STGraphBlob</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STGraphLoader"><code class="docutils literal notranslate"><span class="pre">STGraphLoader</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.STWindowState"><code class="docutils literal notranslate"><span class="pre">STWindowState</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TGTemporalDataset"><code class="docutils literal notranslate"><span class="pre">TGTemporalDataset</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html#starry_unigraph.backends.TensorData"><code class="docutils literal notranslate"><span class="pre">TensorData</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html#subpackages">Subpackages</a></li>
 </ul>
 </li>
@@ -151,11 +151,16 @@
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateHandle"><code class="docutils literal notranslate"><span class="pre">StateHandle</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateSyncPlan"><code class="docutils literal notranslate"><span class="pre">StateSyncPlan</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.StateWriteback"><code class="docutils literal notranslate"><span class="pre">StateWriteback</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.normalize_split_ratio"><code class="docutils literal notranslate"><span class="pre">normalize_split_ratio()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.html#starry_unigraph.core.split_bounds"><code class="docutils literal notranslate"><span class="pre">split_bounds()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.core.html#submodules">Submodules</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.html">starry_unigraph.data package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.PartitionData"><code class="docutils literal notranslate"><span class="pre">PartitionData</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RawTemporalEvents"><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.RouteData"><code class="docutils literal notranslate"><span class="pre">RouteData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.TensorData"><code class="docutils literal notranslate"><span class="pre">TensorData</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.build_snapshot_dataset_from_events"><code class="docutils literal notranslate"><span class="pre">build_snapshot_dataset_from_events()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.load_raw_temporal_events"><code class="docutils literal notranslate"><span class="pre">load_raw_temporal_events()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.html#submodules">Submodules</a></li>
@@ -193,6 +198,7 @@
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.ExecutionAdapter"><code class="docutils literal notranslate"><span class="pre">ExecutionAdapter</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.GraphProvider"><code class="docutils literal notranslate"><span class="pre">GraphProvider</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.RuntimeAdapter"><code class="docutils literal notranslate"><span class="pre">RuntimeAdapter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.runtime.html#starry_unigraph.runtime.RuntimeProtocol"><code class="docutils literal notranslate"><span class="pre">RuntimeProtocol</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="starry_unigraph.runtime.html#submodules">Submodules</a></li>
 </ul>
 </li>

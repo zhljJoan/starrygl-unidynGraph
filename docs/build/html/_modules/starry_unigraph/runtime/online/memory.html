@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.runtime.online.memory &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.runtime.online.memory</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for starry_unigraph.runtime.online.memory</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Per-node memory bank with K-slot mailbox for CTDG online training.</span>
+
+<span class="sd">:class:`CTDGMemoryBank` is the central state container for TGN-style models.</span>
+<span class="sd">It stores per-node hidden memory and a K-slot mailbox (edge-feature messages),</span>
+<span class="sd">handles distributed async sync via ``all_to_all``, and integrates with</span>
+<span class="sd">:class:`CTDGHistoricalCache` for change-detection filtering.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="kn">from</span> <span class="nn">starry_unigraph.types</span> <span class="kn">import</span> <span class="n">DistributedContext</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.cache</span> <span class="kn">import</span> <span class="n">CTDGHistoricalCache</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">_PendingMemorySync</span><span class="p">:</span>
+    <span class="n">id_work</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">payload_work</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">recv_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">recv_payload</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">recv_counts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">sent_remote_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">sent_remote_vals</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">sent_remote_ts</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">_PendingMailSync</span><span class="p">:</span>
+    <span class="n">id_work</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">payload_work</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">recv_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">recv_payload</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">recv_counts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="CTDGMemoryBank">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">CTDGMemoryBank</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-node memory + K-slot mailbox.</span>
+
+<span class="sd">    In distributed mode each rank only allocates storage for its own partition</span>
+<span class="sd">    (``num_local_nodes`` nodes).  Global node IDs are mapped to local IDs via</span>
+<span class="sd">    ``global2local``.  Nodes not owned by this rank use a temporary CPU buffer</span>
+<span class="sd">    (``remote_memory``) that is filled by async sync operations.</span>
+
+<span class="sd">    In single-rank mode ``num_local_nodes == num_nodes`` and the mapping is the</span>
+<span class="sd">    identity, so all existing call sites work unchanged.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span>       <span class="c1"># total nodes in the graph</span>
+    <span class="n">hidden_dim</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">mailbox_slots</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">edge_feat_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1"># Distributed partition info (set by provider)</span>
+    <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">world_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">async_sync</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_feat_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">D</span> <span class="o">+</span> <span class="n">E</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">local_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">local_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_local_nodes</span> <span class="o">=</span> <span class="n">local_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">global2local</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">global2local</span><span class="p">[</span><span class="n">local_ids</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_local_nodes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_ids</span> <span class="o">=</span> <span class="n">local_ids</span>
+
+        <span class="c1"># Determine storage device once: try GPU, fall back to CPU</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">OutOfMemoryError</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span>
+
+        <span class="n">sd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span>     <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_local_nodes</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span>    <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">sd</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mailbox</span>    <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_local_nodes</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">sd</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_ts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_local_nodes</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span>    <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">sd</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory_ts</span>  <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_local_nodes</span><span class="p">,),</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">sd</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">next_mail_pos</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_local_nodes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">sd</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory_version</span>  <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_version</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">shared_nodes</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_shared_mask</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">historical_cache</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_memory_sync</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_mail_sync</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_memory_syncs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_PendingMemorySync</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_mail_syncs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_PendingMailSync</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">_to_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">global_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Map global node IDs → local storage indices (always CPU).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">global2local</span><span class="p">[</span><span class="n">global_ids</span><span class="o">.</span><span class="n">cpu</span><span class="p">()]</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Backward-compat property</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">last_update</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory_ts</span>
+
+    <span class="nd">@last_update</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">last_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory_ts</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Basic read/write  (all accept global node IDs)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="CTDGMemoryBank.gather">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank.gather">[docs]</a>
+    <span class="k">def</span> <span class="nf">gather</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read memory vectors for the given global node IDs.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            node_ids: 1-D tensor of global node IDs (any device).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tensor ``[len(node_ids), hidden_dim]`` on ``self.device``.</span>
+<span class="sd">            Nodes not owned by this rank get zero vectors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_local</span><span class="p">(</span><span class="n">node_ids</span><span class="p">)</span>        <span class="c1"># CPU</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="n">loc</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">,</span>
+                          <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">valid</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">[</span><span class="n">loc</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span><span class="p">)]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="CTDGMemoryBank.read_mailbox">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank.read_mailbox">[docs]</a>
+    <span class="k">def</span> <span class="nf">read_mailbox</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read K-slot mailbox for the given global node IDs.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            node_ids: 1-D tensor of global node IDs.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tensor ``[len(node_ids), K, slot_width]`` on ``self.device``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_local</span><span class="p">(</span><span class="n">node_ids</span><span class="p">)</span>        <span class="c1"># CPU</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="n">loc</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span><span class="p">,</span>
+                          <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">valid</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox</span><span class="p">[</span><span class="n">loc</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span><span class="p">)]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="CTDGMemoryBank.gather_mailbox">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank.gather_mailbox">[docs]</a>
+    <span class="k">def</span> <span class="nf">gather_mailbox</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Legacy single-slot gather (slot 0).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_mailbox</span><span class="p">(</span><span class="n">node_ids</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span></div>
+
+
+<div class="viewcode-block" id="CTDGMemoryBank.read_mailbox_ts">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank.read_mailbox_ts">[docs]</a>
+    <span class="k">def</span> <span class="nf">read_mailbox_ts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return mailbox timestamps [M, K] on self.device.&quot;&quot;&quot;</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_local</span><span class="p">(</span><span class="n">node_ids</span><span class="p">)</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="n">loc</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">valid</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_ts</span><span class="p">[</span><span class="n">loc</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span><span class="p">)]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="CTDGMemoryBank.write_mailbox">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank.write_mailbox">[docs]</a>
+    <span class="k">def</span> <span class="nf">write_mailbox</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">src_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">dst_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">src_mem</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">dst_mem</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">edge_feat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">timestamps</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write new messages into the mailbox for src and dst nodes.</span>
+
+<span class="sd">        Each message slot contains ``[src_mem || dst_mem || edge_feat]``</span>
+<span class="sd">        concatenated.  Messages are written in timestamp order using a</span>
+<span class="sd">        circular buffer (``next_mail_pos``).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            src_ids: Source node global IDs, shape ``[B]``.</span>
+<span class="sd">            dst_ids: Destination node global IDs, shape ``[B]``.</span>
+<span class="sd">            src_mem: Source memory before update, shape ``[B, D]``.</span>
+<span class="sd">            dst_mem: Destination memory before update, shape ``[B, D]``.</span>
+<span class="sd">            edge_feat: Edge features, shape ``[B, E]``.</span>
+<span class="sd">            timestamps: Event timestamps, shape ``[B]``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span>
+        <span class="n">src</span> <span class="o">=</span> <span class="n">src_ids</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="n">dst</span> <span class="o">=</span> <span class="n">dst_ids</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="n">smem</span>  <span class="o">=</span> <span class="n">src_mem</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">dmem</span>  <span class="o">=</span> <span class="n">dst_mem</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">ts</span>    <span class="o">=</span> <span class="n">timestamps</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">efeat</span> <span class="o">=</span> <span class="n">edge_feat</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">E</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_feat_dim</span><span class="p">)</span>
+        <span class="n">efeat</span> <span class="o">=</span> <span class="n">efeat</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span><span class="n">E</span><span class="p">]</span> <span class="k">if</span> <span class="n">efeat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">E</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">efeat</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="o">*</span><span class="n">efeat</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">E</span> <span class="o">-</span> <span class="n">efeat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">src_slot</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">smem</span><span class="p">,</span> <span class="n">dmem</span><span class="p">,</span> <span class="n">efeat</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">dst_slot</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">dmem</span><span class="p">,</span> <span class="n">smem</span><span class="p">,</span> <span class="n">efeat</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_write_slots</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">src_slot</span><span class="p">,</span> <span class="n">ts</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_write_slots</span><span class="p">(</span><span class="n">dst</span><span class="p">,</span> <span class="n">dst_slot</span><span class="p">,</span> <span class="n">ts</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_version</span> <span class="o">+=</span> <span class="mi">1</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_write_slots</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">global_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">slot_values</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+                     <span class="n">timestamps</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">sd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_local</span><span class="p">(</span><span class="n">global_ids</span><span class="p">)</span>      <span class="c1"># CPU</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="n">loc</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">return</span>
+        <span class="n">K</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span>
+        <span class="n">sw</span> <span class="o">=</span> <span class="n">slot_values</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">lids</span> <span class="o">=</span> <span class="n">loc</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+        <span class="n">sv</span>   <span class="o">=</span> <span class="n">slot_values</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+        <span class="n">ts</span>   <span class="o">=</span> <span class="n">timestamps</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+
+        <span class="n">order</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
+        <span class="n">lids</span> <span class="o">=</span> <span class="n">lids</span><span class="p">[</span><span class="n">order</span><span class="p">];</span> <span class="n">sv</span> <span class="o">=</span> <span class="n">sv</span><span class="p">[</span><span class="n">order</span><span class="p">];</span> <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+
+        <span class="n">pos</span>      <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">next_mail_pos</span><span class="p">[</span><span class="n">lids</span><span class="p">]</span>
+        <span class="n">flat_idx</span> <span class="o">=</span> <span class="n">lids</span> <span class="o">*</span> <span class="n">K</span> <span class="o">+</span> <span class="n">pos</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mailbox</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">sw</span><span class="p">)[</span><span class="n">flat_idx</span><span class="p">]</span>  <span class="o">=</span> <span class="n">sv</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_ts</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)[</span><span class="n">flat_idx</span><span class="p">]</span>   <span class="o">=</span> <span class="n">ts</span>
+
+        <span class="n">uniq</span><span class="p">,</span> <span class="n">inv</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">lids</span><span class="p">,</span> <span class="n">return_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">uniq</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">sd</span><span class="p">)</span>
+        <span class="n">counts</span><span class="o">.</span><span class="n">scatter_add_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">inv</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">inv</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">next_mail_pos</span><span class="p">[</span><span class="n">uniq</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">next_mail_pos</span><span class="p">[</span><span class="n">uniq</span><span class="p">]</span> <span class="o">+</span> <span class="n">counts</span><span class="p">)</span> <span class="o">%</span> <span class="n">K</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Memory update</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+    <span class="k">def</span> <span class="nf">_apply_memory_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+                              <span class="n">timestamps</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">sd</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span>
+        <span class="n">loc</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_local</span><span class="p">(</span><span class="n">node_ids</span><span class="p">)</span>       <span class="c1"># CPU</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="n">loc</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">return</span>
+        <span class="n">lids</span> <span class="o">=</span> <span class="n">loc</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+        <span class="n">ts</span>   <span class="o">=</span> <span class="n">timestamps</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">[</span><span class="n">lids</span><span class="p">[</span><span class="n">order</span><span class="p">]]</span>    <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory_ts</span><span class="p">[</span><span class="n">lids</span><span class="p">[</span><span class="n">order</span><span class="p">]]</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory_version</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="c1"># Backward-compat wrapper</span>
+    <span class="k">def</span> <span class="nf">_apply_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_memory_update</span><span class="p">(</span><span class="n">node_ids</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply_mail_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">mail_slots</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">mail_ts</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_local</span><span class="p">(</span><span class="n">node_ids</span><span class="p">)</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="n">loc</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">return</span>
+        <span class="n">lids</span> <span class="o">=</span> <span class="n">loc</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span><span class="p">)</span>
+        <span class="n">slots</span> <span class="o">=</span> <span class="n">mail_slots</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span><span class="p">)</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">mail_ts</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span><span class="p">)</span>
+        <span class="n">incoming_latest</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">current_latest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_ts</span><span class="p">[</span><span class="n">lids</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">newer</span> <span class="o">=</span> <span class="n">incoming_latest</span> <span class="o">&gt;</span> <span class="n">current_latest</span>
+        <span class="k">if</span> <span class="n">newer</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">lids_n</span> <span class="o">=</span> <span class="n">lids</span><span class="p">[</span><span class="n">newer</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mailbox</span><span class="p">[</span><span class="n">lids_n</span><span class="p">]</span> <span class="o">=</span> <span class="n">slots</span><span class="p">[</span><span class="n">newer</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_ts</span><span class="p">[</span><span class="n">lids_n</span><span class="p">]</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">newer</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_version</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="nf">_distributed_ready</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">DistributedContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ctx</span><span class="o">.</span><span class="n">is_distributed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
+        <span class="k">return</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_exchange_counts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">send_counts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
+
+        <span class="n">send</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">send_counts</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">recv</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">send</span><span class="p">)</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">all_to_all_single</span><span class="p">(</span><span class="n">recv</span><span class="p">,</span> <span class="n">send</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">recv</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_pack_by_owner</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">owner</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">payload</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">world_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+        <span class="k">if</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">node_ids</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">world_size</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">owner</span><span class="p">)</span>
+        <span class="n">owner_sorted</span> <span class="o">=</span> <span class="n">owner</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+        <span class="n">ids_sorted</span> <span class="o">=</span> <span class="n">node_ids</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+        <span class="n">payload_sorted</span> <span class="o">=</span> <span class="n">payload</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+        <span class="n">send_counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">owner_sorted</span><span class="p">,</span> <span class="n">minlength</span><span class="o">=</span><span class="n">world_size</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">ids_sorted</span><span class="p">,</span> <span class="n">payload_sorted</span><span class="p">,</span> <span class="n">send_counts</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Async sync (distributed)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="CTDGMemoryBank.submit_async_memory_sync">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank.submit_async_memory_sync">[docs]</a>
+    <span class="k">def</span> <span class="nf">submit_async_memory_sync</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">DistributedContext</span><span class="p">,</span>
+        <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">timestamps</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Submit an async distributed memory sync for remote nodes.</span>
+
+<span class="sd">        Packs updated memory for nodes owned by other ranks and sends via</span>
+<span class="sd">        ``all_to_all_single``.  In single-rank mode, falls back to a local</span>
+<span class="sd">        memory update.  Uses :class:`CTDGHistoricalCache` (if available) to</span>
+<span class="sd">        skip syncs for nodes that haven&#39;t changed significantly.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            ctx: :class:`DistributedContext` with rank / world_size.</span>
+<span class="sd">            node_ids: Global node IDs with updated memory, shape ``[N]``.</span>
+<span class="sd">            values: Updated memory vectors (detached), shape ``[N, D]``.</span>
+<span class="sd">            timestamps: Update timestamps, shape ``[N]``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributed_ready</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_memory_update</span><span class="p">(</span><span class="n">node_ids</span><span class="p">,</span> <span class="n">values</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span> <span class="n">timestamps</span><span class="o">.</span><span class="n">detach</span><span class="p">())</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
+
+        <span class="n">node_ids</span> <span class="o">=</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">timestamps</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">owner</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">remainder</span><span class="p">(</span><span class="n">node_ids</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">world_size</span><span class="p">)</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+        <span class="n">remote_mask</span> <span class="o">=</span> <span class="n">owner</span> <span class="o">!=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rank</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">remote_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">return</span>
+
+        <span class="n">node_ids</span> <span class="o">=</span> <span class="n">node_ids</span><span class="p">[</span><span class="n">remote_mask</span><span class="p">]</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="n">remote_mask</span><span class="p">]</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">remote_mask</span><span class="p">]</span>
+        <span class="n">owner</span> <span class="o">=</span> <span class="n">owner</span><span class="p">[</span><span class="n">remote_mask</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">historical_cache</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">changed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">historical_cache</span><span class="o">.</span><span class="n">historical_check</span><span class="p">(</span><span class="n">node_ids</span><span class="p">,</span> <span class="n">vals</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">changed</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="k">return</span>
+            <span class="n">node_ids</span> <span class="o">=</span> <span class="n">node_ids</span><span class="p">[</span><span class="n">changed</span><span class="p">]</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="n">changed</span><span class="p">]</span>
+            <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">changed</span><span class="p">]</span>
+            <span class="n">owner</span> <span class="o">=</span> <span class="n">owner</span><span class="p">[</span><span class="n">changed</span><span class="p">]</span>
+
+        <span class="n">send_ids</span><span class="p">,</span> <span class="n">send_payload</span><span class="p">,</span> <span class="n">send_counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pack_by_owner</span><span class="p">(</span>
+            <span class="n">owner</span><span class="p">,</span>
+            <span class="n">node_ids</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">vals</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">recv_counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exchange_counts</span><span class="p">(</span><span class="n">send_counts</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">node_ids</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">total_recv</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">recv_counts</span><span class="p">))</span>
+        <span class="n">recv_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">total_recv</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">node_ids</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">recv_payload_flat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">total_recv</span> <span class="o">*</span> <span class="n">width</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">node_ids</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">id_work</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">all_to_all_single</span><span class="p">(</span>
+            <span class="n">recv_ids</span><span class="p">,</span>
+            <span class="n">send_ids</span><span class="p">,</span>
+            <span class="n">output_split_sizes</span><span class="o">=</span><span class="n">recv_counts</span><span class="p">,</span>
+            <span class="n">input_split_sizes</span><span class="o">=</span><span class="n">send_counts</span><span class="p">,</span>
+            <span class="n">async_op</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_sync</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">payload_work</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">all_to_all_single</span><span class="p">(</span>
+            <span class="n">recv_payload_flat</span><span class="p">,</span>
+            <span class="n">send_payload</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+            <span class="n">output_split_sizes</span><span class="o">=</span><span class="p">[</span><span class="n">c</span> <span class="o">*</span> <span class="n">width</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">recv_counts</span><span class="p">],</span>
+            <span class="n">input_split_sizes</span><span class="o">=</span><span class="p">[</span><span class="n">c</span> <span class="o">*</span> <span class="n">width</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">send_counts</span><span class="p">],</span>
+            <span class="n">async_op</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_sync</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_sync</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_memory_syncs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">_PendingMemorySync</span><span class="p">(</span>
+                    <span class="n">id_work</span><span class="o">=</span><span class="n">id_work</span><span class="p">,</span>
+                    <span class="n">payload_work</span><span class="o">=</span><span class="n">payload_work</span><span class="p">,</span>
+                    <span class="n">recv_ids</span><span class="o">=</span><span class="n">recv_ids</span><span class="p">,</span>
+                    <span class="n">recv_payload</span><span class="o">=</span><span class="n">recv_payload_flat</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">total_recv</span><span class="p">,</span> <span class="n">width</span><span class="p">),</span>
+                    <span class="n">recv_counts</span><span class="o">=</span><span class="n">recv_counts</span><span class="p">,</span>
+                    <span class="n">sent_remote_ids</span><span class="o">=</span><span class="n">node_ids</span><span class="p">,</span>
+                    <span class="n">sent_remote_vals</span><span class="o">=</span><span class="n">vals</span><span class="p">,</span>
+                    <span class="n">sent_remote_ts</span><span class="o">=</span><span class="n">ts</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">recv_payload</span> <span class="o">=</span> <span class="n">recv_payload_flat</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">total_recv</span><span class="p">,</span> <span class="n">width</span><span class="p">)</span>
+        <span class="n">merged_vals</span> <span class="o">=</span> <span class="n">recv_payload</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">]</span>
+        <span class="n">merged_ts</span> <span class="o">=</span> <span class="n">recv_payload</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_memory_update</span><span class="p">(</span><span class="n">recv_ids</span><span class="p">,</span> <span class="n">merged_vals</span><span class="p">,</span> <span class="n">merged_ts</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">historical_cache</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">slot_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">historical_cache</span><span class="o">.</span><span class="n">slot_indices</span><span class="p">(</span><span class="n">node_ids</span><span class="p">)</span>
+            <span class="n">valid_slot</span> <span class="o">=</span> <span class="n">slot_ids</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">valid_slot</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">historical_cache</span><span class="o">.</span><span class="n">update_cache</span><span class="p">(</span><span class="n">slot_ids</span><span class="p">[</span><span class="n">valid_slot</span><span class="p">],</span> <span class="n">vals</span><span class="p">[</span><span class="n">valid_slot</span><span class="p">],</span> <span class="n">ts</span><span class="p">[</span><span class="n">valid_slot</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="CTDGMemoryBank.submit_async_mail_sync">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank.submit_async_mail_sync">[docs]</a>
+    <span class="k">def</span> <span class="nf">submit_async_mail_sync</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ctx</span><span class="p">:</span> <span class="n">DistributedContext</span><span class="p">,</span>
+        <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">mail_slots</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">mail_ts</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;No-op for single rank; distributed path mirrors memory sync.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributed_ready</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
+
+        <span class="n">node_ids</span> <span class="o">=</span> <span class="n">node_ids</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">slots</span> <span class="o">=</span> <span class="n">mail_slots</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">mail_ts</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">owner</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">remainder</span><span class="p">(</span><span class="n">node_ids</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">world_size</span><span class="p">)</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+        <span class="n">remote_mask</span> <span class="o">=</span> <span class="n">owner</span> <span class="o">!=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rank</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">remote_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">return</span>
+        <span class="n">node_ids</span> <span class="o">=</span> <span class="n">node_ids</span><span class="p">[</span><span class="n">remote_mask</span><span class="p">]</span>
+        <span class="n">slots</span> <span class="o">=</span> <span class="n">slots</span><span class="p">[</span><span class="n">remote_mask</span><span class="p">]</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">remote_mask</span><span class="p">]</span>
+        <span class="n">owner</span> <span class="o">=</span> <span class="n">owner</span><span class="p">[</span><span class="n">remote_mask</span><span class="p">]</span>
+
+        <span class="n">payload_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span>
+        <span class="n">mail_payload</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">slots</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">ts</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">send_ids</span><span class="p">,</span> <span class="n">send_payload</span><span class="p">,</span> <span class="n">send_counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pack_by_owner</span><span class="p">(</span>
+            <span class="n">owner</span><span class="p">,</span>
+            <span class="n">node_ids</span><span class="p">,</span>
+            <span class="n">mail_payload</span><span class="p">,</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">recv_counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exchange_counts</span><span class="p">(</span><span class="n">send_counts</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">node_ids</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">total_recv</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">recv_counts</span><span class="p">))</span>
+        <span class="n">recv_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">total_recv</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">node_ids</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">recv_payload_flat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">total_recv</span> <span class="o">*</span> <span class="n">payload_width</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">node_ids</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">id_work</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">all_to_all_single</span><span class="p">(</span>
+            <span class="n">recv_ids</span><span class="p">,</span>
+            <span class="n">send_ids</span><span class="p">,</span>
+            <span class="n">output_split_sizes</span><span class="o">=</span><span class="n">recv_counts</span><span class="p">,</span>
+            <span class="n">input_split_sizes</span><span class="o">=</span><span class="n">send_counts</span><span class="p">,</span>
+            <span class="n">async_op</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_sync</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">payload_work</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">all_to_all_single</span><span class="p">(</span>
+            <span class="n">recv_payload_flat</span><span class="p">,</span>
+            <span class="n">send_payload</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+            <span class="n">output_split_sizes</span><span class="o">=</span><span class="p">[</span><span class="n">c</span> <span class="o">*</span> <span class="n">payload_width</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">recv_counts</span><span class="p">],</span>
+            <span class="n">input_split_sizes</span><span class="o">=</span><span class="p">[</span><span class="n">c</span> <span class="o">*</span> <span class="n">payload_width</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">send_counts</span><span class="p">],</span>
+            <span class="n">async_op</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_sync</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_sync</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_mail_syncs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">_PendingMailSync</span><span class="p">(</span>
+                    <span class="n">id_work</span><span class="o">=</span><span class="n">id_work</span><span class="p">,</span>
+                    <span class="n">payload_work</span><span class="o">=</span><span class="n">payload_work</span><span class="p">,</span>
+                    <span class="n">recv_ids</span><span class="o">=</span><span class="n">recv_ids</span><span class="p">,</span>
+                    <span class="n">recv_payload</span><span class="o">=</span><span class="n">recv_payload_flat</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">total_recv</span><span class="p">,</span> <span class="n">payload_width</span><span class="p">),</span>
+                    <span class="n">recv_counts</span><span class="o">=</span><span class="n">recv_counts</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">recv_payload</span> <span class="o">=</span> <span class="n">recv_payload_flat</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">total_recv</span><span class="p">,</span> <span class="n">payload_width</span><span class="p">)</span>
+        <span class="n">recv_slots</span> <span class="o">=</span> <span class="n">recv_payload</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">total_recv</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span><span class="p">)</span>
+        <span class="n">recv_ts</span> <span class="o">=</span> <span class="n">recv_payload</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span> <span class="p">:]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">total_recv</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_mail_update</span><span class="p">(</span><span class="n">recv_ids</span><span class="p">,</span> <span class="n">recv_slots</span><span class="p">,</span> <span class="n">recv_ts</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CTDGMemoryBank.wait_pending_syncs">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank.wait_pending_syncs">[docs]</a>
+    <span class="k">def</span> <span class="nf">wait_pending_syncs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Block until all pending async memory and mailbox syncs complete.</span>
+
+<span class="sd">        Drains ``_pending_memory_syncs`` and ``_pending_mail_syncs``,</span>
+<span class="sd">        applies received updates to local storage, and updates the</span>
+<span class="sd">        historical cache if present.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_memory_syncs</span><span class="p">:</span>
+            <span class="n">sync</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_memory_syncs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">sync</span><span class="o">.</span><span class="n">id_work</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+            <span class="n">sync</span><span class="o">.</span><span class="n">payload_work</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+            <span class="n">recv_vals</span> <span class="o">=</span> <span class="n">sync</span><span class="o">.</span><span class="n">recv_payload</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">]</span>
+            <span class="n">recv_ts</span> <span class="o">=</span> <span class="n">sync</span><span class="o">.</span><span class="n">recv_payload</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_memory_update</span><span class="p">(</span><span class="n">sync</span><span class="o">.</span><span class="n">recv_ids</span><span class="p">,</span> <span class="n">recv_vals</span><span class="p">,</span> <span class="n">recv_ts</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_memory_sync</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">int</span><span class="p">(</span><span class="n">sync</span><span class="o">.</span><span class="n">recv_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span>
+                <span class="nb">tuple</span><span class="p">(</span><span class="n">sync</span><span class="o">.</span><span class="n">recv_counts</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">historical_cache</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sync</span><span class="o">.</span><span class="n">sent_remote_ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sync</span><span class="o">.</span><span class="n">sent_remote_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">slot_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">historical_cache</span><span class="o">.</span><span class="n">slot_indices</span><span class="p">(</span><span class="n">sync</span><span class="o">.</span><span class="n">sent_remote_ids</span><span class="p">)</span>
+                <span class="n">valid_slot</span> <span class="o">=</span> <span class="n">slot_ids</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+                <span class="k">if</span> <span class="n">valid_slot</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                    <span class="k">assert</span> <span class="n">sync</span><span class="o">.</span><span class="n">sent_remote_vals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sync</span><span class="o">.</span><span class="n">sent_remote_ts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">historical_cache</span><span class="o">.</span><span class="n">update_cache</span><span class="p">(</span>
+                        <span class="n">slot_ids</span><span class="p">[</span><span class="n">valid_slot</span><span class="p">],</span>
+                        <span class="n">sync</span><span class="o">.</span><span class="n">sent_remote_vals</span><span class="p">[</span><span class="n">valid_slot</span><span class="p">],</span>
+                        <span class="n">sync</span><span class="o">.</span><span class="n">sent_remote_ts</span><span class="p">[</span><span class="n">valid_slot</span><span class="p">],</span>
+                    <span class="p">)</span>
+
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_mail_syncs</span><span class="p">:</span>
+            <span class="n">sync</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_mail_syncs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">sync</span><span class="o">.</span><span class="n">id_work</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+            <span class="n">sync</span><span class="o">.</span><span class="n">payload_work</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+            <span class="n">total_recv</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">sync</span><span class="o">.</span><span class="n">recv_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span>
+            <span class="n">recv_slots</span> <span class="o">=</span> <span class="n">sync</span><span class="o">.</span><span class="n">recv_payload</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span>
+                <span class="n">total_recv</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">recv_ts</span> <span class="o">=</span> <span class="n">sync</span><span class="o">.</span><span class="n">recv_payload</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_width</span> <span class="p">:]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">total_recv</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_mail_update</span><span class="p">(</span><span class="n">sync</span><span class="o">.</span><span class="n">recv_ids</span><span class="p">,</span> <span class="n">recv_slots</span><span class="p">,</span> <span class="n">recv_ts</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_mail_sync</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">total_recv</span><span class="p">,</span>
+                <span class="nb">tuple</span><span class="p">(</span><span class="n">sync</span><span class="o">.</span><span class="n">recv_counts</span><span class="p">),</span>
+            <span class="p">)</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Legacy sync</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="CTDGMemoryBank.sync_updates">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank.sync_updates">[docs]</a>
+    <span class="k">def</span> <span class="nf">sync_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">submit_async_memory_sync</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">)</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Describe</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="CTDGMemoryBank.describe">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGMemoryBank.describe">[docs]</a>
+    <span class="k">def</span> <span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span>
+            <span class="s2">&quot;num_local_nodes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_local_nodes</span><span class="p">,</span>
+            <span class="s2">&quot;hidden_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span><span class="p">,</span>
+            <span class="s2">&quot;mailbox_slots&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mailbox_slots</span><span class="p">,</span>
+            <span class="s2">&quot;memory_version&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory_version</span><span class="p">,</span>
+            <span class="s2">&quot;storage_device&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_storage_device</span><span class="p">),</span>
+        <span class="p">}</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

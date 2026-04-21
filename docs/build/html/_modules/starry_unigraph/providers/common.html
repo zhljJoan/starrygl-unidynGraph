@@ -1,20 +1,22 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph.providers.common &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -31,6 +33,9 @@
           <a href="../../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -72,16 +77,27 @@
            <div itemprop="articleBody">
              
   <h1>Source code for starry_unigraph.providers.common</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+<span></span><span class="sd">&quot;&quot;&quot;Common provider utilities: artifact management and BaseProvider ABC.</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+<span class="sd">Provides:</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.preprocess</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphPreprocessor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionAdapter</span><span class="p">,</span> <span class="n">GraphProvider</span><span class="p">,</span> <span class="n">RuntimeAdapter</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreparedArtifacts</span><span class="p">,</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">SessionContext</span>
+<span class="sd">- :func:`ensure_artifact_dirs` — create standard artifact directory layout.</span>
+<span class="sd">- :func:`validate_artifacts` — verify artifact metadata (version, graph_mode,</span>
+<span class="sd">  partition count) matches expectations.</span>
+<span class="sd">- :class:`BaseProvider` — abstract base for DTDG / CTDG providers, handling</span>
+<span class="sd">  artifact loading and runtime bundle initialization.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span> <span class="nn">starry_unigraph.preprocess</span> <span class="kn">import</span> <span class="n">GraphPreprocessor</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime</span> <span class="kn">import</span> <span class="n">ExecutionAdapter</span><span class="p">,</span> <span class="n">GraphProvider</span><span class="p">,</span> <span class="n">RuntimeAdapter</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.types</span> <span class="kn">import</span> <span class="n">PreparedArtifacts</span><span class="p">,</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">SessionContext</span>
 
 
 <span class="n">ARTIFACT_VERSION</span> <span class="o">=</span> <span class="mi">1</span>
@@ -89,7 +105,7 @@
 
 <div class="viewcode-block" id="ensure_artifact_dirs">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.ensure_artifact_dirs">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">ensure_artifact_dirs</span><span class="p">(</span><span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">graph_mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
+<span class="k">def</span> <span class="nf">ensure_artifact_dirs</span><span class="p">(</span><span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">graph_mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
     <span class="n">root</span> <span class="o">=</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">artifact_root</span>
     <span class="n">directories</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="n">root</span> <span class="o">/</span> <span class="s2">&quot;meta&quot;</span><span class="p">,</span>
@@ -108,7 +124,7 @@
 
 <div class="viewcode-block" id="write_meta">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.write_meta">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">write_meta</span><span class="p">(</span><span class="n">meta_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">write_meta</span><span class="p">(</span><span class="n">meta_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="k">with</span> <span class="n">meta_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
         <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
@@ -116,7 +132,7 @@
 
 <div class="viewcode-block" id="read_meta">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.read_meta">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">read_meta</span><span class="p">(</span><span class="n">meta_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="k">def</span> <span class="nf">read_meta</span><span class="p">(</span><span class="n">meta_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="k">with</span> <span class="n">meta_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span></div>
 
@@ -124,7 +140,7 @@
 
 <div class="viewcode-block" id="write_manifest">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.write_manifest">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">write_manifest</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">write_manifest</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
         <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
@@ -132,11 +148,29 @@
 
 <div class="viewcode-block" id="validate_artifacts">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.validate_artifacts">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">validate_artifacts</span><span class="p">(</span>
+<span class="k">def</span> <span class="nf">validate_artifacts</span><span class="p">(</span>
     <span class="n">prepared</span><span class="p">:</span> <span class="n">PreparedArtifacts</span><span class="p">,</span>
     <span class="n">expected_graph_mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">expected_num_parts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate that on-disk artifacts match the current session config.</span>
+
+<span class="sd">    Checks artifact version, graph mode, and (optionally) the number of</span>
+<span class="sd">    partitions.  Raises descriptive errors on mismatch.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        prepared: :class:`PreparedArtifacts` with paths and metadata.</span>
+<span class="sd">        expected_graph_mode: ``&quot;dtdg&quot;`` or ``&quot;ctdg&quot;``.</span>
+<span class="sd">        expected_num_parts: Expected number of partitions (typically</span>
+<span class="sd">            ``world_size``).  ``None`` to skip this check.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The artifact metadata dict read from disk.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        FileNotFoundError: If metadata or manifest files are missing.</span>
+<span class="sd">        RuntimeError: If version, graph_mode, or num_parts don&#39;t match.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">prepared</span><span class="o">.</span><span class="n">meta_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
         <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing artifacts metadata: </span><span class="si">{</span><span class="n">prepared</span><span class="o">.</span><span class="n">meta_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">meta</span> <span class="o">=</span> <span class="n">read_meta</span><span class="p">(</span><span class="n">prepared</span><span class="o">.</span><span class="n">meta_path</span><span class="p">)</span>
@@ -162,109 +196,28 @@
 
 
 
-<div class="viewcode-block" id="SimpleRuntimeAdapter">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleRuntimeAdapter">[docs]</a>
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">SimpleRuntimeAdapter</span><span class="p">(</span><span class="n">RuntimeAdapter</span><span class="p">):</span>
-    <span class="n">provider_name</span><span class="p">:</span> <span class="nb">str</span>
-
-<div class="viewcode-block" id="SimpleRuntimeAdapter.init_model">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleRuntimeAdapter.init_model">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">init_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;provider&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider_name</span><span class="p">,</span>
-            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;runtime&quot;</span><span class="p">][</span><span class="s2">&quot;device&quot;</span><span class="p">],</span>
-        <span class="p">}</span></div>
-
-
-<div class="viewcode-block" id="SimpleRuntimeAdapter.init_optimizer">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleRuntimeAdapter.init_optimizer">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">init_optimizer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;mock_optimizer&quot;</span> <span class="k">if</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;runtime&quot;</span><span class="p">][</span><span class="s2">&quot;backend&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;mock&quot;</span> <span class="k">else</span> <span class="s2">&quot;native_optimizer&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;lr&quot;</span><span class="p">:</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;lr&quot;</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">),</span>
-            <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">[</span><span class="s2">&quot;model_name&quot;</span><span class="p">],</span>
-        <span class="p">}</span></div>
-
-
-<div class="viewcode-block" id="SimpleRuntimeAdapter.load_runtime_state">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleRuntimeAdapter.load_runtime_state">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">load_runtime_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="SimpleRuntimeAdapter.dump_runtime_state">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleRuntimeAdapter.dump_runtime_state">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">dump_runtime_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">)</span></div>
-</div>
-
-
-
-<div class="viewcode-block" id="SimpleExecutionAdapter">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleExecutionAdapter">[docs]</a>
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">SimpleExecutionAdapter</span><span class="p">(</span><span class="n">ExecutionAdapter</span><span class="p">):</span>
-    <span class="n">graph_mode</span><span class="p">:</span> <span class="nb">str</span>
-
-<div class="viewcode-block" id="SimpleExecutionAdapter.train_step">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleExecutionAdapter.train_step">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">train_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;cursor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;index&quot;</span><span class="p">]</span>
-        <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;last_split&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;train&quot;</span>
-        <span class="n">chain</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;chain&quot;</span><span class="p">]</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">&quot;index&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
-            <span class="s2">&quot;predictions&quot;</span><span class="p">:</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_mode</span><span class="si">}</span><span class="s2">:train:</span><span class="si">{</span><span class="n">chain</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">batch</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;targets&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">batch</span><span class="p">[</span><span class="s2">&quot;index&quot;</span><span class="p">]],</span>
-            <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;chain&quot;</span><span class="p">:</span> <span class="n">chain</span><span class="p">},</span>
-        <span class="p">}</span></div>
-
-
-<div class="viewcode-block" id="SimpleExecutionAdapter.eval_step">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleExecutionAdapter.eval_step">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">eval_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;cursor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;index&quot;</span><span class="p">]</span>
-        <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;last_split&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;eval&quot;</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">&quot;index&quot;</span><span class="p">])</span> <span class="o">/</span> <span class="mf">10.0</span><span class="p">,</span>
-            <span class="s2">&quot;predictions&quot;</span><span class="p">:</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_mode</span><span class="si">}</span><span class="s2">:eval:</span><span class="si">{</span><span class="n">batch</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;targets&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">batch</span><span class="p">[</span><span class="s2">&quot;index&quot;</span><span class="p">]],</span>
-            <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">]},</span>
-        <span class="p">}</span></div>
-
-
-<div class="viewcode-block" id="SimpleExecutionAdapter.predict_step">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.SimpleExecutionAdapter.predict_step">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;cursor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;index&quot;</span><span class="p">]</span>
-        <span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;last_split&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;predict&quot;</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;predictions&quot;</span><span class="p">:</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_mode</span><span class="si">}</span><span class="s2">:predict:</span><span class="si">{</span><span class="n">batch</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;targets&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">batch</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;target&quot;</span><span class="p">)]</span> <span class="k">if</span> <span class="s2">&quot;target&quot;</span> <span class="ow">in</span> <span class="n">batch</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="s2">&quot;meta&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">]},</span>
-        <span class="p">}</span></div>
-</div>
-
-
-
 <div class="viewcode-block" id="BaseProvider">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.BaseProvider">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">BaseProvider</span><span class="p">(</span><span class="n">GraphProvider</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">BaseProvider</span><span class="p">(</span><span class="n">GraphProvider</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for DTDG and CTDG providers.</span>
+
+<span class="sd">    Handles common lifecycle: artifact loading from disk, validation,</span>
+<span class="sd">    and :class:`RuntimeBundle` initialization.  Subclasses implement</span>
+<span class="sd">    :meth:`prepare_data`, :meth:`build_runtime`, iterators, and step</span>
+<span class="sd">    methods.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">provider_key</span> <span class="o">=</span> <span class="s2">&quot;base&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_adapter</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_adapter</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">task_adapter</span><span class="o">=</span><span class="n">task_adapter</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">runtime_adapter</span> <span class="o">=</span> <span class="n">SimpleRuntimeAdapter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">provider_key</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">execution_adapter</span> <span class="o">=</span> <span class="n">SimpleExecutionAdapter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_mode</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_require_prepared</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedArtifacts</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_require_prepared</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedArtifacts</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Data not prepared. Call session.prepare_data() first.&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_load_prepared_from_disk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedArtifacts</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_load_prepared_from_disk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedArtifacts</span><span class="p">:</span>
         <span class="n">meta_path</span> <span class="o">=</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">artifact_root</span> <span class="o">/</span> <span class="s2">&quot;meta&quot;</span> <span class="o">/</span> <span class="s2">&quot;artifacts.json&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">meta_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Data not prepared. Call session.prepare_data() first.&quot;</span><span class="p">)</span>
@@ -275,34 +228,32 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span> <span class="o">=</span> <span class="n">prepared</span>
         <span class="k">return</span> <span class="n">prepared</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_build_runtime_common</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RuntimeBundle</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_build_runtime_common</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RuntimeBundle</span><span class="p">:</span>
         <span class="n">prepared</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_prepared_from_disk</span><span class="p">(</span><span class="n">session_ctx</span><span class="p">)</span>
         <span class="n">validate_artifacts</span><span class="p">(</span>
             <span class="n">prepared</span><span class="p">,</span>
             <span class="n">expected_graph_mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_mode</span><span class="p">,</span>
             <span class="n">expected_num_parts</span><span class="o">=</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_adapter</span><span class="o">.</span><span class="n">init_model</span><span class="p">(</span><span class="n">session_ctx</span><span class="p">)</span>
-        <span class="n">optimizer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_adapter</span><span class="o">.</span><span class="n">init_optimizer</span><span class="p">(</span><span class="n">session_ctx</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="n">RuntimeBundle</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;graph_mode&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_mode</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="n">RuntimeBundle</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;graph_mode&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_mode</span><span class="p">})</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span>
 
 <div class="viewcode-block" id="BaseProvider.run_train_step">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.BaseProvider.run_train_step">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run_train_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_adapter</span><span class="o">.</span><span class="n">train_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span></div>
+    <span class="k">def</span> <span class="nf">run_train_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
 
 <div class="viewcode-block" id="BaseProvider.run_eval_step">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.BaseProvider.run_eval_step">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run_eval_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_adapter</span><span class="o">.</span><span class="n">eval_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span></div>
+    <span class="k">def</span> <span class="nf">run_eval_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
 
 <div class="viewcode-block" id="BaseProvider.run_predict_step">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.providers.common.html#starry_unigraph.providers.common.BaseProvider.run_predict_step">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run_predict_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_adapter</span><span class="o">.</span><span class="n">predict_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span></div>
+    <span class="k">def</span> <span class="nf">run_predict_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 </div>
 
 </pre></div>

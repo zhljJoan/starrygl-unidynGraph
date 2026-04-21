@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.preprocess.dtdg_prepare &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.preprocess.dtdg_prepare</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for starry_unigraph.preprocess.dtdg_prepare</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;DTDG data preparation: partitioning, block building, and Flare export.</span>
+
+<span class="sd">Public API:</span>
+
+<span class="sd">- :func:`build_partition_input_from_raw_dataset` — extract snapshot list</span>
+<span class="sd">  and metadata from a raw dataset dict.</span>
+<span class="sd">- :func:`build_dtdg_partitions` — run graph partitioning (METIS or random)</span>
+<span class="sd">  on the merged lifetime edge index.</span>
+<span class="sd">- :func:`build_flare_partition_data_list` — build per-partition</span>
+<span class="sd">  :class:`PartitionData` objects with node features, labels, GCN norms,</span>
+<span class="sd">  routes, and chunk assignments.</span>
+<span class="sd">- :class:`WebDataLoader` — load temporal edge-list files (various formats)</span>
+<span class="sd">  into snapshot datasets.</span>
+<span class="sd">- :func:`build_web_data_loader` — create a :class:`WebDataLoader` with</span>
+<span class="sd">  per-dataset presets.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span> <span class="nn">dgl</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+    <span class="n">np</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sp</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+    <span class="n">sp</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pymetis</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+    <span class="n">pymetis</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="kn">from</span> <span class="nn">starry_unigraph.data.partition</span> <span class="kn">import</span> <span class="n">PartitionData</span><span class="p">,</span> <span class="n">TensorData</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime.flare.route</span> <span class="kn">import</span> <span class="n">Route</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.core</span> <span class="kn">import</span> <span class="n">SnapshotRoutePlan</span>
+
+
+<span class="k">def</span> <span class="nf">_as_int</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">default</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">default</span>
+
+
+<span class="k">def</span> <span class="nf">_split_line</span><span class="p">(</span><span class="n">line</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">sep</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="n">sep</span> <span class="o">==</span> <span class="s2">&quot;,&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">part</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">part</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">part</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">,</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">if</span> <span class="n">part</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_compute_degrees</span><span class="p">(</span><span class="n">edge_index</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">edge_weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="n">edge_index</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">zeros</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">zeros</span><span class="p">,</span> <span class="n">zeros</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">edge_index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+    <span class="n">dst</span> <span class="o">=</span> <span class="n">edge_index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">edge_weight</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+    <span class="n">in_deg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">dst</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="n">minlength</span><span class="o">=</span><span class="n">num_nodes</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+    <span class="n">out_deg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="n">minlength</span><span class="o">=</span><span class="n">num_nodes</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">in_deg</span><span class="p">,</span> <span class="n">out_deg</span>
+
+
+<span class="k">def</span> <span class="nf">_to_cpu_long</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_merge_snapshot_edges</span><span class="p">(</span><span class="n">snapshots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="n">edge_indexes</span> <span class="o">=</span> <span class="p">[</span><span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;edge_index&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span> <span class="k">for</span> <span class="n">snapshot</span> <span class="ow">in</span> <span class="n">snapshots</span> <span class="k">if</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;edge_index&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">edge_indexes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">edge_indexes</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_build_lifetime_graph</span><span class="p">(</span><span class="n">snapshots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">dgl</span><span class="o">.</span><span class="n">DGLGraph</span><span class="p">:</span>
+    <span class="n">merged_edge_index</span> <span class="o">=</span> <span class="n">_merge_snapshot_edges</span><span class="p">(</span><span class="n">snapshots</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dgl</span><span class="o">.</span><span class="n">graph</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">merged_edge_index</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">merged_edge_index</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+        <span class="n">num_nodes</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_nodes</span><span class="p">)),</span>
+        <span class="n">idtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_induced_local_edges</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">dgl</span><span class="o">.</span><span class="n">DGLGraph</span><span class="p">,</span> <span class="n">local_nodes</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">local_nodes</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+    <span class="n">subgraph</span> <span class="o">=</span> <span class="n">dgl</span><span class="o">.</span><span class="n">node_subgraph</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">local_nodes</span><span class="o">.</span><span class="n">long</span><span class="p">(),</span> <span class="n">relabel_nodes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">store_ids</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">src</span><span class="p">,</span> <span class="n">dst</span> <span class="o">=</span> <span class="n">subgraph</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="s2">&quot;eid&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">src</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">src</span><span class="o">.</span><span class="n">long</span><span class="p">(),</span> <span class="n">dst</span><span class="o">.</span><span class="n">long</span><span class="p">()],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="apply_partition">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.apply_partition">[docs]</a>
+<span class="k">def</span> <span class="nf">apply_partition</span><span class="p">(</span><span class="n">edge_index</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_parts</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Partition a graph into ``num_parts`` using METIS (or random fallback).</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        edge_index: ``[2, E]`` edge list tensor.</span>
+<span class="sd">        num_nodes: Total number of nodes.</span>
+<span class="sd">        num_parts: Desired number of partitions.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tensor ``[num_nodes]`` mapping each node to a partition ID</span>
+<span class="sd">        in ``[0, num_parts)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">num_nodes</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_nodes</span><span class="p">))</span>
+    <span class="n">num_parts</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_parts</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">num_nodes</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">num_parts</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_nodes</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+
+    <span class="n">src_t</span><span class="p">,</span> <span class="n">dst_t</span> <span class="o">=</span> <span class="n">_to_cpu_long</span><span class="p">(</span><span class="n">edge_index</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">_to_cpu_long</span><span class="p">(</span><span class="n">edge_index</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">pymetis</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">np</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">sp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[Partition] pymetis/numpy/scipy unavailable, fallback random partition.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_parts</span><span class="p">,</span> <span class="p">(</span><span class="n">num_nodes</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+
+    <span class="n">u_np</span> <span class="o">=</span> <span class="n">src_t</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+    <span class="n">v_np</span> <span class="o">=</span> <span class="n">dst_t</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+    <span class="n">ones</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">u_np</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">adj_matrix</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">ones</span><span class="p">,</span> <span class="p">(</span><span class="n">u_np</span><span class="p">,</span> <span class="n">v_np</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">))</span>
+    <span class="n">adj_matrix</span> <span class="o">=</span> <span class="p">(</span><span class="n">adj_matrix</span> <span class="o">+</span> <span class="n">adj_matrix</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">xadj</span> <span class="o">=</span> <span class="n">adj_matrix</span><span class="o">.</span><span class="n">indptr</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">adjncy</span> <span class="o">=</span> <span class="n">adj_matrix</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cuts</span><span class="p">,</span> <span class="n">membership</span> <span class="o">=</span> <span class="n">pymetis</span><span class="o">.</span><span class="n">part_graph</span><span class="p">(</span><span class="n">nparts</span><span class="o">=</span><span class="n">num_parts</span><span class="p">,</span> <span class="n">xadj</span><span class="o">=</span><span class="n">xadj</span><span class="p">,</span> <span class="n">adjncy</span><span class="o">=</span><span class="n">adjncy</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[Partition] pymetis success, edge cuts=</span><span class="si">{</span><span class="n">cuts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">membership</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[Partition] pymetis failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">. fallback random partition.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_parts</span><span class="p">,</span> <span class="p">(</span><span class="n">num_nodes</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="normalize_snapshot_count">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.normalize_snapshot_count">[docs]</a>
+<span class="k">def</span> <span class="nf">normalize_snapshot_count</span><span class="p">(</span><span class="n">raw_dataset</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">snaps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">raw_dataset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dataset</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">raw_dataset</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">snaps</span><span class="p">:</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[:</span><span class="n">snaps</span><span class="p">]</span>
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">snaps</span><span class="p">:</span>
+        <span class="n">template</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dataset</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;edge_index&quot;</span><span class="p">:</span> <span class="n">template</span><span class="p">[</span><span class="s2">&quot;edge_index&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+                <span class="s2">&quot;edge_weight&quot;</span><span class="p">:</span> <span class="n">template</span><span class="p">[</span><span class="s2">&quot;edge_weight&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+                <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">template</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+                <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">template</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">template</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="o">**</span><span class="n">raw_dataset</span><span class="p">,</span>
+        <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="n">dataset</span><span class="p">,</span>
+        <span class="s2">&quot;num_snapshots&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">),</span>
+        <span class="s2">&quot;num_life_edges&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;edge_weight&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">dataset</span><span class="p">)),</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="WebDataLoader">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">WebDataLoader</span><span class="p">:</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">window</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">use_batch_split</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">edge_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">skiprows</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">sep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;\s+&quot;</span>
+    <span class="n">skiptime</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">lags</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">fallback_snaps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span>
+
+    <span class="k">def</span> <span class="nf">_get_uvwt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+        <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">timestamps</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">ts</span> <span class="o">=</span> <span class="n">row</span>
+                <span class="n">w</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">ts</span> <span class="o">=</span> <span class="n">row</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">5</span><span class="p">:</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">ts</span> <span class="o">=</span> <span class="n">row</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span>
+                <span class="n">w</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">src</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">u</span><span class="p">)))</span>
+            <span class="n">dst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)))</span>
+            <span class="n">weights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">w</span><span class="p">))</span>
+            <span class="n">timestamps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">ts</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">timestamps</span>
+
+    <span class="k">def</span> <span class="nf">_map_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">dst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="n">uniq</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">src</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">dst</span><span class="p">))</span>
+        <span class="n">node_mapping</span> <span class="o">=</span> <span class="p">{</span><span class="n">old</span><span class="p">:</span> <span class="n">new</span> <span class="k">for</span> <span class="n">new</span><span class="p">,</span> <span class="n">old</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">uniq</span><span class="p">)}</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">node_mapping</span><span class="p">[</span><span class="n">item</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">src</span><span class="p">],</span> <span class="p">[</span><span class="n">node_mapping</span><span class="p">[</span><span class="n">item</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">dst</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">uniq</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_batch_snapshots</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">src</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">dst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">weights</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">timestamps</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">src</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[],</span> <span class="p">[],</span> <span class="mi">0</span>
+        <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">num_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_nodes</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)),</span> <span class="n">key</span><span class="o">=</span><span class="n">timestamps</span><span class="o">.</span><span class="fm">__getitem__</span><span class="p">)</span>
+        <span class="n">src</span> <span class="o">=</span> <span class="p">[</span><span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">order</span><span class="p">]</span>
+        <span class="n">dst</span> <span class="o">=</span> <span class="p">[</span><span class="n">dst</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">order</span><span class="p">]</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">order</span><span class="p">]</span>
+        <span class="n">timestamps</span> <span class="o">=</span> <span class="p">[</span><span class="n">timestamps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">order</span><span class="p">]</span>
+
+        <span class="n">uniq_tss</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">timestamps</span><span class="p">))</span>
+        <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">skiptime</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">uniq_tss</span><span class="p">):</span>
+            <span class="n">keep_ts</span> <span class="o">=</span> <span class="n">uniq_tss</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">skiptime</span><span class="p">]</span>
+            <span class="n">keep_idx</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ts</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)</span> <span class="k">if</span> <span class="n">ts</span> <span class="o">&gt;=</span> <span class="n">keep_ts</span><span class="p">]</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="p">[</span><span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">keep_idx</span><span class="p">]</span>
+            <span class="n">dst</span> <span class="o">=</span> <span class="p">[</span><span class="n">dst</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">keep_idx</span><span class="p">]</span>
+            <span class="n">weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">keep_idx</span><span class="p">]</span>
+
+        <span class="n">batch_size</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">edge_snapshots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">edge_weight_snapshots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">src</span><span class="p">),</span> <span class="n">batch_size</span><span class="p">):</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">src</span><span class="p">),</span> <span class="n">start</span> <span class="o">+</span> <span class="n">batch_size</span><span class="p">)</span>
+            <span class="n">edge_snapshots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">src</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="n">dst</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">))</span>
+            <span class="n">edge_weight_snapshots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">weights</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">edge_snapshots</span><span class="p">,</span> <span class="n">edge_weight_snapshots</span><span class="p">,</span> <span class="n">num_nodes</span>
+
+    <span class="k">def</span> <span class="nf">_masked_snapshots</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">src</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">dst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">weights</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">timestamps</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">src</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[],</span> <span class="p">[],</span> <span class="mi">0</span>
+        <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">num_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_nodes</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+        <span class="n">uniq_tss</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">timestamps</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">skiptime</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">uniq_tss</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[],</span> <span class="p">[],</span> <span class="n">num_nodes</span>
+        <span class="n">uniq_tss</span> <span class="o">=</span> <span class="n">uniq_tss</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">skiptime</span> <span class="p">:]</span>
+        <span class="n">start_ts</span> <span class="o">=</span> <span class="n">uniq_tss</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">window_count</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">)</span>
+        <span class="n">end_ts</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">start_ts</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">uniq_tss</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">time_itv</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">end_ts</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">window_count</span><span class="p">))</span>
+
+        <span class="n">edge_snapshots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">edge_weight_snapshots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">window_count</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">lags</span><span class="p">)):</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="n">start_ts</span> <span class="o">+</span> <span class="n">index</span> <span class="o">*</span> <span class="n">time_itv</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="n">start_ts</span> <span class="o">+</span> <span class="p">(</span><span class="n">index</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">lags</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">time_itv</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="p">[</span><span class="n">lower</span> <span class="o">&lt;=</span> <span class="n">ts</span> <span class="o">&lt;</span> <span class="n">upper</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="n">timestamps</span><span class="p">]</span>
+            <span class="n">snap_src</span> <span class="o">=</span> <span class="p">[</span><span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">keep</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="k">if</span> <span class="n">keep</span><span class="p">]</span>
+            <span class="n">snap_dst</span> <span class="o">=</span> <span class="p">[</span><span class="n">dst</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">keep</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="k">if</span> <span class="n">keep</span><span class="p">]</span>
+            <span class="n">snap_weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">keep</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="k">if</span> <span class="n">keep</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">snap_src</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">edge_snapshots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">snap_src</span><span class="p">,</span> <span class="n">snap_dst</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">))</span>
+            <span class="n">edge_weight_snapshots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">snap_weights</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">edge_snapshots</span><span class="p">,</span> <span class="n">edge_weight_snapshots</span><span class="p">,</span> <span class="n">num_nodes</span>
+
+    <span class="k">def</span> <span class="nf">_read_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+        <span class="n">rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line_no</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">handle</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">line_no</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">skiprows</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_split_line</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sep</span> <span class="o">==</span> <span class="s2">&quot;,&quot;</span> <span class="k">else</span> <span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">rows</span>
+
+    <span class="k">def</span> <span class="nf">_build_mock_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">num_nodes</span> <span class="o">=</span> <span class="mi">8</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">snap</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fallback_snaps</span><span class="p">):</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([(</span><span class="n">snap</span> <span class="o">+</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="n">num_nodes</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="n">dst</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([(</span><span class="n">snap</span> <span class="o">+</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">num_nodes</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="n">edge_index</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">edge_weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="n">in_deg</span><span class="p">,</span> <span class="n">out_deg</span> <span class="o">=</span> <span class="n">_compute_degrees</span><span class="p">(</span><span class="n">edge_index</span><span class="p">,</span> <span class="n">edge_weight</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">)</span>
+            <span class="n">dataset</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;edge_index&quot;</span><span class="p">:</span> <span class="n">edge_index</span><span class="p">,</span>
+                    <span class="s2">&quot;edge_weight&quot;</span><span class="p">:</span> <span class="n">edge_weight</span><span class="p">,</span>
+                    <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">in_deg</span><span class="p">,</span> <span class="n">out_deg</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                    <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">in_deg</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="k">if</span> <span class="n">snap</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">fallback_snaps</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+        <span class="n">num_edges</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;edge_weight&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">dataset</span><span class="p">))</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="n">num_nodes</span><span class="p">,</span>
+            <span class="s2">&quot;num_edges&quot;</span><span class="p">:</span> <span class="n">num_edges</span><span class="p">,</span>
+            <span class="s2">&quot;num_snapshots&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">),</span>
+            <span class="s2">&quot;num_life_edges&quot;</span><span class="p">:</span> <span class="n">num_edges</span><span class="p">,</span>
+            <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="n">dataset</span><span class="p">,</span>
+            <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;mock&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="WebDataLoader.get_dataset">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.get_dataset">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_mock_dataset</span><span class="p">()</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">root</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_file</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">root</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">.edges&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_mock_dataset</span><span class="p">()</span>
+
+        <span class="n">rows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_rows</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">timestamps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_uvwt</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_batch_split</span><span class="p">:</span>
+            <span class="n">edges</span><span class="p">,</span> <span class="n">edge_weights</span><span class="p">,</span> <span class="n">num_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_batch_snapshots</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">edges</span><span class="p">,</span> <span class="n">edge_weights</span><span class="p">,</span> <span class="n">num_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_masked_snapshots</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">edges</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_mock_dataset</span><span class="p">()</span>
+
+        <span class="n">xs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">ys</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">edge_index</span><span class="p">,</span> <span class="n">edge_weight</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span> <span class="n">edge_weights</span><span class="p">):</span>
+            <span class="n">in_deg</span><span class="p">,</span> <span class="n">out_deg</span> <span class="o">=</span> <span class="n">_compute_degrees</span><span class="p">(</span><span class="n">edge_index</span><span class="p">,</span> <span class="n">edge_weight</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">)</span>
+            <span class="n">xs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">in_deg</span><span class="p">,</span> <span class="n">out_deg</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+            <span class="n">ys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">in_deg</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">))</span>
+        <span class="n">ys</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">dataset</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">edge_index</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">edges</span><span class="p">):</span>
+            <span class="n">dataset</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;edge_index&quot;</span><span class="p">:</span> <span class="n">edge_index</span><span class="p">,</span>
+                    <span class="s2">&quot;edge_weight&quot;</span><span class="p">:</span> <span class="n">edge_weights</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+                    <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">xs</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+                    <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">ys</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_nodes</span><span class="p">),</span>
+            <span class="s2">&quot;num_edges&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">src</span><span class="p">)),</span>
+            <span class="s2">&quot;num_snapshots&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">),</span>
+            <span class="s2">&quot;num_life_edges&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;edge_weight&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">dataset</span><span class="p">)),</span>
+            <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="n">dataset</span><span class="p">,</span>
+            <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
+        <span class="p">}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="build_web_data_loader">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.build_web_data_loader">[docs]</a>
+<span class="k">def</span> <span class="nf">build_web_data_loader</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">snaps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">WebDataLoader</span><span class="p">:</span>
+    <span class="n">presets</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;ia-slashdot-reply-dir&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="s2">&quot;skiprows&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;sep&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">,</span> <span class="s2">&quot;skiptime&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;lags&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">},</span>
+        <span class="s2">&quot;WikiTalk&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
+            <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">3000</span><span class="p">,</span>
+            <span class="s2">&quot;use_batch_split&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;edge_file&quot;</span><span class="p">:</span> <span class="s2">&quot;WikiTalk/edges.csv&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;skiprows&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s2">&quot;sep&quot;</span><span class="p">:</span> <span class="s2">&quot;,&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;skiptime&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s2">&quot;lags&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;rec-amazon-ratings&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;skiprows&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;sep&quot;</span><span class="p">:</span> <span class="s2">&quot;,&quot;</span><span class="p">,</span> <span class="s2">&quot;skiptime&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;lags&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">},</span>
+        <span class="s2">&quot;rec-amz-Books&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;skiprows&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;sep&quot;</span><span class="p">:</span> <span class="s2">&quot;,&quot;</span><span class="p">,</span> <span class="s2">&quot;skiptime&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;lags&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+        <span class="s2">&quot;soc-bitcoin&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;skiprows&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;sep&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">,</span> <span class="s2">&quot;skiptime&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;lags&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">},</span>
+        <span class="s2">&quot;soc-flickr-growth&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;skiprows&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;sep&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">,</span> <span class="s2">&quot;skiptime&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;lags&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">},</span>
+        <span class="s2">&quot;soc-youtube-growth&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;skiprows&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;sep&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">,</span> <span class="s2">&quot;skiptime&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;lags&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">loader_args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">presets</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">,</span> <span class="p">{}))</span>
+    <span class="n">loader_args</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;window&quot;</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">snaps</span><span class="p">))</span>
+    <span class="n">loader_args</span><span class="p">[</span><span class="s2">&quot;fallback_snaps&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">snaps</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">loader_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;use_batch_split&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">loader_args</span><span class="p">[</span><span class="s2">&quot;window&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">loader_args</span><span class="p">[</span><span class="s2">&quot;window&quot;</span><span class="p">],</span> <span class="n">snaps</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">loader_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;lags&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="nb">dict</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="p">{}))</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;format&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;mock&quot;</span><span class="p">:</span>
+        <span class="n">loader_args</span><span class="p">[</span><span class="s2">&quot;edge_file&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;__mock__&quot;</span>
+    <span class="k">return</span> <span class="n">WebDataLoader</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">dataset_name</span><span class="p">,</span> <span class="o">**</span><span class="n">loader_args</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="build_partition_input_from_raw_dataset">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.build_partition_input_from_raw_dataset">[docs]</a>
+<span class="k">def</span> <span class="nf">build_partition_input_from_raw_dataset</span><span class="p">(</span><span class="n">raw_dataset</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract a partition-ready input dict from a raw dataset.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        raw_dataset: Dict with keys ``&quot;num_nodes&quot;``, ``&quot;num_edges&quot;``,</span>
+<span class="sd">            ``&quot;num_snapshots&quot;``, ``&quot;dataset&quot;`` (list of snapshot dicts).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Dict with ``&quot;num_nodes&quot;``, ``&quot;num_edges&quot;``, ``&quot;num_snapshots&quot;``,</span>
+<span class="sd">        ``&quot;merged_edge_count&quot;``, ``&quot;snapshots&quot;``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">raw_dataset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">raw_dataset</span><span class="p">[</span><span class="s2">&quot;num_nodes&quot;</span><span class="p">]),</span>
+        <span class="s2">&quot;num_edges&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">raw_dataset</span><span class="p">[</span><span class="s2">&quot;num_edges&quot;</span><span class="p">]),</span>
+        <span class="s2">&quot;num_snapshots&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">raw_dataset</span><span class="p">[</span><span class="s2">&quot;num_snapshots&quot;</span><span class="p">]),</span>
+        <span class="s2">&quot;merged_edge_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;edge_weight&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span> <span class="k">for</span> <span class="n">snapshot</span> <span class="ow">in</span> <span class="n">dataset</span><span class="p">)),</span>
+        <span class="s2">&quot;snapshots&quot;</span><span class="p">:</span> <span class="n">dataset</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="build_dtdg_partitions">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.build_dtdg_partitions">[docs]</a>
+<span class="k">def</span> <span class="nf">build_dtdg_partitions</span><span class="p">(</span>
+    <span class="n">graph_data</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">num_parts</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">algo</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run graph partitioning on the merged lifetime edge index.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        graph_data: Output of :func:`build_partition_input_from_raw_dataset`.</span>
+<span class="sd">        num_parts: Number of partitions.</span>
+<span class="sd">        algo: Partition algorithm name (e.g. ``&quot;metis&quot;``).</span>
+<span class="sd">        config: Full session config (used for window_size).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Dict with ``&quot;algo&quot;``, ``&quot;num_parts&quot;``, ``&quot;node_parts&quot;`` (tensor),</span>
+<span class="sd">        ``&quot;parts&quot;`` (list of per-partition dicts), ``&quot;graph_stats&quot;``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">num_nodes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">graph_data</span><span class="p">[</span><span class="s2">&quot;num_nodes&quot;</span><span class="p">])</span>
+    <span class="n">snapshots</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">graph_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;snapshots&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+    <span class="n">merged_edge_index</span> <span class="o">=</span> <span class="n">_merge_snapshot_edges</span><span class="p">(</span><span class="n">snapshots</span><span class="p">)</span>
+    <span class="n">node_parts</span> <span class="o">=</span> <span class="n">apply_partition</span><span class="p">(</span><span class="n">merged_edge_index</span><span class="p">,</span> <span class="n">num_nodes</span><span class="o">=</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">num_parts</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_parts</span><span class="p">))</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">part_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_parts</span><span class="p">)):</span>
+        <span class="n">node_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">node_parts</span> <span class="o">==</span> <span class="n">part_id</span><span class="p">,</span> <span class="n">as_tuple</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;partition_id&quot;</span><span class="p">:</span> <span class="n">part_id</span><span class="p">,</span> <span class="s2">&quot;node_ids&quot;</span><span class="p">:</span> <span class="n">node_ids</span><span class="p">,</span> <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">())})</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;algo&quot;</span><span class="p">:</span> <span class="n">algo</span><span class="p">,</span>
+        <span class="s2">&quot;num_parts&quot;</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_parts</span><span class="p">),</span>
+        <span class="s2">&quot;node_parts&quot;</span><span class="p">:</span> <span class="n">node_parts</span><span class="p">,</span>
+        <span class="s2">&quot;parts&quot;</span><span class="p">:</span> <span class="n">parts</span><span class="p">,</span>
+        <span class="s2">&quot;graph_stats&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="n">num_nodes</span><span class="p">,</span>
+            <span class="s2">&quot;num_edges&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">graph_data</span><span class="p">[</span><span class="s2">&quot;num_edges&quot;</span><span class="p">]),</span>
+            <span class="s2">&quot;num_snapshots&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">graph_data</span><span class="p">[</span><span class="s2">&quot;num_snapshots&quot;</span><span class="p">]),</span>
+            <span class="s2">&quot;window_size&quot;</span><span class="p">:</span> <span class="n">_as_int</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;window&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;size&quot;</span><span class="p">),</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="p">},</span>
+    <span class="p">}</span></div>
+
+
+
+<span class="k">def</span> <span class="nf">_build_snapshot_blocks</span><span class="p">(</span>
+    <span class="n">snapshot_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">snapshot</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">node_parts</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">num_parts</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">route_plan</span><span class="p">:</span> <span class="n">SnapshotRoutePlan</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">dgl</span><span class="o">.</span><span class="n">DGLBlock</span><span class="p">]:</span>
+    <span class="n">edge_index</span> <span class="o">=</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;edge_index&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+    <span class="n">edge_weight</span> <span class="o">=</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;edge_weight&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+    <span class="n">node_x</span> <span class="o">=</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>
+    <span class="n">in_deg</span><span class="p">,</span> <span class="n">out_deg</span> <span class="o">=</span> <span class="n">_compute_degrees</span><span class="p">(</span><span class="n">edge_index</span><span class="o">=</span><span class="n">edge_index</span><span class="p">,</span> <span class="n">edge_weight</span><span class="o">=</span><span class="n">edge_weight</span><span class="p">,</span> <span class="n">num_nodes</span><span class="o">=</span><span class="n">num_nodes</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">edge_index</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">src</span> <span class="o">=</span> <span class="n">edge_index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+        <span class="n">dst</span> <span class="o">=</span> <span class="n">edge_index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+        <span class="n">in_norm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">in_deg</span><span class="o">.</span><span class="n">clamp_min_</span><span class="p">(</span><span class="mf">1e-12</span><span class="p">))[</span><span class="n">dst</span><span class="p">]</span>
+        <span class="n">out_norm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">out_deg</span><span class="o">.</span><span class="n">clamp_min_</span><span class="p">(</span><span class="mf">1e-12</span><span class="p">))[</span><span class="n">src</span><span class="p">]</span>
+        <span class="n">gcn_norm</span> <span class="o">=</span> <span class="p">(</span><span class="n">edge_weight</span> <span class="o">/</span> <span class="p">(</span><span class="n">in_norm</span> <span class="o">*</span> <span class="n">out_norm</span><span class="p">))</span><span class="o">.</span><span class="n">nan_to_num_</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">gcn_norm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="n">blocks</span> <span class="o">=</span> <span class="n">Route</span><span class="o">.</span><span class="n">from_graph</span><span class="p">(</span><span class="n">node_parts</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">,</span> <span class="n">num_parts</span><span class="o">=</span><span class="n">num_parts</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">part_id</span><span class="p">,</span> <span class="n">block</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">blocks</span><span class="p">):</span>
+        <span class="n">src_ids</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">srcdata</span><span class="p">[</span><span class="n">dgl</span><span class="o">.</span><span class="n">NID</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+        <span class="n">dst_ids</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">dstdata</span><span class="p">[</span><span class="n">dgl</span><span class="o">.</span><span class="n">NID</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+        <span class="n">edge_ids</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">edata</span><span class="p">[</span><span class="n">dgl</span><span class="o">.</span><span class="n">EID</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">srcdata</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">node_x</span><span class="p">[</span><span class="n">src_ids</span><span class="p">]</span> <span class="k">if</span> <span class="n">src_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">node_x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">node_x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">dstdata</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">labels</span><span class="p">[</span><span class="n">dst_ids</span><span class="p">]</span> <span class="k">if</span> <span class="n">labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">edata</span><span class="p">[</span><span class="s2">&quot;w&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">edge_weight</span><span class="p">[</span><span class="n">edge_ids</span><span class="p">]</span> <span class="k">if</span> <span class="n">edge_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">edata</span><span class="p">[</span><span class="s2">&quot;gcn_norm&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gcn_norm</span><span class="p">[</span><span class="n">edge_ids</span><span class="p">]</span> <span class="k">if</span> <span class="n">edge_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">edata</span><span class="p">[</span><span class="s2">&quot;snapshot_index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">edge_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),),</span> <span class="n">snapshot_index</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">edata</span><span class="p">[</span><span class="s2">&quot;partition_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">edge_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),),</span> <span class="n">part_id</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">graph_meta</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;snapshot_index&quot;</span><span class="p">:</span> <span class="n">snapshot_index</span><span class="p">,</span>
+            <span class="s2">&quot;partition_id&quot;</span><span class="p">:</span> <span class="n">part_id</span><span class="p">,</span>
+            <span class="s2">&quot;route_plan&quot;</span><span class="p">:</span> <span class="n">route_plan</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+            <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="n">num_nodes</span><span class="p">,</span>
+            <span class="s2">&quot;route&quot;</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="s2">&quot;route&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">block</span><span class="o">.</span><span class="n">route</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+        <span class="p">}</span>
+    <span class="k">return</span> <span class="n">blocks</span>
+
+
+<div class="viewcode-block" id="build_flare_partition_data_list">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.build_flare_partition_data_list">[docs]</a>
+<span class="k">def</span> <span class="nf">build_flare_partition_data_list</span><span class="p">(</span>
+    <span class="n">raw_dataset</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">partition_result</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">route_plan</span><span class="p">:</span> <span class="n">SnapshotRoutePlan</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PartitionData</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build per-partition PartitionData objects for Flare training.</span>
+
+<span class="sd">    For each partition:</span>
+<span class="sd">    1. Build DGL blocks from per-snapshot edges using ``Route.from_graph``.</span>
+<span class="sd">    2. Attach node features (``&quot;x&quot;``), labels (``&quot;y&quot;``), edge weights</span>
+<span class="sd">       (``&quot;w&quot;``), and GCN normalization (``&quot;gcn_norm&quot;``).</span>
+<span class="sd">    3. Convert blocks to :class:`PartitionData` via ``from_blocks``.</span>
+<span class="sd">    4. Add chunk assignment (``&quot;c&quot;``) and partition ID (``&quot;partition_id&quot;``)</span>
+<span class="sd">       node data.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        raw_dataset: Raw dataset dict with ``&quot;dataset&quot;`` snapshot list.</span>
+<span class="sd">        partition_result: Output of :func:`build_dtdg_partitions`.</span>
+<span class="sd">        route_plan: :class:`SnapshotRoutePlan` for route metadata.</span>
+<span class="sd">        config: Full session config (used for cluster count).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        List of :class:`PartitionData`, one per partition, ready for</span>
+<span class="sd">        ``torch.save`` and Flare training.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        parts = build_flare_partition_data_list(raw, part_result, route, cfg)</span>
+<span class="sd">        for i, p in enumerate(parts):</span>
+<span class="sd">            p.save(f&quot;artifacts/flare/part_{i:03d}.pth&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">raw_dataset</span><span class="p">[</span><span class="s2">&quot;dataset&quot;</span><span class="p">])</span>
+    <span class="n">node_parts</span> <span class="o">=</span> <span class="n">partition_result</span><span class="p">[</span><span class="s2">&quot;node_parts&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+    <span class="n">num_parts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">partition_result</span><span class="p">[</span><span class="s2">&quot;num_parts&quot;</span><span class="p">])</span>
+    <span class="n">num_nodes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">raw_dataset</span><span class="p">[</span><span class="s2">&quot;num_nodes&quot;</span><span class="p">])</span>
+    <span class="n">chunk_count</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">_as_int</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;preprocess&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cluster&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_per_partition&quot;</span><span class="p">),</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">lifetime_graph</span> <span class="o">=</span> <span class="n">_build_lifetime_graph</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">num_nodes</span><span class="o">=</span><span class="n">num_nodes</span><span class="p">)</span>
+    <span class="n">block_lists</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_parts</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">snapshot_index</span><span class="p">,</span> <span class="n">snapshot</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">part_id</span><span class="p">,</span> <span class="n">block</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+            <span class="n">_build_snapshot_blocks</span><span class="p">(</span>
+                <span class="n">snapshot_index</span><span class="o">=</span><span class="n">snapshot_index</span><span class="p">,</span>
+                <span class="n">snapshot</span><span class="o">=</span><span class="n">snapshot</span><span class="p">,</span>
+                <span class="n">node_parts</span><span class="o">=</span><span class="n">node_parts</span><span class="p">,</span>
+                <span class="n">num_parts</span><span class="o">=</span><span class="n">num_parts</span><span class="p">,</span>
+                <span class="n">num_nodes</span><span class="o">=</span><span class="n">num_nodes</span><span class="p">,</span>
+                <span class="n">route_plan</span><span class="o">=</span><span class="n">route_plan</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">):</span>
+            <span class="n">block_lists</span><span class="p">[</span><span class="n">part_id</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+
+    <span class="n">partition_data_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PartitionData</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">part_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_parts</span><span class="p">):</span>
+        <span class="n">local_nodes</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">node_parts</span> <span class="o">==</span> <span class="n">part_id</span><span class="p">,</span> <span class="n">as_tuple</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">partition_data</span> <span class="o">=</span> <span class="n">PartitionData</span><span class="o">.</span><span class="n">from_blocks</span><span class="p">(</span><span class="n">block_lists</span><span class="p">[</span><span class="n">part_id</span><span class="p">])</span>
+        <span class="n">local_edge_index</span> <span class="o">=</span> <span class="n">_induced_local_edges</span><span class="p">(</span><span class="n">lifetime_graph</span><span class="p">,</span> <span class="n">local_nodes</span><span class="o">=</span><span class="n">local_nodes</span><span class="p">)</span>
+        <span class="n">chunk_parts</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">chunk_count</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">local_nodes</span><span class="o">.</span><span class="n">numel</span><span class="p">())))</span>
+        <span class="n">chunk_index</span> <span class="o">=</span> <span class="n">apply_partition</span><span class="p">(</span><span class="n">local_edge_index</span><span class="p">,</span> <span class="n">num_nodes</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">local_nodes</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span> <span class="n">num_parts</span><span class="o">=</span><span class="n">chunk_parts</span><span class="p">)</span>
+        <span class="n">chunk_tensors</span> <span class="o">=</span> <span class="p">[</span><span class="n">chunk_index</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">partition_data</span><span class="p">))]</span>
+        <span class="n">partition_data</span><span class="o">.</span><span class="n">add_ndata</span><span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">TensorData</span><span class="o">.</span><span class="n">from_tensors</span><span class="p">(</span><span class="n">chunk_tensors</span><span class="p">))</span>
+        <span class="n">partition_data</span><span class="o">.</span><span class="n">add_ndata</span><span class="p">(</span>
+            <span class="s2">&quot;partition_id&quot;</span><span class="p">,</span>
+            <span class="n">TensorData</span><span class="o">.</span><span class="n">from_tensors</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">local_nodes</span><span class="o">.</span><span class="n">numel</span><span class="p">(),),</span> <span class="n">part_id</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">partition_data</span><span class="p">))]</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">partition_data_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">partition_data</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">partition_data_list</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

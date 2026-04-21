@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -7,15 +5,19 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph.backends.flare.route module &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -34,6 +36,9 @@
           <a href="../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -90,283 +95,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="module-starry_unigraph.backends.flare.route">
-<span id="starry-unigraph-backends-flare-route-module"></span><h1>starry_unigraph.backends.flare.route module<a class="headerlink" href="#module-starry_unigraph.backends.flare.route" title="Link to this heading"></a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.backends.flare.route.</span></span><span class="sig-name descname"><span class="pre">Route</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">send_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[int]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recv_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[int]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">send_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dist.ProcessGroup</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#Route"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.async_forward">
-<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">async_forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#Route.async_forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.async_forward" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.describe">
-<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#Route.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.describe" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#Route.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.forward" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.from_empty">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_empty</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dtype</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">torch.int32</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">DGLBlock</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#Route.from_empty"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.from_empty" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.from_graph">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_parts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_parts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dtype</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">torch.int32</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">DGLBlock</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#Route.from_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.from_graph" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.group">
-<span class="sig-name descname"><span class="pre">group</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.group" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.pin_memory">
-<span class="sig-name descname"><span class="pre">pin_memory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.backends.flare.route.Route" title="starry_unigraph.backends.flare.route.Route"><span class="pre">Route</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#Route.pin_memory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.pin_memory" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.recv">
-<span class="sig-name descname"><span class="pre">recv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#Route.recv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.recv" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.recv_len">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">recv_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.recv_len" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.recv_sizes">
-<span class="sig-name descname"><span class="pre">recv_sizes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.recv_sizes" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.send">
-<span class="sig-name descname"><span class="pre">send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#Route.send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.send" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.send_index">
-<span class="sig-name descname"><span class="pre">send_index</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.send_index" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.send_len">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">send_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.send_len" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.send_sizes">
-<span class="sig-name descname"><span class="pre">send_sizes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.send_sizes" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.Route.to">
-<span class="sig-name descname"><span class="pre">to</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dtype</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">non_blocking</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.backends.flare.route.Route" title="starry_unigraph.backends.flare.route.Route"><span class="pre">Route</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#Route.to"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.Route.to" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteAgent">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.backends.flare.route.</span></span><span class="sig-name descname"><span class="pre">RouteAgent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">route</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.backends.flare.route.Route" title="starry_unigraph.backends.flare.route.Route"><span class="pre">Route</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteAgent"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteAgent" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteAgent.async_forward">
-<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">async_forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteAgent.async_forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteAgent.async_forward" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteAgent.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteAgent.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteAgent.forward" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteAgent.recv">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">recv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteAgent.recv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteAgent.recv" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteAgent.send">
-<span class="sig-name descname"><span class="pre">send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteAgent.send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteAgent.send" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteContext">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.backends.flare.route.</span></span><span class="sig-name descname"><span class="pre">RouteContext</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">route</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.backends.flare.route.Route" title="starry_unigraph.backends.flare.route.Route"><span class="pre">Route</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteContext" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteContext.backward_recv">
-<span class="sig-name descname"><span class="pre">backward_recv</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteContext.backward_recv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteContext.backward_recv" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteContext.backward_send">
-<span class="sig-name descname"><span class="pre">backward_send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grad</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteContext.backward_send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteContext.backward_send" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteContext.forward_recv">
-<span class="sig-name descname"><span class="pre">forward_recv</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteContext.forward_recv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteContext.forward_recv" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteContext.forward_send">
-<span class="sig-name descname"><span class="pre">forward_send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteContext.forward_send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteContext.forward_send" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteRecvFunction">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.backends.flare.route.</span></span><span class="sig-name descname"><span class="pre">RouteRecvFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteRecvFunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteRecvFunction" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteRecvFunction.backward">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteRecvFunction.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteRecvFunction.backward" title="Link to this definition"></a></dt>
-<dd><p>Defines a formula for differentiating the operation with backward mode
-automatic differentiation (alias to the vjp function).</p>
-<p>This function is to be overridden by all subclasses.</p>
-<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
-as many outputs as the <a class="reference internal" href="#starry_unigraph.backends.flare.route.RouteRecvFunction.forward" title="starry_unigraph.backends.flare.route.RouteRecvFunction.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> returned (None will be passed in
-for non tensor outputs of the forward function),
-and it should return as many tensors, as there were inputs to
-<a class="reference internal" href="#starry_unigraph.backends.flare.route.RouteRecvFunction.forward" title="starry_unigraph.backends.flare.route.RouteRecvFunction.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the gradient w.r.t the given output,
-and each returned value should be the gradient w.r.t. the
-corresponding input. If an input is not a Tensor or is a Tensor not
-requiring grads, you can just pass None as a gradient for that input.</p>
-<p>The context can be used to retrieve tensors saved during the forward
-pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
-of booleans representing whether each input needs gradient. E.g.,
-<a class="reference internal" href="#starry_unigraph.backends.flare.route.RouteRecvFunction.backward" title="starry_unigraph.backends.flare.route.RouteRecvFunction.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
-first input to <a class="reference internal" href="#starry_unigraph.backends.flare.route.RouteRecvFunction.forward" title="starry_unigraph.backends.flare.route.RouteRecvFunction.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computed w.r.t. the
-output.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteRecvFunction.forward">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteRecvFunction.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteRecvFunction.forward" title="Link to this definition"></a></dt>
-<dd><p>This function is to be overridden by all subclasses. There are two ways
-to define forward:</p>
-<p>Usage 1 (Combined forward and ctx):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-    <span class="k">pass</span>
-</pre></div>
-</div>
-<ul class="simple">
-<li><p>It must accept a context ctx as the first argument, followed by any
-number of arguments (tensors or other types).</p></li>
-<li><p>See <span class="xref std std-ref">combining-forward-context</span> for more details</p></li>
-</ul>
-<p>Usage 2 (Separate forward and ctx):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-    <span class="k">pass</span>
-
-<span class="nd">@staticmethod</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">setup_context</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="k">pass</span>
-</pre></div>
-</div>
-<ul class="simple">
-<li><p>The forward no longer accepts a ctx argument.</p></li>
-<li><p>Instead, you must also override the <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.autograd.Function.setup_context()</span></code>
-staticmethod to handle setting up the <code class="docutils literal notranslate"><span class="pre">ctx</span></code> object.
-<code class="docutils literal notranslate"><span class="pre">output</span></code> is the output of the forward, <code class="docutils literal notranslate"><span class="pre">inputs</span></code> are a Tuple of inputs
-to the forward.</p></li>
-<li><p>See <span class="xref std std-ref">extending-autograd</span> for more details</p></li>
-</ul>
-<p>The context can be used to store arbitrary data that can be then
-retrieved during the backward pass. Tensors should not be stored
-directly on <cite>ctx</cite> (though this is not currently enforced for
-backward compatibility). Instead, tensors should be saved either with
-<code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_backward()</span></code> if they are intended to be used in
-<code class="docutils literal notranslate"><span class="pre">backward</span></code> (equivalently, <code class="docutils literal notranslate"><span class="pre">vjp</span></code>) or <code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_forward()</span></code>
-if they are intended to be used for in <code class="docutils literal notranslate"><span class="pre">jvp</span></code>.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteSendFunction">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.backends.flare.route.</span></span><span class="sig-name descname"><span class="pre">RouteSendFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteSendFunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteSendFunction" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteSendFunction.backward">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteSendFunction.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteSendFunction.backward" title="Link to this definition"></a></dt>
-<dd><p>Defines a formula for differentiating the operation with backward mode
-automatic differentiation (alias to the vjp function).</p>
-<p>This function is to be overridden by all subclasses.</p>
-<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
-as many outputs as the <a class="reference internal" href="#starry_unigraph.backends.flare.route.RouteSendFunction.forward" title="starry_unigraph.backends.flare.route.RouteSendFunction.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> returned (None will be passed in
-for non tensor outputs of the forward function),
-and it should return as many tensors, as there were inputs to
-<a class="reference internal" href="#starry_unigraph.backends.flare.route.RouteSendFunction.forward" title="starry_unigraph.backends.flare.route.RouteSendFunction.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the gradient w.r.t the given output,
-and each returned value should be the gradient w.r.t. the
-corresponding input. If an input is not a Tensor or is a Tensor not
-requiring grads, you can just pass None as a gradient for that input.</p>
-<p>The context can be used to retrieve tensors saved during the forward
-pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
-of booleans representing whether each input needs gradient. E.g.,
-<a class="reference internal" href="#starry_unigraph.backends.flare.route.RouteSendFunction.backward" title="starry_unigraph.backends.flare.route.RouteSendFunction.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
-first input to <a class="reference internal" href="#starry_unigraph.backends.flare.route.RouteSendFunction.forward" title="starry_unigraph.backends.flare.route.RouteSendFunction.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computed w.r.t. the
-output.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.flare.route.RouteSendFunction.forward">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">route</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#starry_unigraph.backends.flare.route.Route" title="starry_unigraph.backends.flare.route.Route"><span class="pre">Route</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ProcessGroup</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/flare/route.html#RouteSendFunction.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.flare.route.RouteSendFunction.forward" title="Link to this definition"></a></dt>
-<dd><p>This function is to be overridden by all subclasses. There are two ways
-to define forward:</p>
-<p>Usage 1 (Combined forward and ctx):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-    <span class="k">pass</span>
-</pre></div>
-</div>
-<ul class="simple">
-<li><p>It must accept a context ctx as the first argument, followed by any
-number of arguments (tensors or other types).</p></li>
-<li><p>See <span class="xref std std-ref">combining-forward-context</span> for more details</p></li>
-</ul>
-<p>Usage 2 (Separate forward and ctx):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-    <span class="k">pass</span>
-
-<span class="nd">@staticmethod</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">setup_context</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="k">pass</span>
-</pre></div>
-</div>
-<ul class="simple">
-<li><p>The forward no longer accepts a ctx argument.</p></li>
-<li><p>Instead, you must also override the <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.autograd.Function.setup_context()</span></code>
-staticmethod to handle setting up the <code class="docutils literal notranslate"><span class="pre">ctx</span></code> object.
-<code class="docutils literal notranslate"><span class="pre">output</span></code> is the output of the forward, <code class="docutils literal notranslate"><span class="pre">inputs</span></code> are a Tuple of inputs
-to the forward.</p></li>
-<li><p>See <span class="xref std std-ref">extending-autograd</span> for more details</p></li>
-</ul>
-<p>The context can be used to store arbitrary data that can be then
-retrieved during the backward pass. Tensors should not be stored
-directly on <cite>ctx</cite> (though this is not currently enforced for
-backward compatibility). Instead, tensors should be saved either with
-<code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_backward()</span></code> if they are intended to be used in
-<code class="docutils literal notranslate"><span class="pre">backward</span></code> (equivalently, <code class="docutils literal notranslate"><span class="pre">vjp</span></code>) or <code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_forward()</span></code>
-if they are intended to be used for in <code class="docutils literal notranslate"><span class="pre">jvp</span></code>.</p>
-</dd></dl>
-
-</dd></dl>
-
+  <section id="starry-unigraph-backends-flare-route-module">
+<h1>starry_unigraph.backends.flare.route module<a class="headerlink" href="#starry-unigraph-backends-flare-route-module" title="Link to this heading"></a></h1>
 </section>
 
 

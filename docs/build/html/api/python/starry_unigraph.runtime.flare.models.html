@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.runtime.flare.models module &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="starry_unigraph.runtime.flare.training module" href="starry_unigraph.runtime.flare.training.html" />
+    <link rel="prev" title="starry_unigraph.runtime.flare.route module" href="starry_unigraph.runtime.flare.route.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="modules.html">starry_unigraph</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.html">starry_unigraph package</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.runtime.html">starry_unigraph.runtime package</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.runtime.flare.html">starry_unigraph.runtime.flare package</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.runtime.flare.models module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/api/python/starry_unigraph.runtime.flare.models.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-starry_unigraph.runtime.flare.models">
+<span id="starry-unigraph-runtime-flare-models-module"></span><h1>starry_unigraph.runtime.flare.models module<a class="headerlink" href="#module-starry_unigraph.runtime.flare.models" title="Link to this heading"></a></h1>
+<p>Flare temporal graph neural network models.</p>
+<p>Built-in model implementations for discrete-time dynamic graphs:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#starry_unigraph.runtime.flare.models.FlareEvolveGCN" title="starry_unigraph.runtime.flare.models.FlareEvolveGCN"><code class="xref py py-class docutils literal notranslate"><span class="pre">FlareEvolveGCN</span></code></a> — EvolveGCN-H: GRU-evolving GCN weight matrices.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.runtime.flare.models.FlareTGCN" title="starry_unigraph.runtime.flare.models.FlareTGCN"><code class="xref py py-class docutils literal notranslate"><span class="pre">FlareTGCN</span></code></a> — Temporal GCN: GCN + GRU cell per snapshot.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.runtime.flare.models.FlareMPNNLSTM" title="starry_unigraph.runtime.flare.models.FlareMPNNLSTM"><code class="xref py py-class docutils literal notranslate"><span class="pre">FlareMPNNLSTM</span></code></a> — MPNN-LSTM: GCN + two stacked LSTM cells.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.runtime.flare.models.GCNStack" title="starry_unigraph.runtime.flare.models.GCNStack"><code class="xref py py-class docutils literal notranslate"><span class="pre">GCNStack</span></code></a> — Multi-layer GCN message passing (shared by all models).</p></li>
+</ul>
+<p>All models accept either a single DGL graph or an <code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphBlob</span></code>
+(multi-frame window).  Use <a class="reference internal" href="#starry_unigraph.runtime.flare.models.build_flare_model" title="starry_unigraph.runtime.flare.models.build_flare_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">build_flare_model()</span></code></a> to instantiate by name.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareEvolveGCN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.models.</span></span><span class="sig-name descname"><span class="pre">FlareEvolveGCN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareEvolveGCN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareEvolveGCN" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>EvolveGCN-H: GRU-evolving GCN weight matrix.</p>
+<p>At each snapshot the GCN weight matrix is evolved via a MatGRU cell
+conditioned on a pooled graph context vector.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>input_size: Node feature dimension.
+hidden_size: GCN hidden / GRU state dimension.
+output_size: Output dimension (default 1 for regression).</p>
+</dd>
+</dl>
+<p>Forward signature:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">outputs</span><span class="p">,</span> <span class="n">new_state</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">blob_or_graph</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="c1"># outputs: list[Tensor] if blob, single Tensor if graph</span>
+<span class="c1"># new_state: evolved weight matrix</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareEvolveGCN.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob_or_graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.runtime.flare.html#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><span class="pre">STGraphBlob</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DGLGraph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareEvolveGCN.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareEvolveGCN.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareEvolveGCN.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareEvolveGCN.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareMPNNLSTM">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.models.</span></span><span class="sig-name descname"><span class="pre">FlareMPNNLSTM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareMPNNLSTM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareMPNNLSTM" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>MPNN-LSTM: GCN message passing + two stacked LSTM cells.</p>
+<p>Uses <code class="xref py py-class docutils literal notranslate"><span class="pre">RNNStateManager</span></code> for per-snapshot state persistence.
+The hidden state is a 4-tuple <code class="docutils literal notranslate"><span class="pre">(h1,</span> <span class="pre">c1,</span> <span class="pre">h2,</span> <span class="pre">c2)</span></code> obtained by Python
+tuple concatenation <code class="docutils literal notranslate"><span class="pre">s1</span> <span class="pre">+</span> <span class="pre">s2</span></code> (NOT element-wise addition).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>input_size: Node feature dimension.
+hidden_size: LSTM hidden state dimension.
+output_size: Output dimension (default 1).</p>
+</dd>
+</dl>
+<p>Forward signature:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">outputs</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">blob_or_graph</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="c1"># h is a 4-tuple: (h_layer1, c_layer1, h_layer2, c_layer2)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareMPNNLSTM.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob_or_graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.runtime.flare.html#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><span class="pre">STGraphBlob</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DGLGraph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareMPNNLSTM.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareMPNNLSTM.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareMPNNLSTM.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareMPNNLSTM.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareModelSpec">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.models.</span></span><span class="sig-name descname"><span class="pre">FlareModelSpec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_cls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'type[nn.Module]'</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareModelSpec"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareModelSpec" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareModelSpec.model_cls">
+<span class="sig-name descname"><span class="pre">model_cls</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">type</span><span class="p"><span class="pre">[</span></span><span class="pre">Module</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareModelSpec.model_cls" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareTGCN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.models.</span></span><span class="sig-name descname"><span class="pre">FlareTGCN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareTGCN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareTGCN" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Temporal GCN: GCN message passing + GRU update per snapshot.</p>
+<p>The GCN produces 3x hidden features which are split into update (u),
+reset (r), and candidate (c) gates for the GRU cell.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>input_size: Node feature dimension.
+hidden_size: GRU hidden state dimension.
+output_size: Output dimension (default 1).</p>
+</dd>
+</dl>
+<p>Forward signature:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">outputs</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">blob_or_graph</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareTGCN.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob_or_graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.runtime.flare.html#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><span class="pre">STGraphBlob</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DGLGraph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#FlareTGCN.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareTGCN.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.FlareTGCN.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.models.FlareTGCN.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.GCNStack">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.models.</span></span><span class="sig-name descname"><span class="pre">GCNStack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_layers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#GCNStack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.GCNStack" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Multi-layer GCN with message passing on DGL graphs/blocks.</p>
+<p>Each layer performs normalized message passing (<code class="docutils literal notranslate"><span class="pre">GCN_norm</span> <span class="pre">*</span> <span class="pre">src_feats</span></code>)
+followed by a linear transform.  ReLU is applied between layers.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>input_size: Input feature dimension.
+hidden_size: Hidden and output dimension for all layers.
+num_layers: Number of GCN layers (default 2).</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">gcn</span> <span class="o">=</span> <span class="n">GCNStack</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">h</span> <span class="o">=</span> <span class="n">gcn</span><span class="o">.</span><span class="n">forward_graph</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>              <span class="c1"># single graph</span>
+<span class="n">h_list</span> <span class="o">=</span> <span class="n">gcn</span><span class="o">.</span><span class="n">layerwise</span><span class="p">(</span><span class="n">blob</span><span class="p">)</span>              <span class="c1"># per-frame outputs</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.GCNStack.forward_graph">
+<span class="sig-name descname"><span class="pre">forward_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DGLGraph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#GCNStack.forward_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.GCNStack.forward_graph" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.GCNStack.layerwise">
+<span class="sig-name descname"><span class="pre">layerwise</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob_or_graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.runtime.flare.html#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><span class="pre">STGraphBlob</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DGLGraph</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#GCNStack.layerwise"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.GCNStack.layerwise" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.GCNStack.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.models.GCNStack.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.MatGRUCell">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.models.</span></span><span class="sig-name descname"><span class="pre">MatGRUCell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">in_feats</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_feats</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#MatGRUCell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.MatGRUCell" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.MatGRUCell.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prev_w</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#MatGRUCell.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.MatGRUCell.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.MatGRUCell.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#starry_unigraph.runtime.flare.models.MatGRUCell.training" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.build_flare_model">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.models.</span></span><span class="sig-name descname"><span class="pre">build_flare_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Module</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#build_flare_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.build_flare_model" title="Link to this definition"></a></dt>
+<dd><p>Instantiate a Flare temporal GNN model by name.</p>
+<dl>
+<dt>Args:</dt><dd><dl class="simple">
+<dt>model_name: One of <code class="docutils literal notranslate"><span class="pre">&quot;evolvegcn&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tgcn&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;mpnn_lstm&quot;</span></code>,</dt><dd><p><code class="docutils literal notranslate"><span class="pre">&quot;gcn&quot;</span></code> (case-insensitive).</p>
+</dd>
+</dl>
+<p>input_size: Input node feature dimension.
+hidden_size: Hidden dimension for GCN + recurrent layers.
+output_size: Output dimension (e.g. 1 for regression).</p>
+</dd>
+<dt>Returns:</dt><dd><p>An <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> ready for <code class="docutils literal notranslate"><span class="pre">.to(device)</span></code> and training.</p>
+</dd>
+<dt>Raises:</dt><dd><p>KeyError: If <em>model_name</em> is not recognized.</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">build_flare_model</span><span class="p">(</span><span class="s2">&quot;mpnn_lstm&quot;</span><span class="p">,</span> <span class="n">input_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                           <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">output_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="starry_unigraph.runtime.flare.models.extract_graph_labels">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.runtime.flare.models.</span></span><span class="sig-name descname"><span class="pre">extract_graph_labels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blob_or_graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.runtime.flare.html#starry_unigraph.runtime.flare.STGraphBlob" title="starry_unigraph.runtime.flare.STGraphBlob"><span class="pre">STGraphBlob</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DGLGraph</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/runtime/flare/models.html#extract_graph_labels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.runtime.flare.models.extract_graph_labels" title="Link to this definition"></a></dt>
+<dd><p>Extract ground-truth labels from the last graph in a blob or a single graph.</p>
+<p>Looks for <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code> in <code class="docutils literal notranslate"><span class="pre">dstdata</span></code> (block) or <code class="docutils literal notranslate"><span class="pre">ndata</span></code> (plain graph).
+Returns a <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">K]</span></code> tensor reshaped to column format, or <code class="docutils literal notranslate"><span class="pre">None</span></code>
+if no labels are present.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>blob_or_graph: An <code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphBlob</span></code> or a single DGL graph.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Labels tensor of shape <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">K]</span></code>, or <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="starry_unigraph.runtime.flare.route.html" class="btn btn-neutral float-left" title="starry_unigraph.runtime.flare.route module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.runtime.flare.training.html" class="btn btn-neutral float-right" title="starry_unigraph.runtime.flare.training module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

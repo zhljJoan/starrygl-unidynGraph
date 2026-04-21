@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -7,15 +5,19 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph.providers.dtdg_loaders module &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -34,6 +36,9 @@
           <a href="../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -91,86 +96,40 @@
              
   <section id="module-starry_unigraph.providers.dtdg_loaders">
 <span id="starry-unigraph-providers-dtdg-loaders-module"></span><h1>starry_unigraph.providers.dtdg_loaders module<a class="headerlink" href="#module-starry_unigraph.providers.dtdg_loaders" title="Link to this heading"></a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.providers.dtdg_loaders.</span></span><span class="sig-name descname"><span class="pre">ChunkedDTDGLoader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">snaps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">route_plan</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'SnapshotRoutePlan'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_manifest</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[dict[str,</span> <span class="pre">Any]]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_ratio</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[str,</span> <span class="pre">float]</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cursor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#ChunkedDTDGLoader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.build_snapshot_index">
-<span class="sig-name descname"><span class="pre">build_snapshot_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#ChunkedDTDGLoader.build_snapshot_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.build_snapshot_index" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.chunk_manifest">
-<span class="sig-name descname"><span class="pre">chunk_manifest</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.chunk_manifest" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.cursor">
-<span class="sig-name descname"><span class="pre">cursor</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.cursor" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.dump_state">
-<span class="sig-name descname"><span class="pre">dump_state</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#ChunkedDTDGLoader.dump_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.dump_state" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.iter_eval">
-<span class="sig-name descname"><span class="pre">iter_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'val'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGBatch" title="starry_unigraph.core.dtdg_kernel.DTDGBatch"><span class="pre">DTDGBatch</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#ChunkedDTDGLoader.iter_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.iter_eval" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.iter_predict">
-<span class="sig-name descname"><span class="pre">iter_predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGBatch" title="starry_unigraph.core.dtdg_kernel.DTDGBatch"><span class="pre">DTDGBatch</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#ChunkedDTDGLoader.iter_predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.iter_predict" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.iter_train">
-<span class="sig-name descname"><span class="pre">iter_train</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'train'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGBatch" title="starry_unigraph.core.dtdg_kernel.DTDGBatch"><span class="pre">DTDGBatch</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#ChunkedDTDGLoader.iter_train"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.iter_train" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.load_snapshot">
-<span class="sig-name descname"><span class="pre">load_snapshot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">snapshot_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGBatch" title="starry_unigraph.core.dtdg_kernel.DTDGBatch"><span class="pre">DTDGBatch</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#ChunkedDTDGLoader.load_snapshot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.load_snapshot" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.route_plan">
-<span class="sig-name descname"><span class="pre">route_plan</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.SnapshotRoutePlan" title="starry_unigraph.core.dtdg_kernel.SnapshotRoutePlan"><span class="pre">SnapshotRoutePlan</span></a></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.route_plan" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.snaps">
-<span class="sig-name descname"><span class="pre">snaps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.snaps" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.split_ratio">
-<span class="sig-name descname"><span class="pre">split_ratio</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.split_ratio" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.window_size">
-<span class="sig-name descname"><span class="pre">window_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.window_size" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.window_state">
-<span class="sig-name descname"><span class="pre">window_state</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGWindowState" title="starry_unigraph.core.dtdg_kernel.DTDGWindowState"><span class="pre">DTDGWindowState</span></a></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.window_state" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.windows">
-<span class="sig-name descname"><span class="pre">windows</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="starry_unigraph.core.dtdg_kernel.html#starry_unigraph.core.dtdg_kernel.DTDGBatch" title="starry_unigraph.core.dtdg_kernel.DTDGBatch"><span class="pre">DTDGBatch</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#ChunkedDTDGLoader.windows"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.ChunkedDTDGLoader.windows" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
+<p>Flare runtime loader: wraps STGraphLoader with split management.</p>
+<p><a class="reference internal" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader" title="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">FlareRuntimeLoader</span></code></a> is the bridge between the session’s
+<code class="xref py py-class docutils literal notranslate"><span class="pre">DTDGProvider</span></code> and the underlying <code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphLoader</span></code>.
+It handles train/val/test split computation, chunk-order / chunk-decay
+configuration, and provides <code class="docutils literal notranslate"><span class="pre">iter_train</span></code> / <code class="docutils literal notranslate"><span class="pre">iter_eval</span></code> /
+<code class="docutils literal notranslate"><span class="pre">iter_predict</span></code> iterators that yield either <code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphBlob</span></code>
+(training) or <code class="xref py py-class docutils literal notranslate"><span class="pre">DTDGBatch</span></code> (eval/predict).</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.providers.dtdg_loaders.</span></span><span class="sig-name descname"><span class="pre">FlareRuntimeLoader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">partition_id:</span> <span class="pre">'int'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">route_plan:</span> <span class="pre">'SnapshotRoutePlan'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_state:</span> <span class="pre">'DTDGWindowState'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partition_data:</span> <span class="pre">'PartitionData'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">graph_loader:</span> <span class="pre">'STGraphLoader'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device:</span> <span class="pre">'str'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rank:</span> <span class="pre">'int'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">world_size:</span> <span class="pre">'int'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_index:</span> <span class="pre">'torch.Tensor'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_chunk_order:</span> <span class="pre">'Any'</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_chunk_decay:</span> <span class="pre">'list[int]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_num_full_snaps:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_ratio:</span> <span class="pre">'dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">float]</span> <span class="pre">|</span> <span class="pre">None'</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cursor:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#FlareRuntimeLoader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.providers.dtdg_loaders.</span></span><span class="sig-name descname"><span class="pre">FlareRuntimeLoader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">partition_id:</span> <span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">route_plan:</span> <span class="pre">SnapshotRoutePlan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_state:</span> <span class="pre">DTDGWindowState</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partition_data:</span> <span class="pre">PartitionData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">graph_loader:</span> <span class="pre">STGraphLoader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device:</span> <span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rank:</span> <span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">world_size:</span> <span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_index:</span> <span class="pre">torch.Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_chunk_order:</span> <span class="pre">Any</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_chunk_decay:</span> <span class="pre">list[int]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_num_full_snaps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_ratio:</span> <span class="pre">dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">float]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cursor:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#FlareRuntimeLoader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>High-level loader managing splits, chunk ordering, and iteration.</p>
+<p>Wraps a <code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code> + <code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphLoader</span></code> and exposes
+three iteration modes:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.iter_train" title="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.iter_train"><code class="xref py py-meth docutils literal notranslate"><span class="pre">iter_train()</span></code></a> — yields <code class="xref py py-class docutils literal notranslate"><span class="pre">STGraphBlob</span></code> (multi-frame,
+with chunk-decay support).</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.iter_eval" title="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.iter_eval"><code class="xref py py-meth docutils literal notranslate"><span class="pre">iter_eval()</span></code></a> — yields <code class="xref py py-class docutils literal notranslate"><span class="pre">DTDGBatch</span></code> with
+<code class="docutils literal notranslate"><span class="pre">chain=&quot;snapshot_warmup&quot;</span></code> for pre-train snapshots and
+<code class="docutils literal notranslate"><span class="pre">chain=&quot;snapshot_eval&quot;</span></code> for actual validation.</p></li>
+<li><p><a class="reference internal" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.iter_predict" title="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.iter_predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">iter_predict()</span></code></a> — same structure as eval but with
+<code class="docutils literal notranslate"><span class="pre">chain=&quot;snapshot_predict&quot;</span></code>.</p></li>
+</ul>
+<p>Created via <a class="reference internal" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.from_partition_data" title="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.from_partition_data"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_partition_data()</span></code></a> which parses config for
+window size, chunk order, chunk decay, split ratio, etc.</p>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">loader</span> <span class="o">=</span> <span class="n">FlareRuntimeLoader</span><span class="o">.</span><span class="n">from_partition_data</span><span class="p">(</span>
+    <span class="n">data</span><span class="o">=</span><span class="n">part</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">world_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">config</span><span class="o">=</span><span class="n">session_config</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">for</span> <span class="n">blob</span> <span class="ow">in</span> <span class="n">loader</span><span class="o">.</span><span class="n">iter_train</span><span class="p">():</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">run_flare_train_step</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">blob</span><span class="p">,</span> <span class="p">{})</span>
+</pre></div>
+</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.build_snapshot_index">
 <span class="sig-name descname"><span class="pre">build_snapshot_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#FlareRuntimeLoader.build_snapshot_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.build_snapshot_index" title="Link to this definition"></a></dt>
@@ -178,7 +137,7 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.chunk_index">
-<span class="sig-name descname"><span class="pre">chunk_index</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.chunk_index" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">chunk_index</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">torch.Tensor</span></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.chunk_index" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -208,12 +167,25 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.from_partition_data">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_partition_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.backends.flare.partition_data.html#starry_unigraph.backends.flare.partition_data.PartitionData" title="starry_unigraph.backends.flare.partition_data.PartitionData"><span class="pre">PartitionData</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">world_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader" title="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader"><span class="pre">FlareRuntimeLoader</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#FlareRuntimeLoader.from_partition_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.from_partition_data" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_partition_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.PartitionData" title="starry_unigraph.data.partition.PartitionData"><span class="pre">PartitionData</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">world_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader" title="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader"><span class="pre">FlareRuntimeLoader</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/providers/dtdg_loaders.html#FlareRuntimeLoader.from_partition_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.from_partition_data" title="Link to this definition"></a></dt>
+<dd><p>Build a FlareRuntimeLoader from a PartitionData and session config.</p>
+<p>Parses <code class="docutils literal notranslate"><span class="pre">config[&quot;model&quot;][&quot;window&quot;][&quot;size&quot;]</span></code>, <code class="docutils literal notranslate"><span class="pre">config[&quot;dtdg&quot;][&quot;chunk_order&quot;]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">config[&quot;dtdg&quot;][&quot;chunk_decay&quot;]</span></code>, <code class="docutils literal notranslate"><span class="pre">config[&quot;data&quot;][&quot;split_ratio&quot;]</span></code>, etc.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>data: Loaded <code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code> for this rank’s partition.
+device: Target device string (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;cuda:0&quot;</span></code>).
+rank: Distributed rank.
+world_size: Distributed world size.
+config: Full session config dict.</p>
+</dd>
+<dt>Returns:</dt><dd><p>A configured <a class="reference internal" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader" title="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">FlareRuntimeLoader</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.graph_loader">
-<span class="sig-name descname"><span class="pre">graph_loader</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.backends.flare.stgraph_loader.html#starry_unigraph.backends.flare.stgraph_loader.STGraphLoader" title="starry_unigraph.backends.flare.stgraph_loader.STGraphLoader"><span class="pre">STGraphLoader</span></a></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.graph_loader" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">graph_loader</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">STGraphLoader</span></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.graph_loader" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -243,7 +215,7 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.partition_data">
-<span class="sig-name descname"><span class="pre">partition_data</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.backends.flare.partition_data.html#starry_unigraph.backends.flare.partition_data.PartitionData" title="starry_unigraph.backends.flare.partition_data.PartitionData"><span class="pre">PartitionData</span></a></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.partition_data" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">partition_data</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.data.html#starry_unigraph.data.PartitionData" title="starry_unigraph.data.PartitionData"><span class="pre">PartitionData</span></a></em><a class="headerlink" href="#starry_unigraph.providers.dtdg_loaders.FlareRuntimeLoader.partition_data" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">

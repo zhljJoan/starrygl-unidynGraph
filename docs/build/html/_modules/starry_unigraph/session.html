@@ -1,20 +1,22 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph.session &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" /> 
@@ -31,6 +33,9 @@
           <a href="../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -72,24 +77,24 @@
            <div itemprop="articleBody">
              
   <h1>Source code for starry_unigraph.session</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_checkpoint</span><span class="p">,</span> <span class="n">save_checkpoint</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.config.schema</span><span class="w"> </span><span class="kn">import</span> <span class="n">detect_graph_mode</span><span class="p">,</span> <span class="n">load_config</span><span class="p">,</span> <span class="n">validate_config</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.distributed</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_distributed_env</span><span class="p">,</span> <span class="n">build_distributed_context</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.providers</span><span class="w"> </span><span class="kn">import</span> <span class="n">CTDGProvider</span><span class="p">,</span> <span class="n">DTDGProvider</span>  <span class="c1"># noqa: F401</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelRegistry</span><span class="p">,</span> <span class="n">ProviderRegistry</span><span class="p">,</span> <span class="n">TaskRegistry</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">PredictionResult</span><span class="p">,</span> <span class="n">PreparedArtifacts</span><span class="p">,</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">SessionContext</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.checkpoint</span> <span class="kn">import</span> <span class="n">load_checkpoint</span><span class="p">,</span> <span class="n">save_checkpoint</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.config.schema</span> <span class="kn">import</span> <span class="n">detect_graph_mode</span><span class="p">,</span> <span class="n">load_config</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.distributed</span> <span class="kn">import</span> <span class="n">apply_distributed_env</span><span class="p">,</span> <span class="n">build_distributed_context</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.providers</span> <span class="kn">import</span> <span class="n">CTDGProvider</span><span class="p">,</span> <span class="n">DTDGProvider</span>  <span class="c1"># noqa: F401</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.registry</span> <span class="kn">import</span> <span class="n">ModelRegistry</span><span class="p">,</span> <span class="n">ProviderRegistry</span><span class="p">,</span> <span class="n">TaskRegistry</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.types</span> <span class="kn">import</span> <span class="n">PredictionResult</span><span class="p">,</span> <span class="n">PreparedArtifacts</span><span class="p">,</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">SessionContext</span>
 
 
 <div class="viewcode-block" id="SchedulerSession">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">SchedulerSession</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">model_spec</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">task_adapter</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">SchedulerSession</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">model_spec</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">task_adapter</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span> <span class="o">=</span> <span class="n">session_ctx</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">provider</span> <span class="o">=</span> <span class="n">provider</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_spec</span> <span class="o">=</span> <span class="n">model_spec</span>
@@ -100,7 +105,7 @@
 <div class="viewcode-block" id="SchedulerSession.from_config">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.from_config">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">from_config</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">from_config</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">config_or_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">dataset_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -130,22 +135,22 @@
 
 <div class="viewcode-block" id="SchedulerSession.prepare_data">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.prepare_data">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedArtifacts</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">prepare_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedArtifacts</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SchedulerSession.build_runtime">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.build_runtime">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_runtime</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RuntimeBundle</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">build_runtime</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RuntimeBundle</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SchedulerSession.run_epoch">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.run_epoch">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">run_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="n">iterator</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">build_train_iterator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">build_train_iterator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span> \
+            <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span> \
             <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">build_eval_iterator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
@@ -189,7 +194,7 @@
 
 <div class="viewcode-block" id="SchedulerSession.run_task">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.run_task">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run_task</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">run_task</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="c1">#self.prepare_data()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">()</span>
         <span class="n">train_summary</span> <span class="o">=</span> <span class="p">[]</span>
@@ -215,13 +220,13 @@
 
 <div class="viewcode-block" id="SchedulerSession.evaluate">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.evaluate">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SchedulerSession.predict">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.predict">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PredictionResult</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PredictionResult</span><span class="p">:</span>
         <span class="c1">#if self.provider.runtime.model is None:</span>
         <span class="c1">#    self.build_runtime()</span>
         <span class="n">predictions</span> <span class="o">=</span> <span class="p">[]</span>
@@ -239,11 +244,11 @@
         <span class="p">)</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_distributed_epoch_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loss_sum</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">step_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">elapsed</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_distributed_epoch_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loss_sum</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">step_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">elapsed</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">is_distributed</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">loss_sum</span><span class="p">,</span> <span class="n">step_count</span><span class="p">,</span> <span class="n">elapsed</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
+        <span class="kn">import</span> <span class="nn">torch</span>
+        <span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
             <span class="k">return</span> <span class="n">loss_sum</span><span class="p">,</span> <span class="n">step_count</span><span class="p">,</span> <span class="n">elapsed</span>
@@ -255,7 +260,7 @@
 
 <div class="viewcode-block" id="SchedulerSession.save_checkpoint">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.save_checkpoint">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">save_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">save_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
         <span class="n">runtime_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime_adapter</span><span class="o">.</span><span class="n">dump_runtime_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="p">)</span>
         <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;model_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
@@ -272,7 +277,7 @@
 
 <div class="viewcode-block" id="SchedulerSession.load_checkpoint">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.load_checkpoint">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">load_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">load_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="n">payload</span> <span class="o">=</span> <span class="n">load_checkpoint</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">()</span>

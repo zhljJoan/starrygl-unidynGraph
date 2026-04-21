@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.runtime.online.sampler &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.runtime.online.sampler</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for starry_unigraph.runtime.online.sampler</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Native BTS temporal neighbor sampler for CTDG.</span>
+
+<span class="sd">Wraps the C++ BTS sampler (:mod:`starry_unigraph.native`) to perform</span>
+<span class="sd">multi-hop temporal neighbor sampling on event graphs.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="kn">from</span> <span class="nn">starry_unigraph.native</span> <span class="kn">import</span> <span class="n">BTSNativeSampler</span><span class="p">,</span> <span class="n">build_temporal_neighbor_block</span><span class="p">,</span> <span class="n">is_bts_sampler_available</span>
+
+<span class="kn">from</span> <span class="nn">.data</span> <span class="kn">import</span> <span class="n">TGTemporalDataset</span>
+
+
+<div class="viewcode-block" id="CTDGSampleOutput">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGSampleOutput">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">CTDGSampleOutput</span><span class="p">:</span>
+    <span class="n">split</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">root_nodes</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">timestamps</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">sampled_nodes</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">sampled_eids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">object</span><span class="p">]</span>
+
+<div class="viewcode-block" id="CTDGSampleOutput.describe">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGSampleOutput.describe">[docs]</a>
+    <span class="k">def</span> <span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;root_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root_nodes</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span>
+            <span class="s2">&quot;sampled_node_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampled_nodes</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span>
+            <span class="s2">&quot;sampled_edge_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampled_eids</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span>
+            <span class="s2">&quot;num_layers&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">),</span>
+        <span class="p">}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NativeTemporalSampler">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.NativeTemporalSampler">[docs]</a>
+<span class="k">class</span> <span class="nc">NativeTemporalSampler</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Multi-hop temporal neighbor sampler backed by the C++ BTS library.</span>
+
+<span class="sd">    Lazily builds a per-split BTS sampler on first call and caches it.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        dataset: :class:`TGTemporalDataset` providing the event graph.</span>
+<span class="sd">        fanout: Per-layer fanout list, e.g. ``[10, 10]`` for 2-hop with</span>
+<span class="sd">            10 neighbors each.</span>
+<span class="sd">        history: Number of sampler layers (typically ``len(fanout)``).</span>
+<span class="sd">        strategy: Sampling strategy string (e.g. ``&quot;recent&quot;``).</span>
+<span class="sd">        workers: Number of BTS sampler worker threads.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        sampler = NativeTemporalSampler(dataset, fanout=[10,10],</span>
+<span class="sd">                                         history=2, strategy=&quot;recent&quot;)</span>
+<span class="sd">        output = sampler.sample(&quot;train&quot;, root_nodes, timestamps)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dataset</span><span class="p">:</span> <span class="n">TGTemporalDataset</span><span class="p">,</span>
+        <span class="n">fanout</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">history</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fanout</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">fanout</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">history</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workers</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">workers</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_samplers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">BTSNativeSampler</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="nf">_build_sampler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BTSNativeSampler</span><span class="p">:</span>
+        <span class="n">graph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">sampler_graph</span><span class="p">(</span><span class="n">split</span><span class="p">)</span>
+        <span class="n">tnb</span> <span class="o">=</span> <span class="n">build_temporal_neighbor_block</span><span class="p">(</span>
+            <span class="n">graph_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">row</span><span class="o">=</span><span class="n">graph</span><span class="p">[</span><span class="s2">&quot;row&quot;</span><span class="p">],</span>
+            <span class="n">col</span><span class="o">=</span><span class="n">graph</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">],</span>
+            <span class="n">num_nodes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span>
+            <span class="n">eid</span><span class="o">=</span><span class="n">graph</span><span class="p">[</span><span class="s2">&quot;eid&quot;</span><span class="p">],</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">graph</span><span class="p">[</span><span class="s2">&quot;ts&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">node_part</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">edge_part</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">graph</span><span class="p">[</span><span class="s2">&quot;eid&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">BTSNativeSampler</span><span class="p">(</span>
+            <span class="n">tnb</span><span class="o">=</span><span class="n">tnb</span><span class="p">,</span>
+            <span class="n">num_nodes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span>
+            <span class="n">num_edges</span><span class="o">=</span><span class="n">graph</span><span class="p">[</span><span class="s2">&quot;eid&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span>
+            <span class="n">num_layers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">,</span>
+            <span class="n">fanout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fanout</span><span class="p">,</span>
+            <span class="n">workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">,</span>
+            <span class="n">policy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span>
+            <span class="n">edge_part</span><span class="o">=</span><span class="n">edge_part</span><span class="p">,</span>
+            <span class="n">node_part</span><span class="o">=</span><span class="n">node_part</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="NativeTemporalSampler.sample">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.NativeTemporalSampler.sample">[docs]</a>
+    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">root_nodes</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CTDGSampleOutput</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sample temporal neighbors for the given root nodes.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            split: ``&quot;train&quot;``, ``&quot;val&quot;``, or ``&quot;test&quot;`` — determines</span>
+<span class="sd">                which temporal graph to sample from.</span>
+<span class="sd">            root_nodes: Root node IDs to sample around, shape ``[R]``.</span>
+<span class="sd">            timestamps: Timestamps for each root node, shape ``[R]``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`CTDGSampleOutput` with sampled nodes, edges, and</span>
+<span class="sd">            BTS blocks.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If the native BTS sampler is not available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_bts_sampler_available</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Native BTS sampler is not available&quot;</span><span class="p">)</span>
+        <span class="n">sampler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_samplers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">split</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sampler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sampler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_sampler</span><span class="p">(</span><span class="n">split</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_samplers</span><span class="p">[</span><span class="n">split</span><span class="p">]</span> <span class="o">=</span> <span class="n">sampler</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample_from_nodes</span><span class="p">(</span><span class="n">root_nodes</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="n">timestamps</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">())</span>
+        <span class="n">sampled_nodes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">sampled_eids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+            <span class="n">sampled_nodes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">sample_nodes</span><span class="p">()</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">())</span>
+            <span class="n">sampled_eids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">eid</span><span class="p">()</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">())</span>
+        <span class="n">merged_nodes</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">root_nodes</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="o">*</span><span class="n">sampled_nodes</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">merged_eids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">sampled_eids</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span> <span class="k">if</span> <span class="n">sampled_eids</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">CTDGSampleOutput</span><span class="p">(</span>
+            <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">,</span>
+            <span class="n">root_nodes</span><span class="o">=</span><span class="n">root_nodes</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span>
+            <span class="n">timestamps</span><span class="o">=</span><span class="n">timestamps</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span>
+            <span class="n">sampled_nodes</span><span class="o">=</span><span class="n">merged_nodes</span><span class="p">,</span>
+            <span class="n">sampled_eids</span><span class="o">=</span><span class="n">merged_eids</span><span class="p">,</span>
+            <span class="n">blocks</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">blocks</span><span class="p">),</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

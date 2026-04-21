@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.data.partition &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.data.partition</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for starry_unigraph.data.partition</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Partitioned graph data containers for distributed DTDG training.</span>
+
+<span class="sd">This module defines the core data structures used to store per-partition</span>
+<span class="sd">snapshot graph data on disk and in memory:</span>
+
+<span class="sd">- :class:`TensorData` — variable-length tensor list packed into a single</span>
+<span class="sd">  contiguous tensor with a pointer array (CSR-style).</span>
+<span class="sd">- :class:`RouteData` — inter-partition communication metadata (send/recv</span>
+<span class="sd">  sizes and reorder indices) for all snapshots in a partition.</span>
+<span class="sd">- :class:`PartitionData` — complete per-partition dataset: node IDs, edge</span>
+<span class="sd">  topology, features, labels, and optional routing info for every snapshot.</span>
+
+<span class="sd">These containers support slicing, ``pin_memory()``, ``.to(device)``,</span>
+<span class="sd">serialization via ``torch.save``/``torch.load``, and conversion to/from</span>
+<span class="sd">DGL blocks.</span>
+
+<span class="sd">Example::</span>
+
+<span class="sd">    # Load a partition file produced by the preprocessing pipeline</span>
+<span class="sd">    part = PartitionData.load(&quot;artifacts/flare/part_000.pth&quot;)</span>
+<span class="sd">    print(len(part))          # number of snapshots</span>
+<span class="sd">    print(part.num_dst_nodes) # local nodes in this partition</span>
+
+<span class="sd">    # Slice a subset of snapshots</span>
+<span class="sd">    train_part = part[0:140]</span>
+
+<span class="sd">    # Convert to DGL blocks for model input</span>
+<span class="sd">    blocks = train_part.to_blocks(keep_ids=True)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span> <span class="nn">dgl</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">dgl.heterograph</span> <span class="kn">import</span> <span class="n">DGLBlock</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+
+<div class="viewcode-block" id="RouteData">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">RouteData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-snapshot inter-partition routing metadata for all snapshots.</span>
+
+<span class="sd">    Stores the send/recv sizes and a packed reorder index that tells each</span>
+<span class="sd">    partition which local node features to send to which peer during the</span>
+<span class="sd">    distributed ``all_to_all`` communication step.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        send_sizes: ``[num_snaps][num_parts]`` — number of features this</span>
+<span class="sd">            partition sends to each peer for every snapshot.</span>
+<span class="sd">        recv_sizes: ``[num_snaps][num_parts]`` — number of features this</span>
+<span class="sd">            partition receives from each peer.</span>
+<span class="sd">        send_index_ind: Flat packed local-node indices to gather before</span>
+<span class="sd">            sending.  ``None`` when routing is disabled (single-rank).</span>
+<span class="sd">        send_index_ptr: CSR-style pointers into *send_index_ind*, one per</span>
+<span class="sd">            snapshot (length ``num_snaps + 1``).</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        route_data = RouteData.from_routes(route_list)</span>
+<span class="sd">        single_route = route_data[5].item()       # Route for snapshot 5</span>
+<span class="sd">        route_data_gpu = route_data.to(&quot;cuda:0&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">send_sizes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>
+    <span class="n">recv_sizes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>
+    <span class="n">send_index_ind</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">send_index_ptr</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">send_sizes</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">recv_sizes</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;send_sizes and recv_sizes must have the same length&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">send_row</span><span class="p">,</span> <span class="n">recv_row</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">send_sizes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">recv_sizes</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">send_row</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">recv_row</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;send_sizes[i] and recv_sizes[i] must have the same length&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span><span class="o">.</span><span class="n">numel</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;send_index_ptr[-1] must equal send_index_ind.numel()&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">send_sizes</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">slice</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RouteData</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="nb">slice</span><span class="p">):</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">index</span><span class="o">.</span><span class="n">step</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only step size of 1 is supported&quot;</span><span class="p">)</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">index</span><span class="o">.</span><span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">index</span><span class="o">.</span><span class="n">start</span>
+        <span class="n">stop</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="k">if</span> <span class="n">index</span><span class="o">.</span><span class="n">stop</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">index</span><span class="o">.</span><span class="n">stop</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">send_index_ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span>
+            <span class="n">send_index_ptr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">offset_start</span><span class="p">,</span> <span class="n">offset_stop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span><span class="p">[</span><span class="n">start</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span><span class="p">[</span><span class="n">stop</span><span class="p">]</span>
+            <span class="n">send_index_ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span><span class="p">[</span><span class="n">offset_start</span><span class="p">:</span><span class="n">offset_stop</span><span class="p">]</span>
+            <span class="n">send_index_ptr</span> <span class="o">=</span> <span class="p">[</span><span class="n">value</span> <span class="o">-</span> <span class="n">offset_start</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="n">stop</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="n">send_sizes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">send_sizes</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">],</span>
+            <span class="n">recv_sizes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">recv_sizes</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">],</span>
+            <span class="n">send_index_ind</span><span class="o">=</span><span class="n">send_index_ind</span><span class="p">,</span>
+            <span class="n">send_index_ptr</span><span class="o">=</span><span class="n">send_index_ptr</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="RouteData.item">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData.item">[docs]</a>
+    <span class="k">def</span> <span class="nf">item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the single :class:`~starry_unigraph.runtime.flare.route.Route` in this container.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            group: Optional ``torch.distributed`` process group attached to</span>
+<span class="sd">                the returned Route.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A :class:`Route` instance.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If this RouteData contains != 1 snapshot.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">starry_unigraph.runtime.flare.route</span> <span class="kn">import</span> <span class="n">Route</span>
+
+        <span class="n">routes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_routes</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">routes</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected 1 route, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">routes</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">routes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="RouteData.to_routes">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData.to_routes">[docs]</a>
+    <span class="k">def</span> <span class="nf">to_routes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert all snapshots into a list of :class:`Route` objects.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            group: Optional distributed process group for each Route.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of :class:`Route`, one per snapshot.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">starry_unigraph.runtime.flare.route</span> <span class="kn">import</span> <span class="n">Route</span>
+
+        <span class="n">routes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Route</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">send_index</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">start</span><span class="p">,</span> <span class="n">stop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">send_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">]</span>
+            <span class="n">routes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Route</span><span class="p">(</span><span class="n">send_index</span><span class="o">=</span><span class="n">send_index</span><span class="p">,</span> <span class="n">send_sizes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">send_sizes</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="n">recv_sizes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">recv_sizes</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">routes</span></div>
+
+
+<div class="viewcode-block" id="RouteData.pin_memory">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData.pin_memory">[docs]</a>
+    <span class="k">def</span> <span class="nf">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RouteData</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="n">send_sizes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">send_sizes</span><span class="p">,</span>
+            <span class="n">recv_sizes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">recv_sizes</span><span class="p">,</span>
+            <span class="n">send_index_ind</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">),</span>
+            <span class="n">send_index_ptr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RouteData.to">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData.to">[docs]</a>
+    <span class="k">def</span> <span class="nf">to</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">non_blocking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">copy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RouteData</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="n">send_sizes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">send_sizes</span><span class="p">,</span>
+            <span class="n">recv_sizes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">recv_sizes</span><span class="p">,</span>
+            <span class="n">send_index_ind</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_index_ind</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">),</span>
+            <span class="n">send_index_ptr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">send_index_ptr</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RouteData.from_routes">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData.from_routes">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_routes</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">routes</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RouteData</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a RouteData from a list of :class:`Route` objects.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            routes: List of Route instances (one per snapshot).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A new :class:`RouteData` packing all routes into flat tensors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">send_index_parts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">send_index_ptr</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">send_sizes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">recv_sizes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">route</span> <span class="ow">in</span> <span class="n">routes</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">route</span><span class="o">.</span><span class="n">send_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">send_index_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">route</span><span class="o">.</span><span class="n">send_index</span><span class="o">.</span><span class="n">long</span><span class="p">())</span>
+                <span class="n">send_index_ptr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">send_index_ptr</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">route</span><span class="o">.</span><span class="n">send_index</span><span class="o">.</span><span class="n">numel</span><span class="p">()))</span>
+            <span class="n">send_sizes</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="p">)</span> <span class="k">for</span> <span class="n">size</span> <span class="ow">in</span> <span class="n">route</span><span class="o">.</span><span class="n">send_sizes</span><span class="p">])</span>
+            <span class="n">recv_sizes</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="p">)</span> <span class="k">for</span> <span class="n">size</span> <span class="ow">in</span> <span class="n">route</span><span class="o">.</span><span class="n">recv_sizes</span><span class="p">])</span>
+        <span class="n">send_index_ind</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">send_index_parts</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">send_index_parts</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">send_sizes</span><span class="o">=</span><span class="n">send_sizes</span><span class="p">,</span>
+            <span class="n">recv_sizes</span><span class="o">=</span><span class="n">recv_sizes</span><span class="p">,</span>
+            <span class="n">send_index_ind</span><span class="o">=</span><span class="n">send_index_ind</span><span class="p">,</span>
+            <span class="n">send_index_ptr</span><span class="o">=</span><span class="n">send_index_ptr</span> <span class="k">if</span> <span class="n">send_index_ind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="TensorData">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">TensorData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CSR-packed variable-length tensor list.</span>
+
+<span class="sd">    Stores *N* tensors of possibly different first-dimension sizes as a</span>
+<span class="sd">    single contiguous ``data`` tensor plus an ``(N+1)``-element ``ptr``</span>
+<span class="sd">    array.  Element *i* is ``data[ptr[i]:ptr[i+1]]``.</span>
+
+<span class="sd">    Supports integer/slice indexing, ``.to(device)``, ``pin_memory()``.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        ptr: Pointer array of length ``N + 1``.  ``ptr[0] == 0`` and</span>
+<span class="sd">            ``ptr[-1] == data.size(0)``.</span>
+<span class="sd">        data: The packed tensor.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        td = TensorData.from_tensors([torch.ones(3, 4), torch.zeros(5, 4)])</span>
+<span class="sd">        print(len(td))       # 2</span>
+<span class="sd">        print(td[0].item())  # tensor of shape (3, 4)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">ptr</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">Tensor</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ptr must not be empty&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ptr[-1] != data.size(0): </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> != </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">slice</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TensorData</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="nb">slice</span><span class="p">):</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">index</span><span class="o">.</span><span class="n">step</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only step size of 1 is supported&quot;</span><span class="p">)</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">index</span><span class="o">.</span><span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">index</span><span class="o">.</span><span class="n">start</span>
+        <span class="n">stop</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="k">if</span> <span class="n">index</span><span class="o">.</span><span class="n">stop</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">index</span><span class="o">.</span><span class="n">stop</span>
+        <span class="n">offset_start</span><span class="p">,</span> <span class="n">offset_stop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">[</span><span class="n">start</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">[</span><span class="n">stop</span><span class="p">]</span>
+        <span class="n">ptr</span> <span class="o">=</span> <span class="p">[</span><span class="n">value</span> <span class="o">-</span> <span class="n">offset_start</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="n">stop</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">ptr</span><span class="o">=</span><span class="n">ptr</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">offset_start</span><span class="p">:</span><span class="n">offset_stop</span><span class="p">])</span>
+
+<div class="viewcode-block" id="TensorData.item">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData.item">[docs]</a>
+    <span class="k">def</span> <span class="nf">item</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_tensors</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected 1 tensor, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">items</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="TensorData.to_tensors">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData.to_tensors">[docs]</a>
+    <span class="k">def</span> <span class="nf">to_tensors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="n">items</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)):</span>
+            <span class="n">start</span><span class="p">,</span> <span class="n">stop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">items</span></div>
+
+
+<div class="viewcode-block" id="TensorData.pin_memory">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData.pin_memory">[docs]</a>
+    <span class="k">def</span> <span class="nf">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TensorData</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">ptr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="TensorData.to">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData.to">[docs]</a>
+    <span class="k">def</span> <span class="nf">to</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">non_blocking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">copy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TensorData</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="n">ptr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TensorData.from_tensors">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData.from_tensors">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_tensors</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">tensors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">TensorData</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pack a list of tensors into a single TensorData.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            tensors: Non-empty list of tensors.  All tensors must have the</span>
+<span class="sd">                same number of dimensions and compatible trailing shapes.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A new :class:`TensorData` with ``len(tensors)`` elements.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If *tensors* is empty.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">tensors</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;tensors must not be empty&quot;</span><span class="p">)</span>
+        <span class="n">ptr</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">tensor</span> <span class="ow">in</span> <span class="n">tensors</span><span class="p">:</span>
+            <span class="n">ptr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ptr</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">ptr</span><span class="o">=</span><span class="n">ptr</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">tensors</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PartitionData">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">PartitionData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Complete per-partition snapshot dataset for Flare DTDG training.</span>
+
+<span class="sd">    Each instance holds *N* snapshots belonging to one graph partition.</span>
+<span class="sd">    For every snapshot the container stores: local dst node IDs, remote src</span>
+<span class="sd">    node IDs (boundary nodes), edge topology (src/dst indices, edge IDs),</span>
+<span class="sd">    arbitrary node/edge feature dicts, and optional routing metadata.</span>
+
+<span class="sd">    The class supports:</span>
+
+<span class="sd">    * **Indexing / slicing** — ``part[0:100]`` returns a new PartitionData</span>
+<span class="sd">      with only the first 100 snapshots.</span>
+<span class="sd">    * **Device transfer** — ``part.to(&quot;cuda:0&quot;)`` / ``part.pin_memory()``.</span>
+<span class="sd">    * **Serialization** — ``part.save(path)`` / ``PartitionData.load(path)``.</span>
+<span class="sd">    * **DGL conversion** — ``part.to_blocks()`` returns a list of DGLBlocks.</span>
+<span class="sd">    * **Round-trip** — ``PartitionData.from_blocks(blocks)`` reconstructs</span>
+<span class="sd">      a PartitionData from DGL blocks.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        src_ids: Remote (boundary) source node IDs per snapshot.</span>
+<span class="sd">        dst_ids: Local destination node IDs per snapshot.</span>
+<span class="sd">        edge_ids: Global edge IDs per snapshot.</span>
+<span class="sd">        edge_src: Edge source indices (into the combined src+dst space).</span>
+<span class="sd">        edge_dst: Edge destination indices (into the dst-only space).</span>
+<span class="sd">        node_data: Dict of named per-snapshot node feature TensorData</span>
+<span class="sd">            (e.g. ``&quot;x&quot;`` for features, ``&quot;y&quot;`` for labels, ``&quot;c&quot;`` for</span>
+<span class="sd">            chunk assignment).</span>
+<span class="sd">        edge_data: Dict of named per-snapshot edge feature TensorData</span>
+<span class="sd">            (e.g. ``&quot;w&quot;`` for weights, ``&quot;gcn_norm&quot;``).</span>
+<span class="sd">        routes: Optional :class:`RouteData` for distributed communication.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        # Preprocessing creates partition files</span>
+<span class="sd">        part = PartitionData.from_blocks(block_list)</span>
+<span class="sd">        part.save(&quot;artifacts/flare/part_000.pth&quot;)</span>
+
+<span class="sd">        # Training loads and slices</span>
+<span class="sd">        part = PartitionData.load(&quot;artifacts/flare/part_000.pth&quot;)</span>
+<span class="sd">        train_part = part[0:140]</span>
+<span class="sd">        blocks = train_part.to_blocks(keep_ids=True)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">src_ids</span><span class="p">:</span> <span class="n">TensorData</span>
+    <span class="n">dst_ids</span><span class="p">:</span> <span class="n">TensorData</span>
+    <span class="n">edge_ids</span><span class="p">:</span> <span class="n">TensorData</span>
+    <span class="n">edge_src</span><span class="p">:</span> <span class="n">TensorData</span>
+    <span class="n">edge_dst</span><span class="p">:</span> <span class="n">TensorData</span>
+    <span class="n">node_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TensorData</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">edge_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TensorData</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">routes</span><span class="p">:</span> <span class="n">RouteData</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">num_snaps</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dst_ids</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">TensorData</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_snaps</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="n">num_snaps</span><span class="si">}</span><span class="s2"> entries for </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_snaps</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="n">num_snaps</span><span class="si">}</span><span class="s2"> entries for node_data[</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">], got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_snaps</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="n">num_snaps</span><span class="si">}</span><span class="s2"> entries for edge_data[</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">], got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">routes</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_snaps</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="n">num_snaps</span><span class="si">}</span><span class="s2"> entries for routes, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">routes</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dst_ids</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">slice</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PartitionData</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="n">src_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">src_ids</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+            <span class="n">dst_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dst_ids</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+            <span class="n">edge_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_ids</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+            <span class="n">edge_src</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_src</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+            <span class="n">edge_dst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_dst</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+            <span class="n">node_data</span><span class="o">=</span><span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_data</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="n">edge_data</span><span class="o">=</span><span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_data</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="n">routes</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_snaps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_dst_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dst_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span>
+
+<div class="viewcode-block" id="PartitionData.add_ndata">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.add_ndata">[docs]</a>
+    <span class="k">def</span> <span class="nf">add_ndata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">TensorData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2"> entries for node_data[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">], got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">node_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="PartitionData.pop_ndata">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.pop_ndata">[docs]</a>
+    <span class="k">def</span> <span class="nf">pop_ndata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TensorData</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PartitionData.add_edata">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.add_edata">[docs]</a>
+    <span class="k">def</span> <span class="nf">add_edata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">TensorData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2"> entries for edge_data[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">], got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">edge_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="PartitionData.to">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.to">[docs]</a>
+    <span class="k">def</span> <span class="nf">to</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">non_blocking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">copy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PartitionData</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="n">src_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">src_ids</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">),</span>
+            <span class="n">dst_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dst_ids</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">),</span>
+            <span class="n">edge_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_ids</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">),</span>
+            <span class="n">edge_src</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_src</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">),</span>
+            <span class="n">edge_dst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_dst</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">),</span>
+            <span class="n">node_data</span><span class="o">=</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_data</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="n">edge_data</span><span class="o">=</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_data</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="n">routes</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PartitionData.pin_memory">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.pin_memory">[docs]</a>
+    <span class="k">def</span> <span class="nf">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PartitionData</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="n">src_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">src_ids</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">),</span>
+            <span class="n">dst_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dst_ids</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">),</span>
+            <span class="n">edge_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_ids</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">),</span>
+            <span class="n">edge_src</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_src</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">),</span>
+            <span class="n">edge_dst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_dst</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">),</span>
+            <span class="n">node_data</span><span class="o">=</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_data</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="n">edge_data</span><span class="o">=</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_data</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="n">routes</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PartitionData.to_blocks">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.to_blocks">[docs]</a>
+    <span class="k">def</span> <span class="nf">to_blocks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_perm</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">keep_ids</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">DGLBlock</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert all snapshots to DGL bipartite blocks.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            node_perm: Optional permutation tensor of shape ``[num_dst_nodes]``</span>
+<span class="sd">                that reorders local nodes (used for chunk-decay training).</span>
+<span class="sd">            keep_ids: If True, store global node/edge IDs in</span>
+<span class="sd">                ``srcdata[NID]``, ``dstdata[NID]``, ``edata[EID]``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of :class:`DGLBlock`, one per snapshot.  Each block has</span>
+<span class="sd">            node/edge features from ``node_data`` / ``edge_data`` attached,</span>
+<span class="sd">            and ``block.route`` set when routing info is available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">starry_unigraph.runtime.flare.route</span> <span class="kn">import</span> <span class="n">Route</span>
+
+        <span class="n">blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DGLBlock</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)):</span>
+            <span class="n">orig_dst_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dst_ids</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="n">dst_ids</span> <span class="o">=</span> <span class="n">orig_dst_ids</span>
+            <span class="n">src_suffix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">src_ids</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="n">src_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">dst_ids</span><span class="p">,</span> <span class="n">src_suffix</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_src</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="n">dst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_dst</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">node_perm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">node_perm</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span> <span class="o">!=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected node_perm size </span><span class="si">{</span><span class="n">dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">node_perm</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">node_imap</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">node_perm</span><span class="p">)</span>
+                <span class="n">node_imap</span><span class="p">[</span><span class="n">node_perm</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">node_perm</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">node_perm</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">node_perm</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+                <span class="n">dst</span> <span class="o">=</span> <span class="n">node_imap</span><span class="p">[</span><span class="n">dst</span><span class="p">]</span>
+                <span class="n">src</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+                <span class="n">inner_src</span> <span class="o">=</span> <span class="n">src</span> <span class="o">&lt;</span> <span class="n">dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
+                <span class="n">src</span><span class="p">[</span><span class="n">inner_src</span><span class="p">]</span> <span class="o">=</span> <span class="n">node_imap</span><span class="p">[</span><span class="n">src</span><span class="p">[</span><span class="n">inner_src</span><span class="p">]]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+                <span class="n">dst_ids</span> <span class="o">=</span> <span class="n">dst_ids</span><span class="p">[</span><span class="n">node_perm</span><span class="p">]</span>
+            <span class="n">block</span> <span class="o">=</span> <span class="n">dgl</span><span class="o">.</span><span class="n">create_block</span><span class="p">((</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">),</span> <span class="n">num_src_nodes</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">src_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span> <span class="n">num_dst_nodes</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span> <span class="n">idtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">keep_ids</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">node_perm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">src_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">dst_ids</span><span class="p">,</span> <span class="n">src_suffix</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">srcdata</span><span class="p">[</span><span class="n">dgl</span><span class="o">.</span><span class="n">NID</span><span class="p">]</span> <span class="o">=</span> <span class="n">src_ids</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">dstdata</span><span class="p">[</span><span class="n">dgl</span><span class="o">.</span><span class="n">NID</span><span class="p">]</span> <span class="o">=</span> <span class="n">dst_ids</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">edata</span><span class="p">[</span><span class="n">dgl</span><span class="o">.</span><span class="n">EID</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_ids</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">item</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">src_ids</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">node_perm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">item</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">item</span><span class="p">[</span><span class="n">node_perm</span><span class="p">],</span> <span class="n">item</span><span class="p">[</span><span class="n">dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="p">:]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">block</span><span class="o">.</span><span class="n">srcdata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span>
+                <span class="k">elif</span> <span class="n">item</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">dst_ids</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">):</span>
+                    <span class="n">block</span><span class="o">.</span><span class="n">dstdata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="n">node_perm</span><span class="p">]</span> <span class="k">if</span> <span class="n">node_perm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">item</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected node_data[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">] size: </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">size</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">edata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">route</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">node_perm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">permuted_prefix</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">orig_dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">src_ids</span><span class="o">.</span><span class="n">device</span><span class="p">)[</span><span class="n">node_perm</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">route</span><span class="o">.</span><span class="n">send_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">remap_index</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">orig_dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">src_ids</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+                        <span class="n">remap_index</span><span class="p">[</span><span class="n">permuted_prefix</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">orig_dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">src_ids</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+                        <span class="n">keep_local</span> <span class="o">=</span> <span class="n">route</span><span class="o">.</span><span class="n">send_index</span> <span class="o">&lt;</span> <span class="n">orig_dst_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
+                        <span class="n">send_index</span> <span class="o">=</span> <span class="n">route</span><span class="o">.</span><span class="n">send_index</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+                        <span class="n">send_index</span><span class="p">[</span><span class="n">keep_local</span><span class="p">]</span> <span class="o">=</span> <span class="n">remap_index</span><span class="p">[</span><span class="n">route</span><span class="o">.</span><span class="n">send_index</span><span class="p">[</span><span class="n">keep_local</span><span class="p">]]</span>
+                        <span class="n">route</span> <span class="o">=</span> <span class="n">Route</span><span class="p">(</span><span class="n">send_sizes</span><span class="o">=</span><span class="n">route</span><span class="o">.</span><span class="n">send_sizes</span><span class="p">,</span> <span class="n">recv_sizes</span><span class="o">=</span><span class="n">route</span><span class="o">.</span><span class="n">recv_sizes</span><span class="p">,</span> <span class="n">send_index</span><span class="o">=</span><span class="n">send_index</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="n">route</span><span class="o">.</span><span class="n">group</span><span class="p">)</span>
+                    <span class="n">dst_recv_sizes</span> <span class="o">=</span> <span class="n">route</span><span class="o">.</span><span class="n">recv_sizes</span>
+                    <span class="n">send_sizes</span> <span class="o">=</span> <span class="n">route</span><span class="o">.</span><span class="n">send_sizes</span>
+                    <span class="n">route</span> <span class="o">=</span> <span class="n">Route</span><span class="p">(</span><span class="n">send_sizes</span><span class="o">=</span><span class="n">send_sizes</span><span class="p">,</span> <span class="n">recv_sizes</span><span class="o">=</span><span class="n">dst_recv_sizes</span><span class="p">,</span> <span class="n">send_index</span><span class="o">=</span><span class="n">route</span><span class="o">.</span><span class="n">send_index</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="n">route</span><span class="o">.</span><span class="n">group</span><span class="p">)</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">route</span> <span class="o">=</span> <span class="n">route</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">route</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">blocks</span></div>
+
+
+<div class="viewcode-block" id="PartitionData.item">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.item">[docs]</a>
+    <span class="k">def</span> <span class="nf">item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_perm</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">keep_ids</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DGLBlock</span><span class="p">:</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_blocks</span><span class="p">(</span><span class="n">node_perm</span><span class="o">=</span><span class="n">node_perm</span><span class="p">,</span> <span class="n">keep_ids</span><span class="o">=</span><span class="n">keep_ids</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected 1 block, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="PartitionData.save">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.save">[docs]</a>
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Serialize this PartitionData to disk via ``torch.save``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path: File path (parent directories are created automatically).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PartitionData.load">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.load">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PartitionData</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a PartitionData from a ``.pth`` file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path: Path to the serialized file.</span>
+<span class="sd">            mmap: If True, memory-map the file (useful for large datasets</span>
+<span class="sd">                that don&#39;t fit in RAM).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The deserialized :class:`PartitionData`.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError: If the file does not contain a PartitionData.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loaded</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">(),</span> <span class="n">mmap</span><span class="o">=</span><span class="n">mmap</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loaded</span><span class="p">,</span> <span class="bp">cls</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">loaded</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">loaded</span></div>
+
+
+<div class="viewcode-block" id="PartitionData.from_blocks">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.from_blocks">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_blocks</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DGLBlock</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PartitionData</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a PartitionData from a list of DGL blocks.</span>
+
+<span class="sd">        This is the inverse of :meth:`to_blocks`.  Each block must store</span>
+<span class="sd">        global node IDs in ``srcdata[NID]`` / ``dstdata[NID]`` and global</span>
+<span class="sd">        edge IDs in ``edata[EID]``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            blocks: List of DGL bipartite blocks (one per snapshot).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A new :class:`PartitionData` containing all snapshots.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">src_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">dst_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">edge_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">edge_src</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">edge_dst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">src_node_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">dst_node_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">edge_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">routes</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+            <span class="n">src</span><span class="p">,</span> <span class="n">dst</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">edges</span><span class="p">()</span>
+            <span class="n">edge_src</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+            <span class="n">edge_dst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+            <span class="n">src_id</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">srcdata</span><span class="p">[</span><span class="n">dgl</span><span class="o">.</span><span class="n">NID</span><span class="p">]</span> <span class="k">if</span> <span class="n">dgl</span><span class="o">.</span><span class="n">NID</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">srcdata</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">num_src_nodes</span><span class="p">())</span>
+            <span class="n">dst_id</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">dstdata</span><span class="p">[</span><span class="n">dgl</span><span class="o">.</span><span class="n">NID</span><span class="p">]</span> <span class="k">if</span> <span class="n">dgl</span><span class="o">.</span><span class="n">NID</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">dstdata</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">num_dst_nodes</span><span class="p">())</span>
+            <span class="n">edge_id</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">edata</span><span class="p">[</span><span class="n">dgl</span><span class="o">.</span><span class="n">EID</span><span class="p">]</span> <span class="k">if</span> <span class="n">dgl</span><span class="o">.</span><span class="n">EID</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">edata</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">num_edges</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">src_id</span><span class="p">[:</span> <span class="n">dst_id</span><span class="o">.</span><span class="n">numel</span><span class="p">()]</span> <span class="o">!=</span> <span class="n">dst_id</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;prefix of src_ids and dst_ids must be the same&quot;</span><span class="p">)</span>
+            <span class="n">src_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">src_id</span><span class="p">[</span><span class="n">dst_id</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="p">:])</span>
+            <span class="n">dst_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dst_id</span><span class="p">)</span>
+            <span class="n">edge_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">edge_id</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">srcdata</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="n">dgl</span><span class="o">.</span><span class="n">NID</span><span class="p">:</span>
+                    <span class="n">src_node_data</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">srcdata</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">dstdata</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="n">dgl</span><span class="o">.</span><span class="n">NID</span><span class="p">:</span>
+                    <span class="n">dst_node_data</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">dstdata</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">edata</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="n">dgl</span><span class="o">.</span><span class="n">EID</span><span class="p">:</span>
+                    <span class="n">edge_data</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">edata</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+            <span class="n">route</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="s2">&quot;route&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">route</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">routes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">route</span><span class="p">)</span>
+        <span class="n">merged_node_data</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">TensorData</span><span class="o">.</span><span class="n">from_tensors</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">dst_node_data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">)}</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">src_node_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">):</span>
+                <span class="n">merged_node_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">TensorData</span><span class="o">.</span><span class="n">from_tensors</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">src_ids</span><span class="o">=</span><span class="n">TensorData</span><span class="o">.</span><span class="n">from_tensors</span><span class="p">(</span><span class="n">src_ids</span><span class="p">),</span>
+            <span class="n">dst_ids</span><span class="o">=</span><span class="n">TensorData</span><span class="o">.</span><span class="n">from_tensors</span><span class="p">(</span><span class="n">dst_ids</span><span class="p">),</span>
+            <span class="n">edge_ids</span><span class="o">=</span><span class="n">TensorData</span><span class="o">.</span><span class="n">from_tensors</span><span class="p">(</span><span class="n">edge_ids</span><span class="p">),</span>
+            <span class="n">edge_src</span><span class="o">=</span><span class="n">TensorData</span><span class="o">.</span><span class="n">from_tensors</span><span class="p">(</span><span class="n">edge_src</span><span class="p">),</span>
+            <span class="n">edge_dst</span><span class="o">=</span><span class="n">TensorData</span><span class="o">.</span><span class="n">from_tensors</span><span class="p">(</span><span class="n">edge_dst</span><span class="p">),</span>
+            <span class="n">node_data</span><span class="o">=</span><span class="n">merged_node_data</span><span class="p">,</span>
+            <span class="n">edge_data</span><span class="o">=</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">TensorData</span><span class="o">.</span><span class="n">from_tensors</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">edge_data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">)},</span>
+            <span class="n">routes</span><span class="o">=</span><span class="n">RouteData</span><span class="o">.</span><span class="n">from_routes</span><span class="p">(</span><span class="n">routes</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">routes</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

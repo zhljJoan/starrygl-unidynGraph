@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.runtime.online.data &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/index.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.runtime.online.data</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for starry_unigraph.runtime.online.data</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;CTDG event-stream dataset and batch containers.</span>
+
+<span class="sd">- :class:`CTDGDataBatch` — a mini-batch of temporal events (src, dst, ts,</span>
+<span class="sd">  edge features).</span>
+<span class="sd">- :class:`TGTemporalDataset` — loads raw temporal events from disk, splits</span>
+<span class="sd">  them into train/val/test, provides batched iteration and sampler graph</span>
+<span class="sd">  construction.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Iterator</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="kn">from</span> <span class="nn">starry_unigraph.core.data_split</span> <span class="kn">import</span> <span class="n">normalize_split_ratio</span><span class="p">,</span> <span class="n">split_bounds</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.data</span> <span class="kn">import</span> <span class="n">load_raw_temporal_events</span>
+
+
+<div class="viewcode-block" id="CTDGDataBatch">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.CTDGDataBatch">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">CTDGDataBatch</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A mini-batch of continuous-time temporal events.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        index: Batch index within the current epoch.</span>
+<span class="sd">        split: ``&quot;train&quot;``, ``&quot;val&quot;``, or ``&quot;test&quot;``.</span>
+<span class="sd">        event_ids: Global event indices, shape ``[B]``.</span>
+<span class="sd">        src: Source node IDs, shape ``[B]``.</span>
+<span class="sd">        dst: Destination node IDs, shape ``[B]``.</span>
+<span class="sd">        ts: Timestamps, shape ``[B]``.</span>
+<span class="sd">        edge_feat: Edge feature matrix, shape ``[B, E]``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">index</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">split</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">event_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">src</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">dst</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">ts</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">edge_feat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="TGTemporalDataset">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.TGTemporalDataset">[docs]</a>
+<span class="k">class</span> <span class="nc">TGTemporalDataset</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Temporal graph dataset with train/val/test splitting.</span>
+
+<span class="sd">    Loads raw temporal events via :func:`load_raw_temporal_events`, stores</span>
+<span class="sd">    them as flat tensors (src, dst, ts, edge_feat), and provides batched</span>
+<span class="sd">    iteration with distributed sharding.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        root: Root directory containing dataset folders.</span>
+<span class="sd">        name: Dataset name (subdirectory under *root*).</span>
+<span class="sd">        split_ratio: Optional custom split ratio dict.</span>
+<span class="sd">        config: Full session config dict.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        dataset = TGTemporalDataset(&quot;/data/raw&quot;, &quot;wikipedia&quot;)</span>
+<span class="sd">        for batch in dataset.iter_batches(&quot;train&quot;, batch_size=200):</span>
+<span class="sd">            print(batch.src.shape)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">split_ratio</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">root</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="n">name</span>
+        <span class="n">merged_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">config</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="n">merged_config</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">merged_config</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">][</span><span class="s2">&quot;split_ratio&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_ratio</span> <span class="ow">or</span> <span class="n">merged_config</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;split_ratio&quot;</span><span class="p">)</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">load_raw_temporal_events</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">root</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">(),</span> <span class="n">dataset_name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">merged_config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">event_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">num_edges</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">src</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">src</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dst</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">dst</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ts</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">ts</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">int_roll</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">num_edges</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ext_roll</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">num_edges</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_edges</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">num_edges</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">edge_feat</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">edge_feat</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">edge_feat_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_feat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_split_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sampler_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">split_ratio</span> <span class="o">=</span> <span class="n">normalize_split_ratio</span><span class="p">(</span><span class="n">merged_config</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;split_ratio&quot;</span><span class="p">))</span>
+
+<div class="viewcode-block" id="TGTemporalDataset.split_event_ids">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.TGTemporalDataset.split_event_ids">[docs]</a>
+    <span class="k">def</span> <span class="nf">split_event_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">cached</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">split</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cached</span>
+        <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">split_bounds</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_edges</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">,</span> <span class="n">split_ratio</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">split_ratio</span><span class="p">)</span>
+        <span class="n">event_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_split_cache</span><span class="p">[</span><span class="n">split</span><span class="p">]</span> <span class="o">=</span> <span class="n">event_ids</span>
+        <span class="k">return</span> <span class="n">event_ids</span></div>
+
+
+<div class="viewcode-block" id="TGTemporalDataset.iter_batches">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.TGTemporalDataset.iter_batches">[docs]</a>
+    <span class="k">def</span> <span class="nf">iter_batches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">world_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">CTDGDataBatch</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Iterate over mini-batches for the given split.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            split: ``&quot;train&quot;``, ``&quot;val&quot;``, or ``&quot;test&quot;``.</span>
+<span class="sd">            batch_size: Number of events per batch.</span>
+<span class="sd">            rank: This worker&#39;s distributed rank (for sharding).</span>
+<span class="sd">            world_size: Total number of workers.</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            :class:`CTDGDataBatch` instances.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_event_ids</span><span class="p">(</span><span class="n">split</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">world_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="n">rank</span><span class="p">::</span><span class="n">world_size</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">batch_index</span><span class="p">,</span> <span class="n">start</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">indices</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span> <span class="n">batch_size</span><span class="p">)):</span>
+            <span class="n">event_ids</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="n">start</span> <span class="o">+</span> <span class="n">batch_size</span><span class="p">]</span>
+            <span class="k">yield</span> <span class="n">CTDGDataBatch</span><span class="p">(</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">batch_index</span><span class="p">,</span>
+                <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">,</span>
+                <span class="n">event_ids</span><span class="o">=</span><span class="n">event_ids</span><span class="p">,</span>
+                <span class="n">src</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="p">[</span><span class="n">event_ids</span><span class="p">],</span>
+                <span class="n">dst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dst</span><span class="p">[</span><span class="n">event_ids</span><span class="p">],</span>
+                <span class="n">ts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="n">event_ids</span><span class="p">],</span>
+                <span class="n">edge_feat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">edge_feat</span><span class="p">[</span><span class="n">event_ids</span><span class="p">],</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TGTemporalDataset.sampler_graph">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.TGTemporalDataset.sampler_graph">[docs]</a>
+    <span class="k">def</span> <span class="nf">sampler_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the temporal neighbor graph for the BTS sampler.</span>
+
+<span class="sd">        Returns a dict with ``&quot;row&quot;``, ``&quot;col&quot;``, ``&quot;eid&quot;``, ``&quot;ts&quot;``</span>
+<span class="sd">        tensors covering all events visible to the given split (train</span>
+<span class="sd">        events for ``&quot;train&quot;``, train+val for ``&quot;val&quot;``, all for ``&quot;test&quot;``).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            split: ``&quot;train&quot;``, ``&quot;val&quot;``, or ``&quot;test&quot;``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict of CPU tensors suitable for :func:`build_temporal_neighbor_block`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cached</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sampler_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">split</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cached</span>
+        <span class="n">train_start</span><span class="p">,</span> <span class="n">train_end</span> <span class="o">=</span> <span class="n">split_bounds</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_edges</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">split_ratio</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">split_ratio</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">val_end</span> <span class="o">=</span> <span class="n">split_bounds</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_edges</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">&quot;val&quot;</span><span class="p">,</span> <span class="n">split_ratio</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">split_ratio</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">test_end</span> <span class="o">=</span> <span class="n">split_bounds</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_edges</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="n">split_ratio</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">split_ratio</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">train_start</span><span class="p">,</span> <span class="n">train_end</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;val&quot;</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">val_end</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">test_end</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported CTDG split: </span><span class="si">{</span><span class="n">split</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+        <span class="n">cached</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;row&quot;</span><span class="p">:</span> <span class="n">row</span><span class="p">,</span>
+            <span class="s2">&quot;col&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dst</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">(),</span>
+            <span class="s2">&quot;eid&quot;</span><span class="p">:</span> <span class="n">indices</span><span class="o">.</span><span class="n">long</span><span class="p">(),</span>
+            <span class="s2">&quot;ts&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span><span class="o">.</span><span class="n">long</span><span class="p">(),</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sampler_cache</span><span class="p">[</span><span class="n">split</span><span class="p">]</span> <span class="o">=</span> <span class="n">cached</span>
+        <span class="k">return</span> <span class="n">cached</span></div>
+
+
+<div class="viewcode-block" id="TGTemporalDataset.describe">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.TGTemporalDataset.describe">[docs]</a>
+    <span class="k">def</span> <span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span>
+            <span class="s2">&quot;num_edges&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_edges</span><span class="p">,</span>
+            <span class="s2">&quot;edge_feat_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_feat_dim</span><span class="p">,</span>
+        <span class="p">}</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

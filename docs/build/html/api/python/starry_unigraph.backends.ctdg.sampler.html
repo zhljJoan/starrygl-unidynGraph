@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -7,15 +5,19 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph.backends.ctdg.sampler module &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -34,6 +36,9 @@
           <a href="../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -90,60 +95,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="module-starry_unigraph.backends.ctdg.sampler">
-<span id="starry-unigraph-backends-ctdg-sampler-module"></span><h1>starry_unigraph.backends.ctdg.sampler module<a class="headerlink" href="#module-starry_unigraph.backends.ctdg.sampler" title="Link to this heading"></a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.backends.ctdg.sampler.</span></span><span class="sig-name descname"><span class="pre">CTDGSampleOutput</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampled_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampled_eids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'torch.Tensor'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[object]'</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/sampler.html#CTDGSampleOutput"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.blocks">
-<span class="sig-name descname"><span class="pre">blocks</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">object</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.blocks" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.describe">
-<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/sampler.html#CTDGSampleOutput.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.describe" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.root_nodes">
-<span class="sig-name descname"><span class="pre">root_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.root_nodes" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.sampled_eids">
-<span class="sig-name descname"><span class="pre">sampled_eids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.sampled_eids" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.sampled_nodes">
-<span class="sig-name descname"><span class="pre">sampled_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.sampled_nodes" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.split">
-<span class="sig-name descname"><span class="pre">split</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.split" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.timestamps">
-<span class="sig-name descname"><span class="pre">timestamps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput.timestamps" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.sampler.NativeTemporalSampler">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.backends.ctdg.sampler.</span></span><span class="sig-name descname"><span class="pre">NativeTemporalSampler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.backends.ctdg.data.html#starry_unigraph.backends.ctdg.data.TGTemporalDataset" title="starry_unigraph.backends.ctdg.data.TGTemporalDataset"><span class="pre">TGTemporalDataset</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">fanout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">history</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/sampler.html#NativeTemporalSampler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.sampler.NativeTemporalSampler" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.sampler.NativeTemporalSampler.sample">
-<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput" title="starry_unigraph.backends.ctdg.sampler.CTDGSampleOutput"><span class="pre">CTDGSampleOutput</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/sampler.html#NativeTemporalSampler.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.sampler.NativeTemporalSampler.sample" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
+  <section id="starry-unigraph-backends-ctdg-sampler-module">
+<h1>starry_unigraph.backends.ctdg.sampler module<a class="headerlink" href="#starry-unigraph-backends-ctdg-sampler-module" title="Link to this heading"></a></h1>
 </section>
 
 

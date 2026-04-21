@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -7,15 +5,19 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph.backends.ctdg.memory module &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -34,6 +36,9 @@
           <a href="../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -90,122 +95,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="module-starry_unigraph.backends.ctdg.memory">
-<span id="starry-unigraph-backends-ctdg-memory-module"></span><h1>starry_unigraph.backends.ctdg.memory module<a class="headerlink" href="#module-starry_unigraph.backends.ctdg.memory" title="Link to this heading"></a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.backends.ctdg.memory.</span></span><span class="sig-name descname"><span class="pre">CTDGMemoryBank</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mailbox_slots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_feat_dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">world_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_sync</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Per-node memory + K-slot mailbox.</p>
-<p>In distributed mode each rank only allocates storage for its own partition
-(<code class="docutils literal notranslate"><span class="pre">num_local_nodes</span></code> nodes).  Global node IDs are mapped to local IDs via
-<code class="docutils literal notranslate"><span class="pre">global2local</span></code>.  Nodes not owned by this rank use a temporary CPU buffer
-(<code class="docutils literal notranslate"><span class="pre">remote_memory</span></code>) that is filled by async sync operations.</p>
-<p>In single-rank mode <code class="docutils literal notranslate"><span class="pre">num_local_nodes</span> <span class="pre">==</span> <span class="pre">num_nodes</span></code> and the mapping is the
-identity, so all existing call sites work unchanged.</p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.async_sync">
-<span class="sig-name descname"><span class="pre">async_sync</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.async_sync" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.describe">
-<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.describe" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.device">
-<span class="sig-name descname"><span class="pre">device</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.device" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.edge_feat_dim">
-<span class="sig-name descname"><span class="pre">edge_feat_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.edge_feat_dim" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.gather">
-<span class="sig-name descname"><span class="pre">gather</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank.gather"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.gather" title="Link to this definition"></a></dt>
-<dd><p>Return memory for global node_ids, placed on self.device.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.gather_mailbox">
-<span class="sig-name descname"><span class="pre">gather_mailbox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank.gather_mailbox"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.gather_mailbox" title="Link to this definition"></a></dt>
-<dd><p>Legacy single-slot gather (slot 0).</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.hidden_dim">
-<span class="sig-name descname"><span class="pre">hidden_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.hidden_dim" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.last_update">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">last_update</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.last_update" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.mailbox_slots">
-<span class="sig-name descname"><span class="pre">mailbox_slots</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.mailbox_slots" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.num_nodes">
-<span class="sig-name descname"><span class="pre">num_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.num_nodes" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.rank">
-<span class="sig-name descname"><span class="pre">rank</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.rank" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.read_mailbox">
-<span class="sig-name descname"><span class="pre">read_mailbox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank.read_mailbox"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.read_mailbox" title="Link to this definition"></a></dt>
-<dd><p>Return K-slot mailbox [M, K, slot_width] on self.device.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.read_mailbox_ts">
-<span class="sig-name descname"><span class="pre">read_mailbox_ts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank.read_mailbox_ts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.read_mailbox_ts" title="Link to this definition"></a></dt>
-<dd><p>Return mailbox timestamps [M, K] on self.device.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.submit_async_mail_sync">
-<span class="sig-name descname"><span class="pre">submit_async_mail_sync</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext" title="starry_unigraph.types.DistributedContext"><span class="pre">DistributedContext</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mail_slots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mail_ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank.submit_async_mail_sync"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.submit_async_mail_sync" title="Link to this definition"></a></dt>
-<dd><p>No-op for single rank; distributed path mirrors memory sync.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.submit_async_memory_sync">
-<span class="sig-name descname"><span class="pre">submit_async_memory_sync</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.types.html#starry_unigraph.types.DistributedContext" title="starry_unigraph.types.DistributedContext"><span class="pre">DistributedContext</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank.submit_async_memory_sync"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.submit_async_memory_sync" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.sync_updates">
-<span class="sig-name descname"><span class="pre">sync_updates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank.sync_updates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.sync_updates" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.wait_pending_syncs">
-<span class="sig-name descname"><span class="pre">wait_pending_syncs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank.wait_pending_syncs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.wait_pending_syncs" title="Link to this definition"></a></dt>
-<dd><p>Drain pending tensor all_to_all syncs.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.world_size">
-<span class="sig-name descname"><span class="pre">world_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.world_size" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.write_mailbox">
-<span class="sig-name descname"><span class="pre">write_mailbox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">src_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_mem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_mem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_feat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/backends/ctdg/memory.html#CTDGMemoryBank.write_mailbox"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.backends.ctdg.memory.CTDGMemoryBank.write_mailbox" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
+  <section id="starry-unigraph-backends-ctdg-memory-module">
+<h1>starry_unigraph.backends.ctdg.memory module<a class="headerlink" href="#starry-unigraph-backends-ctdg-memory-module" title="Link to this heading"></a></h1>
 </section>
 
 

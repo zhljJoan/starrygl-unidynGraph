@@ -12,4 +12,5 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
+   starry_unigraph.data.partition
    starry_unigraph.data.raw_temporal

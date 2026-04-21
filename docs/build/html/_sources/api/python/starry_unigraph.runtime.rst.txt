@@ -6,10 +6,12 @@ starry\_unigraph.runtime package
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
+Subpackages
+-----------
 
 .. toctree::
    :maxdepth: 4
 
    starry_unigraph.runtime.base
+   starry_unigraph.runtime.flare
+   starry_unigraph.runtime.online

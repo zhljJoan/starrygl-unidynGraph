@@ -12,8 +12,5 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   starry_unigraph.core.ctdg
-   starry_unigraph.core.ctdg_kernel
-   starry_unigraph.core.dtdg
+   starry_unigraph.core.data_split
    starry_unigraph.core.dtdg_kernel
-   starry_unigraph.core.protocol
