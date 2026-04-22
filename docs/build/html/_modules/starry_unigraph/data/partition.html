@@ -44,11 +44,20 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../guide/index.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../tutorial/index.html">Tutorials</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/python/index.html">API Reference</a></li>
 </ul>
 
@@ -119,7 +128,7 @@
 
 
 <div class="viewcode-block" id="RouteData">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.RouteData">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">RouteData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-snapshot inter-partition routing metadata for all snapshots.</span>
@@ -184,7 +193,7 @@
         <span class="p">)</span>
 
 <div class="viewcode-block" id="RouteData.item">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData.item">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.RouteData.item">[docs]</a>
     <span class="k">def</span> <span class="nf">item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the single :class:`~starry_unigraph.runtime.flare.route.Route` in this container.</span>
 
@@ -198,7 +207,7 @@
 <span class="sd">        Raises:</span>
 <span class="sd">            ValueError: If this RouteData contains != 1 snapshot.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">starry_unigraph.runtime.flare.route</span> <span class="kn">import</span> <span class="n">Route</span>
+        <span class="kn">from</span> <span class="nn">starry_unigraph.backends.dtdg.runtime.route</span> <span class="kn">import</span> <span class="n">Route</span>
 
         <span class="n">routes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_routes</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">routes</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
@@ -207,7 +216,7 @@
 
 
 <div class="viewcode-block" id="RouteData.to_routes">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData.to_routes">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.RouteData.to_routes">[docs]</a>
     <span class="k">def</span> <span class="nf">to_routes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert all snapshots into a list of :class:`Route` objects.</span>
 
@@ -217,7 +226,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            List of :class:`Route`, one per snapshot.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">starry_unigraph.runtime.flare.route</span> <span class="kn">import</span> <span class="n">Route</span>
+        <span class="kn">from</span> <span class="nn">starry_unigraph.backends.dtdg.runtime.route</span> <span class="kn">import</span> <span class="n">Route</span>
 
         <span class="n">routes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Route</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)):</span>
@@ -231,7 +240,7 @@
 
 
 <div class="viewcode-block" id="RouteData.pin_memory">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData.pin_memory">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.RouteData.pin_memory">[docs]</a>
     <span class="k">def</span> <span class="nf">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RouteData</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
             <span class="n">send_sizes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">send_sizes</span><span class="p">,</span>
@@ -242,7 +251,7 @@
 
 
 <div class="viewcode-block" id="RouteData.to">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData.to">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.RouteData.to">[docs]</a>
     <span class="k">def</span> <span class="nf">to</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -259,7 +268,7 @@
 
 
 <div class="viewcode-block" id="RouteData.from_routes">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.RouteData.from_routes">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.RouteData.from_routes">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_routes</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">routes</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RouteData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a RouteData from a list of :class:`Route` objects.</span>
@@ -292,7 +301,7 @@
 
 
 <div class="viewcode-block" id="TensorData">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.TensorData">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">TensorData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;CSR-packed variable-length tensor list.</span>
@@ -304,8 +313,7 @@
 <span class="sd">    Supports integer/slice indexing, ``.to(device)``, ``pin_memory()``.</span>
 
 <span class="sd">    Attributes:</span>
-<span class="sd">        ptr: Pointer array of length ``N + 1``.  ``ptr[0] == 0`` and</span>
-<span class="sd">            ``ptr[-1] == data.size(0)``.</span>
+<span class="sd">        ptr: Pointer array of length ``N + 1``. ``ptr[0] == 0`` and ``ptr[-1] == data.size(0)``.</span>
 <span class="sd">        data: The packed tensor.</span>
 
 <span class="sd">    Example::</span>
@@ -339,7 +347,7 @@
         <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">ptr</span><span class="o">=</span><span class="n">ptr</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">offset_start</span><span class="p">:</span><span class="n">offset_stop</span><span class="p">])</span>
 
 <div class="viewcode-block" id="TensorData.item">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData.item">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.TensorData.item">[docs]</a>
     <span class="k">def</span> <span class="nf">item</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
         <span class="n">items</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_tensors</span><span class="p">()</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
@@ -348,7 +356,7 @@
 
 
 <div class="viewcode-block" id="TensorData.to_tensors">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData.to_tensors">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.TensorData.to_tensors">[docs]</a>
     <span class="k">def</span> <span class="nf">to_tensors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
         <span class="n">items</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)):</span>
@@ -358,13 +366,13 @@
 
 
 <div class="viewcode-block" id="TensorData.pin_memory">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData.pin_memory">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.TensorData.pin_memory">[docs]</a>
     <span class="k">def</span> <span class="nf">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TensorData</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">ptr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ptr</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="TensorData.to">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData.to">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.TensorData.to">[docs]</a>
     <span class="k">def</span> <span class="nf">to</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -379,7 +387,7 @@
 
 
 <div class="viewcode-block" id="TensorData.from_tensors">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.TensorData.from_tensors">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.TensorData.from_tensors">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_tensors</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">tensors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">TensorData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Pack a list of tensors into a single TensorData.</span>
@@ -405,7 +413,7 @@
 
 
 <div class="viewcode-block" id="PartitionData">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">PartitionData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Complete per-partition snapshot dataset for Flare DTDG training.</span>
@@ -417,12 +425,12 @@
 
 <span class="sd">    The class supports:</span>
 
-<span class="sd">    * **Indexing / slicing** — ``part[0:100]`` returns a new PartitionData</span>
+<span class="sd">    - **Indexing / slicing** — ``part[0:100]`` returns a new PartitionData</span>
 <span class="sd">      with only the first 100 snapshots.</span>
-<span class="sd">    * **Device transfer** — ``part.to(&quot;cuda:0&quot;)`` / ``part.pin_memory()``.</span>
-<span class="sd">    * **Serialization** — ``part.save(path)`` / ``PartitionData.load(path)``.</span>
-<span class="sd">    * **DGL conversion** — ``part.to_blocks()`` returns a list of DGLBlocks.</span>
-<span class="sd">    * **Round-trip** — ``PartitionData.from_blocks(blocks)`` reconstructs</span>
+<span class="sd">    - **Device transfer** — ``part.to(&quot;cuda:0&quot;)`` / ``part.pin_memory()``.</span>
+<span class="sd">    - **Serialization** — ``part.save(path)`` / ``PartitionData.load(path)``.</span>
+<span class="sd">    - **DGL conversion** — ``part.to_blocks()`` returns a list of DGLBlocks.</span>
+<span class="sd">    - **Round-trip** — ``PartitionData.from_blocks(blocks)`` reconstructs</span>
 <span class="sd">      a PartitionData from DGL blocks.</span>
 
 <span class="sd">    Attributes:</span>
@@ -431,11 +439,8 @@
 <span class="sd">        edge_ids: Global edge IDs per snapshot.</span>
 <span class="sd">        edge_src: Edge source indices (into the combined src+dst space).</span>
 <span class="sd">        edge_dst: Edge destination indices (into the dst-only space).</span>
-<span class="sd">        node_data: Dict of named per-snapshot node feature TensorData</span>
-<span class="sd">            (e.g. ``&quot;x&quot;`` for features, ``&quot;y&quot;`` for labels, ``&quot;c&quot;`` for</span>
-<span class="sd">            chunk assignment).</span>
-<span class="sd">        edge_data: Dict of named per-snapshot edge feature TensorData</span>
-<span class="sd">            (e.g. ``&quot;w&quot;`` for weights, ``&quot;gcn_norm&quot;``).</span>
+<span class="sd">        node_data: Dict of named per-snapshot node feature TensorData (e.g. ``&quot;x&quot;`` for features, ``&quot;y&quot;`` for labels, ``&quot;c&quot;`` for chunk assignment).</span>
+<span class="sd">        edge_data: Dict of named per-snapshot edge feature TensorData (e.g. ``&quot;w&quot;`` for weights, ``&quot;gcn_norm&quot;``).</span>
 <span class="sd">        routes: Optional :class:`RouteData` for distributed communication.</span>
 
 <span class="sd">    Example::</span>
@@ -497,7 +502,7 @@
         <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dst_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span>
 
 <div class="viewcode-block" id="PartitionData.add_ndata">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.add_ndata">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData.add_ndata">[docs]</a>
     <span class="k">def</span> <span class="nf">add_ndata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">TensorData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2"> entries for node_data[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">], got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -505,13 +510,13 @@
 
 
 <div class="viewcode-block" id="PartitionData.pop_ndata">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.pop_ndata">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData.pop_ndata">[docs]</a>
     <span class="k">def</span> <span class="nf">pop_ndata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TensorData</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PartitionData.add_edata">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.add_edata">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData.add_edata">[docs]</a>
     <span class="k">def</span> <span class="nf">add_edata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">TensorData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2"> entries for edge_data[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">], got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -519,7 +524,7 @@
 
 
 <div class="viewcode-block" id="PartitionData.to">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.to">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData.to">[docs]</a>
     <span class="k">def</span> <span class="nf">to</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -540,7 +545,7 @@
 
 
 <div class="viewcode-block" id="PartitionData.pin_memory">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.pin_memory">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData.pin_memory">[docs]</a>
     <span class="k">def</span> <span class="nf">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PartitionData</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
             <span class="n">src_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">src_ids</span><span class="o">.</span><span class="n">pin_memory</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">),</span>
@@ -555,7 +560,7 @@
 
 
 <div class="viewcode-block" id="PartitionData.to_blocks">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.to_blocks">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData.to_blocks">[docs]</a>
     <span class="k">def</span> <span class="nf">to_blocks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_perm</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">keep_ids</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">DGLBlock</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert all snapshots to DGL bipartite blocks.</span>
 
@@ -570,7 +575,7 @@
 <span class="sd">            node/edge features from ``node_data`` / ``edge_data`` attached,</span>
 <span class="sd">            and ``block.route`` set when routing info is available.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">starry_unigraph.runtime.flare.route</span> <span class="kn">import</span> <span class="n">Route</span>
+        <span class="kn">from</span> <span class="nn">starry_unigraph.backends.dtdg.runtime.route</span> <span class="kn">import</span> <span class="n">Route</span>
 
         <span class="n">blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DGLBlock</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)):</span>
@@ -631,7 +636,7 @@
 
 
 <div class="viewcode-block" id="PartitionData.item">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.item">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData.item">[docs]</a>
     <span class="k">def</span> <span class="nf">item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_perm</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">keep_ids</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DGLBlock</span><span class="p">:</span>
         <span class="n">blocks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_blocks</span><span class="p">(</span><span class="n">node_perm</span><span class="o">=</span><span class="n">node_perm</span><span class="p">,</span> <span class="n">keep_ids</span><span class="o">=</span><span class="n">keep_ids</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
@@ -640,7 +645,7 @@
 
 
 <div class="viewcode-block" id="PartitionData.save">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.save">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData.save">[docs]</a>
     <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Serialize this PartitionData to disk via ``torch.save``.</span>
 
@@ -653,15 +658,14 @@
 
 
 <div class="viewcode-block" id="PartitionData.load">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.load">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData.load">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">mmap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PartitionData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a PartitionData from a ``.pth`` file.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            path: Path to the serialized file.</span>
-<span class="sd">            mmap: If True, memory-map the file (useful for large datasets</span>
-<span class="sd">                that don&#39;t fit in RAM).</span>
+<span class="sd">            mmap: If True, memory-map the file (useful for large datasets that don&#39;t fit in RAM).</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            The deserialized :class:`PartitionData`.</span>
@@ -676,7 +680,7 @@
 
 
 <div class="viewcode-block" id="PartitionData.from_blocks">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.html#starry_unigraph.data.PartitionData.from_blocks">[docs]</a>
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.partition.html#starry_unigraph.data.PartitionData.from_blocks">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_blocks</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DGLBlock</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PartitionData</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a PartitionData from a list of DGL blocks.</span>

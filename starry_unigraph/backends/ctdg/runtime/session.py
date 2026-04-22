@@ -34,9 +34,12 @@ class CTDGSession:
     def prepare_data(self, session_ctx: SessionContext) -> PreparedArtifacts:
         preprocessor = CTDGPreprocessor()
         self.prepared = preprocessor.run(session_ctx)
+        session_ctx.prepared_artifacts = self.prepared
         return self.prepared
 
     def build_runtime(self, session_ctx: SessionContext) -> None:
+        if self.prepared is not None:
+            session_ctx.prepared_artifacts = self.prepared
         self.online_runtime, self._runtime = build_ctdg_runtime(session_ctx)
 
     def iter_train(self, session_ctx: SessionContext):

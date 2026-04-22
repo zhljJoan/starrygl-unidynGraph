@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: starry-unigraph
+Version: 0.1.0
+Summary: Unified scheduler for distributed CTDG/DTDG training and inference.
+Requires-Python: >=3.10
+Requires-Dist: PyYAML>=6.0

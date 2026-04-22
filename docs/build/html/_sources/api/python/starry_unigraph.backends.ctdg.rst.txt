@@ -5,6 +5,7 @@ starry\_unigraph.backends.ctdg package
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 .. note::
 

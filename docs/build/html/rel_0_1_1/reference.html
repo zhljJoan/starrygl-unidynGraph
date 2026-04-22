@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reference and Architecture &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Architecture &amp; Layer Reference" href="../architecture/__init__.html" />
+    <link rel="prev" title="CHUNK Training Logic (Experimental)" href="training/chunk.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Reference and Architecture</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/rel_0_1_1/reference.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="reference-and-architecture">
+<h1>Reference and Architecture<a class="headerlink" href="#reference-and-architecture" title="Link to this heading"></a></h1>
+<section id="module-reference">
+<h2>Module Reference<a class="headerlink" href="#module-reference" title="Link to this heading"></a></h2>
+<p>The StarryGL repository is organized around a small number of core
+responsibilities:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">starry_unigraph/session.py</span></code>: <code class="xref py py-class docutils literal notranslate"><span class="pre">SchedulerSession</span></code> coordinates
+preprocessing, runtime creation, training, evaluation, and prediction.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">starry_unigraph/preprocess/</span></code>: Converts raw graph data into runtime-ready
+artifacts.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/dtdg/</span></code>: Implements the snapshot-oriented runtime
+used by <strong>DTDG</strong> mode.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/ctdg/</span></code>: Contains event-driven runtime components
+used by <strong>CTDG</strong> mode.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">starry_unigraph/preprocess/chunk.py</span></code>: Contains the experimental chunk
+preprocessing path and related data compilation logic.</p></li>
+</ul>
+</section>
+<section id="code-structure">
+<h2>Code Structure<a class="headerlink" href="#code-structure" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>StarryUniGraph/
+├── configs/                   # Ready-to-use YAML configuration templates
+├── docs/                      # Documentation source files
+├── tests/                     # Test suite
+├── train_tgn.py
+├── train_tgn_dist.py
+├── train_mpnn_lstm_4gpu.py
+├── run_tgn_ctdg_flare.sh
+├── run_mpnn_lstm_4gpu.sh
+└── starry_unigraph/          # Core framework source code
+    ├── __main__.py           # Unified CLI entry point
+    ├── session.py            # Unified lifecycle API
+    ├── distributed.py        # Distributed communication primitives
+    ├── preprocess/
+    ├── models/
+    ├── tasks/
+    ├── registry/
+    ├── runtime/
+    ├── backends/
+    │   ├── dtdg/
+    │   ├── ctdg/
+    │   └── flare/            # Backward-compatibility exports
+    ├── native/
+    ├── lib/
+    └── vendor/
+</pre></div>
+</div>
+</section>
+<section id="deep-dive-mathematical-intuition">
+<h2>Deep Dive: Mathematical Intuition<a class="headerlink" href="#deep-dive-mathematical-intuition" title="Link to this heading"></a></h2>
+<p><strong>Temporal Decay in DTDG</strong></p>
+<p>The Flare backend applies a conceptual decay mechanism to reduce the
+representation cost of older temporal blocks. If <span class="math notranslate nohighlight">\(\mathcal{N}_t\)</span> is the
+number of chunks in the block at time <span class="math notranslate nohighlight">\(t\)</span>, then the next older block
+retains:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{N}_{t-1} = \lfloor \beta \cdot \mathcal{N}_t \rfloor\]</div>
+<p>This decay is implemented through batching policy rather than as a user-managed
+formula.</p>
+<p><strong>Memory Updates in CTDG</strong></p>
+<p>When an interaction event connects node <span class="math notranslate nohighlight">\(u\)</span> and <span class="math notranslate nohighlight">\(v\)</span> at time
+<span class="math notranslate nohighlight">\(t\)</span>, a message is generated and memory is updated:</p>
+<div class="math notranslate nohighlight">
+\[m_e^{uv} = \text{MSG}(s(u,t^-) \,\|\, s(v,t^-) \,\|\, e(u,v,t) \,\|\, \phi(t-t^-))\]</div>
+<div class="math notranslate nohighlight">
+\[s(u,t) = \text{UPDATE}(s(u,t^-), m_e^{uv})\]</div>
+<p>Frequently accessed nodes create heavy synchronization pressure. StarryGL’s
+Hotspot Memory Sharing optimization smooths these updates across partitions
+without breaking the exact state transition logic.</p>
+<p><strong>Communication-Computation Overlap</strong></p>
+<p>By explicitly mapping structural and temporal dependencies, the runtime can
+issue network transfers for the next batch while the GPU is executing the
+current batch, hiding communication latency.</p>
+</section>
+<section id="publications-and-citation">
+<h2>Publications and Citation<a class="headerlink" href="#publications-and-citation" title="Link to this heading"></a></h2>
+<p>StarryGL is built on research and system optimizations developed at Zhejiang
+University. If you use StarryGL or its methodologies in your research, please
+consider citing the core papers:</p>
+<p><strong>For DTDG and sliding-window optimizations (Flare backend):</strong></p>
+<blockquote>
+<div><p>Wenjie Huang, Rui Wang, Jing Cao, Tongya Zheng, Xinyu Wang, Mingli Song,
+Sai Wu, and Chun Chen. “FlareDTDG: Harnessing Temporal Recency for Scalable
+Discrete-Time Dynamic Graph Training.” <em>Proceedings of the VLDB Endowment
+(PVLDB)</em>, 2025.</p>
+</div></blockquote>
+<p><strong>For CTDG and event-driven optimizations (MemShare backend):</strong></p>
+<blockquote>
+<div><p>Longjiao Zhang, Rui Wang, Tongya Zheng, Ziqi Huang, Wenjie Huang, Xinyu
+Wang, Can Wang, Mingli Song, Sai Wu, and Shuibing He. “Effective and
+Efficient Distributed Temporal Graph Learning through Hotspot Memory
+Sharing.” <em>Proceedings of the VLDB Endowment (PVLDB)</em>, 18(9): 3093-3105,
+2025. doi:10.14778/3746405.3746430.</p>
+</div></blockquote>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="training/chunk.html" class="btn btn-neutral float-left" title="CHUNK Training Logic (Experimental)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../architecture/__init__.html" class="btn btn-neutral float-right" title="Architecture &amp; Layer Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

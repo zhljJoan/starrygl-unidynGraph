@@ -275,10 +275,44 @@ DTDG 专属：
 
 ## 9. 最小可运行示例
 
-### 9.1 CTDG 分布式
+### 9.1 CTDG 分布式（Flare-style）
 ```bash
-torchrun --nproc_per_node=4 train_tgn_dist.py --dataset WIKI --epochs 2
+# 单进程 prepare，但要提前指定最终全局 worker 数
+WORLD_SIZE=8 /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase prepare
+
+# 如果不是共享存储，把 /shared/artifacts/WIKI 分发到所有节点
+
+# 多机多卡 train：在 node 0 上执行
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=0 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29500 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase train
+
+# 多机多卡 train：在 node 1 上执行
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=1 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29500 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase train
+
+# 多机多卡 predict：先在 node 0 上执行，再把 --node_rank=1
+# 换到 node 1 上执行
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=0 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29501 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase predict
 ```
+
+单进程 ``prepare`` 仍然需要知道最终分区数，所以要把 ``WORLD_SIZE`` 设成
+``nnodes * nproc_per_node``，这样生成的 CTDG artifacts 才能和后续 ``torchrun``
+训练保持一致。
+
+CTDG 分布式 loader 会让所有 rank 保持相同的全局时间窗边界，然后在每个时间窗内
+只取当前 rank 的本地边。当前 edge ownership 规则是 ``src_node_partition``。
 
 ### 9.2 DTDG 分布式
 ```bash

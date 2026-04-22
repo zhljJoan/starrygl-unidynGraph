@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unified Training Pipeline &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Reusable Model Modules" href="model_modules.html" />
+    <link rel="prev" title="Artifact Format Reference" href="artifact_format.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="__init__.html">Architecture &amp; Layer Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html">Data Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html">Route Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html">Unified Preprocessing Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html">Protocol Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html">Artifact Format Reference</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Unified Training Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html">Reusable Model Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="__init__.html">Architecture &amp; Layer Reference</a></li>
+      <li class="breadcrumb-item active">Unified Training Pipeline</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/architecture/unified_pipeline.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="unified-training-pipeline">
+<h1>Unified Training Pipeline<a class="headerlink" href="#unified-training-pipeline" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">PipelineEngine</span></code> orchestrates training by composing protocols:
+GraphBackend (data), TaskAdapter (loss), StateManager (state), and TemporalModel (forward).</p>
+<p>This enables all 9 combinations of graph mode × task type without mode-specific branching.</p>
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>PipelineEngine
+├─ GraphBackend.iter_batches()  ──→ BatchData
+│  └─ (CTDG/DTDG/Chunk-specific)
+│
+├─ BatchData ──→ materialize()
+│  └─ task_adapter.build_sample_config()
+│
+├─ TemporalModel.forward(batch)  ──→ output
+│  └─ (any PyTorch model)
+│
+├─ TaskAdapter.compute_loss()  ──→ loss
+│  └─ (task-specific)
+│
+├─ TaskAdapter.compute_metrics()  ──→ metrics
+│  └─ (AUC, RMSE, accuracy, etc.)
+│
+├─ StateManager.prepare()  ──→ state
+│
+└─ StateManager.update()  ──→ state
+</pre></div>
+</div>
+<section id="complete-training-loop">
+<h3>Complete Training Loop<a class="headerlink" href="#complete-training-loop" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">engine</span> <span class="o">=</span> <span class="n">PipelineEngine</span><span class="p">(</span>
+    <span class="n">backend</span><span class="o">=</span><span class="n">backend</span><span class="p">,</span>           <span class="c1"># GraphBackend implementation</span>
+    <span class="n">task_adapter</span><span class="o">=</span><span class="n">adapter</span><span class="p">,</span>      <span class="c1"># TaskAdapter implementation</span>
+    <span class="n">state_manager</span><span class="o">=</span><span class="n">state_mgr</span><span class="p">,</span>   <span class="c1"># StateManager implementation</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>               <span class="c1"># TemporalModel (nn.Module)</span>
+<span class="p">)</span>
+
+<span class="c1"># Full epoch</span>
+<span class="n">losses</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
+
+<span class="c1"># Per-batch control</span>
+<span class="k">for</span> <span class="n">batch_idx</span><span class="p">,</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">engine</span><span class="o">.</span><span class="n">iter_batches_with_step</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">)):</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]</span>
+    <span class="n">metrics</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span>
+    <span class="c1"># Custom processing...</span>
+</pre></div>
+</div>
+</section>
+<section id="implementation-runtime-engine-py">
+<h3>Implementation: <code class="docutils literal notranslate"><span class="pre">runtime/engine.py</span></code><a class="headerlink" href="#implementation-runtime-engine-py" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">PipelineEngine</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unified training loop across all graph modes and tasks.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">backend</span><span class="p">:</span> <span class="n">GraphBackend</span><span class="p">,</span>
+        <span class="n">task_adapter</span><span class="p">:</span> <span class="n">TaskAdapter</span><span class="p">,</span>
+        <span class="n">state_manager</span><span class="p">:</span> <span class="n">StateManager</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">=</span> <span class="n">backend</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">task_adapter</span> <span class="o">=</span> <span class="n">task_adapter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_manager</span> <span class="o">=</span> <span class="n">state_manager</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+
+    <span class="k">def</span> <span class="nf">run_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run full epoch and return (losses, avg_metrics).&quot;&quot;&quot;</span>
+        <span class="n">losses</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">metrics_accum</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">batch_idx</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">iter_batches_with_step</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)):</span>
+            <span class="n">losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+            <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">metric_val</span> <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">metrics_accum</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">metric_val</span><span class="p">)</span>
+
+        <span class="n">avg_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">mean</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">metrics_accum</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">return</span> <span class="n">losses</span><span class="p">,</span> <span class="n">avg_metrics</span>
+
+    <span class="k">def</span> <span class="nf">iter_batches_with_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Yield per-batch results (loss, metrics).&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">iter_batches</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+            <span class="c1"># Prepare state</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_manager</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">node_ids</span><span class="p">,</span> <span class="n">batch</span><span class="o">.</span><span class="n">timestamps</span><span class="p">)</span>
+
+            <span class="c1"># Forward pass</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
+
+            <span class="c1"># Loss and metrics</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_adapter</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+            <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_adapter</span><span class="o">.</span><span class="n">compute_metrics</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+
+            <span class="c1"># Update state</span>
+            <span class="n">state_update</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="s1">&#39;compute_state_update&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">a</span><span class="p">:</span> <span class="kc">None</span><span class="p">)(</span><span class="n">batch</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">state_update</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">state_manager</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">node_ids</span><span class="p">,</span> <span class="n">state_update</span><span class="p">)</span>
+
+            <span class="k">yield</span> <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">batch</span><span class="p">,</span>
+                <span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">,</span>
+                <span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">loss</span><span class="p">,</span>
+                <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="n">metrics</span><span class="p">,</span>
+            <span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="dispatch-flow">
+<h3>Dispatch Flow<a class="headerlink" href="#dispatch-flow" title="Link to this heading"></a></h3>
+<p>The dispatch happens <strong>once</strong> at initialization:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Determine graph mode from config</span>
+<span class="n">graph_mode</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;graph_mode&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">infer_from_model</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+
+<span class="c1"># Build backend</span>
+<span class="k">if</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;ctdg&quot;</span><span class="p">:</span>
+    <span class="n">backend</span> <span class="o">=</span> <span class="n">CTDGGraphBackend</span><span class="p">(</span><span class="n">ctdg_session</span><span class="p">)</span>
+<span class="k">elif</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;dtdg&quot;</span><span class="p">:</span>
+    <span class="n">backend</span> <span class="o">=</span> <span class="n">FlareGraphBackend</span><span class="p">(</span><span class="n">flare_loader</span><span class="p">)</span>
+<span class="k">elif</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;chunk&quot;</span><span class="p">:</span>
+    <span class="n">backend</span> <span class="o">=</span> <span class="n">ChunkGraphBackend</span><span class="p">(</span><span class="n">chunk_loader</span><span class="p">)</span>
+
+<span class="c1"># Get task adapter</span>
+<span class="n">task_adapter</span> <span class="o">=</span> <span class="n">task_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">task</span><span class="o">.</span><span class="n">task_type</span><span class="p">)</span>
+
+<span class="c1"># Build state manager</span>
+<span class="n">state_manager</span> <span class="o">=</span> <span class="n">RNNStateManager</span><span class="p">()</span> <span class="ow">or</span> <span class="n">DummyStateManager</span><span class="p">()</span>
+
+<span class="c1"># Create engine (no more mode-specific branching!)</span>
+<span class="n">engine</span> <span class="o">=</span> <span class="n">PipelineEngine</span><span class="p">(</span><span class="n">backend</span><span class="p">,</span> <span class="n">task_adapter</span><span class="p">,</span> <span class="n">state_manager</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+<span class="n">engine</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="design-benefits">
+<h3>Design Benefits<a class="headerlink" href="#design-benefits" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p><strong>No Mode-Specific Code in Training Loop</strong></p>
+<ul class="simple">
+<li><p>Before: If/else branches for CTDG/DTDG/Chunk in train_epoch()</p></li>
+<li><p>After: Single generic run_epoch() works for all modes</p></li>
+</ul>
+</li>
+<li><p><strong>Composable Components</strong></p>
+<ul class="simple">
+<li><p>Swap backends: CTDG → DTDG without changing loop</p></li>
+<li><p>Swap tasks: EdgePredict → NodeRegress without changing loop</p></li>
+<li><p>Swap models: TGN → MPNN without changing loop</p></li>
+</ul>
+</li>
+<li><p><strong>Extensibility</strong></p>
+<ul class="simple">
+<li><p>New graph mode? Implement GraphBackend protocol</p></li>
+<li><p>New task? Implement TaskAdapter protocol</p></li>
+<li><p>New state manager? Implement StateManager protocol</p></li>
+<li><p>No changes to PipelineEngine</p></li>
+</ul>
+</li>
+<li><p><strong>Testability</strong></p>
+<ul class="simple">
+<li><p>Use DummyGraphBackend, DummyStateManager for unit tests</p></li>
+<li><p>Mock any protocol for isolation testing</p></li>
+</ul>
+</li>
+</ol>
+</section>
+</section>
+<section id="example-custom-training-loop">
+<h2>Example: Custom Training Loop<a class="headerlink" href="#example-custom-training-loop" title="Link to this heading"></a></h2>
+<p>For research, you can extend PipelineEngine or use iter_batches_with_step():</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">engine</span> <span class="o">=</span> <span class="n">PipelineEngine</span><span class="p">(</span><span class="n">backend</span><span class="p">,</span> <span class="n">task_adapter</span><span class="p">,</span> <span class="n">state_manager</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">batch_idx</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">engine</span><span class="o">.</span><span class="n">iter_batches_with_step</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">)):</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">]</span>
+    <span class="n">batch</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
+    <span class="n">metrics</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Custom gradient accumulation</span>
+    <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">batch_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">accumulation_steps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+
+    <span class="c1"># Custom logging</span>
+    <span class="k">if</span> <span class="n">batch_idx</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Batch </span><span class="si">{</span><span class="n">batch_idx</span><span class="si">}</span><span class="s2">: loss=</span><span class="si">{</span><span class="n">loss</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">metrics</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="integration-with-schedulersession">
+<h2>Integration with SchedulerSession<a class="headerlink" href="#integration-with-schedulersession" title="Link to this heading"></a></h2>
+<p>The unified entry point (SchedulerSession) builds PipelineEngine:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SchedulerSession</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unified training orchestrator.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">build_pipeline_engine</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PipelineEngine</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build PipelineEngine from prepared artifacts.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model: TemporalModel instance</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            PipelineEngine ready for run_epoch()</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Dispatch based on graph_mode</span>
+        <span class="n">backend</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_backend</span><span class="p">()</span>  <span class="c1"># Returns GraphBackend</span>
+        <span class="n">adapter</span> <span class="o">=</span> <span class="n">task_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task</span><span class="o">.</span><span class="n">task_type</span><span class="p">)</span>
+        <span class="n">state_mgr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_state_manager</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">PipelineEngine</span><span class="p">(</span><span class="n">backend</span><span class="p">,</span> <span class="n">adapter</span><span class="p">,</span> <span class="n">state_mgr</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">run_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;High-level epoch runner.&quot;&quot;&quot;</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_pipeline_engine</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+        <span class="n">losses</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">losses</span><span class="p">,</span> <span class="n">metrics</span>
+</pre></div>
+</div>
+</section>
+<section id="usage-example">
+<h2>Usage Example<a class="headerlink" href="#usage-example" title="Link to this heading"></a></h2>
+<p>Complete training loop:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph</span> <span class="kn">import</span> <span class="n">SchedulerSession</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.models</span> <span class="kn">import</span> <span class="n">WrappedModel</span>
+
+<span class="c1"># Initialize</span>
+<span class="n">session</span> <span class="o">=</span> <span class="n">SchedulerSession</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="s2">&quot;config.yaml&quot;</span><span class="p">)</span>
+<span class="n">session</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">()</span>
+
+<span class="c1"># Build model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">WrappedModel</span><span class="p">(</span>
+    <span class="n">backbone</span><span class="o">=</span><span class="n">GCNStack</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">128</span><span class="p">),</span>
+    <span class="n">head</span><span class="o">=</span><span class="n">EdgePredictHead</span><span class="p">(</span><span class="n">hidden_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">output_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
+
+<span class="c1"># Build engine</span>
+<span class="n">engine</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">build_pipeline_engine</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
+<span class="c1"># Training loop</span>
+<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">):</span>
+    <span class="n">train_losses</span><span class="p">,</span> <span class="n">train_metrics</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
+    <span class="n">val_losses</span><span class="p">,</span> <span class="n">val_metrics</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="s2">&quot;val&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="si">}</span><span class="s2">: train_loss=</span><span class="si">{</span><span class="n">mean</span><span class="p">(</span><span class="n">train_losses</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, &quot;</span>
+          <span class="sa">f</span><span class="s2">&quot;val_metrics=</span><span class="si">{</span><span class="n">val_metrics</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="multi-mode-training-comparison">
+<h2>Multi-Mode Training Comparison<a class="headerlink" href="#multi-mode-training-comparison" title="Link to this heading"></a></h2>
+<p>The same code works for all modes:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># CTDG (online)</span>
+<span class="n">config_ctdg</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="s2">&quot;configs/ctdg.yaml&quot;</span><span class="p">)</span>
+<span class="n">session_ctdg</span> <span class="o">=</span> <span class="n">SchedulerSession</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config_ctdg</span><span class="p">)</span>
+<span class="n">engine_ctdg</span> <span class="o">=</span> <span class="n">session_ctdg</span><span class="o">.</span><span class="n">build_pipeline_engine</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
+<span class="c1"># DTDG (snapshot pipeline)</span>
+<span class="n">config_dtdg</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="s2">&quot;configs/dtdg.yaml&quot;</span><span class="p">)</span>
+<span class="n">session_dtdg</span> <span class="o">=</span> <span class="n">SchedulerSession</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config_dtdg</span><span class="p">)</span>
+<span class="n">engine_dtdg</span> <span class="o">=</span> <span class="n">session_dtdg</span><span class="o">.</span><span class="n">build_pipeline_engine</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
+<span class="c1"># Chunk (experimental)</span>
+<span class="n">config_chunk</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="s2">&quot;configs/chunk.yaml&quot;</span><span class="p">)</span>
+<span class="n">session_chunk</span> <span class="o">=</span> <span class="n">SchedulerSession</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config_chunk</span><span class="p">)</span>
+<span class="n">engine_chunk</span> <span class="o">=</span> <span class="n">session_chunk</span><span class="o">.</span><span class="n">build_pipeline_engine</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
+<span class="c1"># All three use identical training code!</span>
+<span class="k">for</span> <span class="n">engine</span> <span class="ow">in</span> <span class="p">[</span><span class="n">engine_ctdg</span><span class="p">,</span> <span class="n">engine_dtdg</span><span class="p">,</span> <span class="n">engine_chunk</span><span class="p">]:</span>
+    <span class="n">losses</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="data_layer.html"><span class="doc">Data Layer Reference</span></a> — BatchData structure</p></li>
+<li><p><a class="reference internal" href="protocols.html"><span class="doc">Protocol Reference</span></a> — All protocol interfaces</p></li>
+<li><p>Source: <code class="docutils literal notranslate"><span class="pre">runtime/engine.py</span></code>, <code class="docutils literal notranslate"><span class="pre">session.py</span></code>, <code class="docutils literal notranslate"><span class="pre">runtime/backend_adapters.py</span></code></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="artifact_format.html" class="btn btn-neutral float-left" title="Artifact Format Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="model_modules.html" class="btn btn-neutral float-right" title="Reusable Model Modules" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

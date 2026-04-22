@@ -73,11 +73,13 @@ class SchedulerSession:
         else:
             raise ValueError(f"Unknown graph_mode for preprocessing: {graph_mode!r}")
         self.prepared = preprocessor.run(self.ctx)
+        self.ctx.prepared_artifacts = self.prepared
         return self.prepared
 
     def build_runtime(self) -> RuntimeBundle:
         if self.prepared is None:
             self.prepared = load_prepared_from_disk(self.ctx.artifact_root)
+        self.ctx.prepared_artifacts = self.prepared
 
         graph_mode = self.prepared.provider_meta.get("graph_mode")
 
@@ -240,7 +242,7 @@ class SchedulerSession:
             if split == "train":
                 self.current_epoch += 1
 
-            losses = [self.task_adapter.compute_loss(item) for item in outputs if "loss" in item]
+            losses = [float(item["loss"]) for item in outputs if "loss" in item]
             metric_accumulator: dict[str, list[float]] = {}
             for item in outputs:
                 metrics = item.get("meta", {}).get("metrics", {})

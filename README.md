@@ -113,8 +113,26 @@ For concrete APIs and contracts, see:
 ## Quick Start
 
 ```bash
-# CTDG distributed training (example)
-torchrun --nproc_per_node=4 train_tgn_dist.py --dataset WIKI --epochs 2
+# CTDG Flare-style workflow (recommended env: tgnn_3.10)
+WORLD_SIZE=8 /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase prepare
+
+# run on node 0
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=0 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29500 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase train
+
+# run on node 1
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=1 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29500 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase train
+
+# predict uses the same launch pattern with --phase predict on every node
 
 # DTDG distributed training (example)
 bash run_mpnn_lstm_4gpu.sh all

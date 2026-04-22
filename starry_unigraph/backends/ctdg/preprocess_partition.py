@@ -111,12 +111,30 @@ def parse_speed_output(output_dir: Path, num_nodes: int) -> tuple[torch.Tensor, 
     return node_parts, edge_parts
 
 
+def derive_edge_parts(
+    src: torch.Tensor,
+    node_parts: torch.Tensor,
+) -> torch.Tensor:
+    """Assign each edge to the partition of its source node.
+
+    This matches the vertex-cut ownership convention used by MemShare's
+    ``partition_data_for_tgnn`` path, where local training edges on a rank are
+    the edges whose source node belongs to that rank.
+    """
+    return node_parts[src.long()].long()
+
+
+def build_round_robin_node_parts(num_nodes: int, num_parts: int) -> torch.Tensor:
+    """Fallback node partitioning when SPEED artifacts are unavailable."""
+    return torch.arange(num_nodes, dtype=torch.long) % max(num_parts, 1)
+
+
 def run_speed_partition(
     edges: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
     num_nodes: int,
     num_parts: int,
     config: dict[str, Any] | None = None,
-) -> torch.Tensor:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Execute SPEED partitioning algorithm and return node assignments.
 
     Args:
@@ -126,7 +144,9 @@ def run_speed_partition(
         config: Optional config dict with SPEED parameters (beta, topk_type, topk_ratio, reorder_type).
 
     Returns:
-        Tensor [num_nodes] mapping each node to partition_id [0, num_parts).
+        Tuple of:
+        - node_parts: Tensor [num_nodes] mapping each node to partition_id [0, num_parts).
+        - edge_parts: Tensor [num_edges] mapping each edge to partition_id [0, num_parts).
 
     Raises:
         FileNotFoundError: If SPEED binary not found.
@@ -182,7 +202,7 @@ def run_speed_partition(
             raise RuntimeError(f"SPEED execution error: {e}")
 
         # Parse output
-        node_parts, _edge_parts = parse_speed_output(tmpdir_path, num_nodes)
+        node_parts, parsed_edge_parts = parse_speed_output(tmpdir_path, num_nodes)
 
     # Validate partition IDs are in range
     min_part = node_parts.min().item()
@@ -192,14 +212,23 @@ def run_speed_partition(
             f"SPEED produced invalid partition IDs: min={min_part}, max={max_part}, expected [0, {num_parts})"
         )
 
-    return node_parts
+    src, _dst, _ts = edges
+    edge_parts = derive_edge_parts(src=src, node_parts=node_parts)
+
+    # Keep parsed edge outputs available only for sanity checking.
+    if parsed_edge_parts:
+        parsed_values = torch.tensor(list(parsed_edge_parts.values()), dtype=torch.long)
+        if parsed_values.numel() == edge_parts.numel() and not torch.equal(parsed_values, edge_parts.cpu()):
+            print("Warning: SPEED edge_output ownership differs from source-node ownership; using source-node ownership")
+
+    return node_parts, edge_parts
 
 
 def speed_partition(
     dataset: Any,  # TGTemporalDataset
     num_parts: int,
     config: dict[str, Any] | None = None,
-) -> torch.Tensor:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """High-level API: partition dataset using SPEED algorithm.
 
     Args:
@@ -208,7 +237,9 @@ def speed_partition(
         config: Optional config dict with SPEED parameters.
 
     Returns:
-        Tensor [num_nodes] mapping node_id → partition_id.
+        Tuple of:
+        - node_parts: Tensor [num_nodes] mapping node_id → partition_id.
+        - edge_parts: Tensor [num_edges] mapping edge_id → partition_id.
     """
     edges = (dataset.src, dataset.dst, dataset.ts)
     return run_speed_partition(edges, dataset.num_nodes, num_parts, config=config)

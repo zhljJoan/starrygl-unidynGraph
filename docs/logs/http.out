@@ -143,3 +143,203 @@
 127.0.0.1 - - [13/Apr/2026 23:41:08] "GET /_static/css/fonts/lato-normal-italic.woff2?4eb103b4d12be57cb1d040ed5e162e9d HTTP/1.1" 304 -
 127.0.0.1 - - [13/Apr/2026 23:41:08] "GET /_static/css/fonts/Roboto-Slab-Bold.woff2?9984f4a9bda09be08e83f2506954adbe HTTP/1.1" 304 -
 127.0.0.1 - - [13/Apr/2026 23:41:08] "GET /_static/css/fonts/fontawesome-webfont.woff2?af7ae505a9eed503f8b8e6982036873e HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:41] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [21/Apr/2026 21:40:42] "GET /_static/pygments.css?v=80d5e7a1 HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:42] "GET /_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:42] "GET /_static/jquery.js?v=5d32c60e HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:42] "GET /_static/js/theme.js HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:43] "GET /_static/documentation_options.js?v=01f34227 HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:44] "GET /_static/css/fonts/lato-normal.woff2?bd03a2cc277bbbc338d464e679fe9942 HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:44] "GET /_static/css/fonts/Roboto-Slab-Bold.woff2?9984f4a9bda09be08e83f2506954adbe HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:44] "GET /_static/css/fonts/lato-bold.woff2?cccb897485813c7c256901dbca54ecf2 HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:44] "GET /_static/css/fonts/fontawesome-webfont.woff2?af7ae505a9eed503f8b8e6982036873e HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:45] code 404, message File not found
+127.0.0.1 - - [21/Apr/2026 21:40:45] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [21/Apr/2026 21:40:48] "GET /guide/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:48] "GET /_static/pygments.css?v=b86133f3 HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:52] "GET /guide/install_guide.html HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:40:53] "GET /_static/css/fonts/lato-normal-italic.woff2?4eb103b4d12be57cb1d040ed5e162e9d HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:41:02] "GET /tutorial/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:41:05] "GET /tutorial/intro.html HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:45:25] "GET /tutorial/module.html HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:45:42] "GET /tutorial/dataset.html HTTP/1.1" 304 -
+127.0.0.1 - - [21/Apr/2026 21:45:47] "GET /tutorial/distributed.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 01:33:04] code 404, message File not found
+127.0.0.1 - - [22/Apr/2026 01:33:04] "GET /advanced/index.html HTTP/1.1" 404 -
+127.0.0.1 - - [22/Apr/2026 01:33:04] "GET /api/python/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:33:12] "GET /architecture/__init__.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:34:20] code 404, message File not found
+127.0.0.1 - - [22/Apr/2026 01:34:20] "GET /advanced/index.html HTTP/1.1" 404 -
+127.0.0.1 - - [22/Apr/2026 01:43:38] "GET /tutorial/distributed.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:43:39] "GET /tutorial/distributed.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:43:53] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:43:55] "GET /architecture/__init__.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:44:45] "GET /tutorial/distributed.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 01:45:26] "GET /tutorial/UniTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:45:35] "GET /tutorial/distributed.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 01:45:39] "GET /tutorial/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 01:47:37] "GET /tutorial/CTDGTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:48:09] "GET /tutorial/DTDGTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:48:34] "GET /tutorial/ChunkTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:49:05] "GET /tutorial/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 01:49:13] "GET /architecture/data_layer.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:49:34] "GET /architecture/route_layer.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:49:43] "GET /architecture/preprocess_layer.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:49:45] "GET /architecture/model_modules.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:49:53] "GET /architecture/unified_pipeline.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:50:00] "GET /architecture/artifact_format.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:50:03] "GET /api/python/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:50:09] "GET /architecture/__init__.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 01:51:00] "GET /tutorial/UniTraining.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 01:58:21] "GET /tutorial/ChunkTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:58:22] "GET /tutorial/ChunkTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:58:39] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:58:50] "GET /architecture/__init__.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:59:07] "GET /api/python/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:59:12] "GET /api/python/starry_unigraph.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:59:13] "GET /_static/css/fonts/lato-bold-italic.woff2?0b6bb6725576b072c5d0b02ecdd1900d HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 01:59:36] "GET /api/python/starry_unigraph.tasks.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 01:59:41] "GET /api/python/starry_unigraph.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 02:45:52] "GET /api/python/modules.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:46:11] "GET /api/python/starry_unigraph.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:46:19] "GET /api/python/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:46:19] "GET /api/python/starry_unigraph.html HTTP/1.1" 200 -
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 42064)
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 42066)
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "/home/zlj/.miniconda3/lib/python3.9/socketserver.py", line 683, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/home/zlj/.miniconda3/lib/python3.9/socketserver.py", line 683, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 1305, in finish_request
+    self.RequestHandlerClass(request, client_address, self,
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 668, in __init__
+    super().__init__(*args, **kwargs)
+  File "/home/zlj/.miniconda3/lib/python3.9/socketserver.py", line 747, in __init__
+    self.handle()
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 433, in handle
+    self.handle_one_request()
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 421, in handle_one_request
+    method()
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 675, in do_GET
+    self.copyfile(f, self.wfile)
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 875, in copyfile
+    shutil.copyfileobj(source, outputfile)
+  File "/home/zlj/.miniconda3/lib/python3.9/shutil.py", line 208, in copyfileobj
+    fdst_write(buf)
+  File "/home/zlj/.miniconda3/lib/python3.9/socketserver.py", line 826, in write
+    self._sock.sendall(b)
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 1305, in finish_request
+    self.RequestHandlerClass(request, client_address, self,
+BrokenPipeError: [Errno 32] Broken pipe
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 668, in __init__
+    super().__init__(*args, **kwargs)
+  File "/home/zlj/.miniconda3/lib/python3.9/socketserver.py", line 747, in __init__
+    self.handle()
+----------------------------------------
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 433, in handle
+    self.handle_one_request()
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 421, in handle_one_request
+    method()
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 675, in do_GET
+    self.copyfile(f, self.wfile)
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 875, in copyfile
+    shutil.copyfileobj(source, outputfile)
+  File "/home/zlj/.miniconda3/lib/python3.9/shutil.py", line 208, in copyfileobj
+    fdst_write(buf)
+  File "/home/zlj/.miniconda3/lib/python3.9/socketserver.py", line 826, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+127.0.0.1 - - [22/Apr/2026 02:46:21] "GET /api/python/starry_unigraph.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:46:22] "GET /api/python/starry_unigraph.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:49:14] "GET /architecture/__init__.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:50:31] "GET /architecture/data_layer.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:50:35] "GET /architecture/__init__.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:51:10] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:51:16] "GET /tutorial/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 02:51:44] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:53:00] "GET /tutorial/distributed.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 02:53:02] "GET /tutorial/UniTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:00:15] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:00:17] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:00:19] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:19:31] code 404, message File not found
+127.0.0.1 - - [22/Apr/2026 03:19:31] "GET /advanced/index.html HTTP/1.1" 404 -
+127.0.0.1 - - [22/Apr/2026 03:22:30] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:22:52] "GET /tutorial/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 03:23:02] "GET /tutorial/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 03:23:40] "GET /tutorial/distributed.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:23:43] "GET /architecture/__init__.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:23:45] "GET /tutorial/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 03:23:46] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:23:47] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:23:48] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:23:48] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:23:50] "GET /tutorial/CTDGTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:24:37] "GET /tutorial/DTDGTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:24:55] "GET /tutorial/ChunkTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:25:24] "GET /tutorial/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 03:25:36] "GET /architecture/__init__.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:25:37] "GET /architecture/__init__.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:25:46] "GET /architecture/data_layer.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 03:26:05] "GET /architecture/route_layer.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 12:33:04] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 12:41:43] code 404, message File not found
+127.0.0.1 - - [22/Apr/2026 12:41:43] "GET /advanced/index.html HTTP/1.1" 404 -
+127.0.0.1 - - [22/Apr/2026 12:46:09] "GET /tutorial/UniTraining.html HTTP/1.1" 200 -
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 53668)
+Traceback (most recent call last):
+  File "/home/zlj/.miniconda3/lib/python3.9/socketserver.py", line 683, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 1305, in finish_request
+    self.RequestHandlerClass(request, client_address, self,
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 668, in __init__
+    super().__init__(*args, **kwargs)
+  File "/home/zlj/.miniconda3/lib/python3.9/socketserver.py", line 747, in __init__
+    self.handle()
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 433, in handle
+    self.handle_one_request()
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 421, in handle_one_request
+    method()
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 675, in do_GET
+    self.copyfile(f, self.wfile)
+  File "/home/zlj/.miniconda3/lib/python3.9/http/server.py", line 875, in copyfile
+    shutil.copyfileobj(source, outputfile)
+  File "/home/zlj/.miniconda3/lib/python3.9/shutil.py", line 208, in copyfileobj
+    fdst_write(buf)
+  File "/home/zlj/.miniconda3/lib/python3.9/socketserver.py", line 826, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+127.0.0.1 - - [22/Apr/2026 12:55:37] "GET /api/python/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 12:55:38] code 404, message File not found
+127.0.0.1 - - [22/Apr/2026 12:55:38] "GET /advanced/index.html HTTP/1.1" 404 -
+127.0.0.1 - - [22/Apr/2026 12:55:38] "GET /api/python/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 12:56:05] "GET /tutorial/distributed.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 12:56:27] "GET /tutorial/CTDGTraining.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 12:56:32] "GET /tutorial/DTDGTraining.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 12:56:44] "GET /architecture/__init__.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 12:56:57] "GET /architecture/data_layer.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 12:57:32] "GET /architecture/route_layer.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 12:58:24] "GET /tutorial/UniTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 13:04:58] "GET /tutorial/UniTraining.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 13:05:08] code 404, message File not found
+127.0.0.1 - - [22/Apr/2026 13:05:08] "GET /advanced/index.html HTTP/1.1" 404 -
+127.0.0.1 - - [22/Apr/2026 13:05:11] code 404, message File not found
+127.0.0.1 - - [22/Apr/2026 13:05:11] "GET /advanced/index.html HTTP/1.1" 404 -
+127.0.0.1 - - [22/Apr/2026 13:09:40] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 13:10:39] "GET /tutorial/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 13:53:14] "GET /tutorial/dataset.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 13:53:19] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 14:36:17] "GET /tutorial/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [22/Apr/2026 14:36:34] code 404, message File not found
+127.0.0.1 - - [22/Apr/2026 14:36:34] "GET /advanced/index.html HTTP/1.1" 404 -
+127.0.0.1 - - [22/Apr/2026 14:38:00] "GET /tutorial/index.html HTTP/1.1" 304 -
+127.0.0.1 - - [22/Apr/2026 14:38:09] code 404, message File not found
+127.0.0.1 - - [22/Apr/2026 14:38:09] "GET /advanced/index.html HTTP/1.1" 404 -
+127.0.0.1 - - [22/Apr/2026 14:38:16] "GET /architecture/__init__.html HTTP/1.1" 200 -

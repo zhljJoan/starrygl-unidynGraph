@@ -34,7 +34,7 @@ from .cache import AdaParameter, CTDGHistoricalCache
 from .data import CTDGDataBatch, TGTemporalDataset
 from .factory import build_ctdg_runtime
 from .memory import CTDGMemoryBank
-from .models import CTDGLinkPredictor, CTDGMemoryUpdater, CTDGModelOutput
+from .models import CTDGLinkPredictor, CTDGMemoryUpdater, CTDGModelOutput, build_ctdg_model
 from .route import AsyncExchangeHandle, CTDGFeatureRoute
 from .runtime import CTDGOnlineRuntime
 from .sampler import CTDGSampleOutput, NativeTemporalSampler
@@ -53,6 +53,7 @@ __all__ = [
     "CTDGOnlineRuntime",
     "CTDGSampleOutput",
     "CTDGSession",
+    "build_ctdg_model",
     "NativeTemporalSampler",
     "TGTemporalDataset",
     "build_ctdg_runtime",

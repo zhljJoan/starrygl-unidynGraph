@@ -1,0 +1,37 @@
+# Default Chunk Training Configuration
+# This is a template for chunked graph processing mode.
+# Use: python -m starry_unigraph --config configs/chunk_default.yaml --phase all
+
+model:
+  name: mpnn_lstm
+  family: mpnn_lstm
+  task: snapshot_node_regression
+  hidden_dim: 16
+
+data:
+  name: chunk-dataset
+  root: /mnt/data/zlj/starrygl-data/raw
+  format: auto
+  graph_mode: chunk  # Explicitly set to chunk mode
+
+train:
+  epochs: 100
+  batch_size: 32
+  lr: 0.001
+  eval_interval: 1
+
+runtime:
+  backend: torch
+  device: cuda
+  checkpoint: artifacts/chunk/checkpoint.pt
+
+dist:
+  backend: nccl
+  world_size: 1  # Can be scaled to multi-GPU
+
+chunk:
+  # Chunk-specific processing parameters (to be configured)
+  # - time_slices: Number of time windows to partition graph into
+  # - node_clusters: Number of node clusters for hierarchical sampling
+  time_slices: 100
+  node_clusters: 8

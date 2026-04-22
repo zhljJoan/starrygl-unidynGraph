@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DTDG Training Guide (Flare) &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">DTDG Training Guide (Flare)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/rel_0_1_0/DTDGTraining.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="dtdg-training-guide-flare">
+<h1>DTDG Training Guide (Flare)<a class="headerlink" href="#dtdg-training-guide-flare" title="Link to this heading"></a></h1>
+<p>The DTDG (Discrete-Time Dynamic Graph) path models temporal graphs as snapshot
+sequences.  StarryUniGraph’s DTDG backend uses the <strong>Flare</strong> architecture for
+high-throughput multi-GPU data-parallel training, with built-in support for
+MPNN-LSTM and other snapshot-aware GNN models.</p>
+<section id="pipeline-overview">
+<h2>Pipeline Overview<a class="headerlink" href="#pipeline-overview" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Raw Data  (edge list + time-bucket labels)
+     │
+     ▼
+FlareDTDGPreprocessor          ← backends/dtdg/preprocess.py
+     │  prepare_raw()
+     │  build_partitions()     → N PartitionData files (part_000.pth …)
+     │  build_runtime_artifacts()
+     ▼
+PreparedArtifacts  (artifacts/)
+     │
+     ▼
+FlareRuntimeLoader             ← backends/dtdg/runtime/session_loader.py
+     │  iter_train()  → STGraphBlob  (multi-frame training batch)
+     │  iter_eval()   → DTDGBatch    (single-frame evaluation batch)
+     │  run_train_step / run_eval_step / run_predict_step
+     ▼
+Results  (loss, metrics, predictions)
+</pre></div>
+</div>
+</section>
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<p>Set <code class="docutils literal notranslate"><span class="pre">data.graph_mode:</span> <span class="pre">dtdg</span></code> (or use an <code class="docutils literal notranslate"><span class="pre">mpnn_lstm</span></code>-family model) in the config:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1 — preprocess (single process, run once)</span>
+python<span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/mpnn_lstm_4gpu.yaml<span class="w"> </span>--phase<span class="w"> </span>prepare
+
+<span class="c1"># Step 2 — 4-GPU distributed training</span>
+torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/mpnn_lstm_4gpu.yaml<span class="w"> </span>--phase<span class="w"> </span>train
+
+<span class="c1"># Step 3 — 4-GPU prediction</span>
+torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/mpnn_lstm_4gpu.yaml<span class="w"> </span>--phase<span class="w"> </span>predict
+</pre></div>
+</div>
+<p>Override hyperparameters:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/mpnn_lstm_4gpu.yaml<span class="w"> </span>--phase<span class="w"> </span>train<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--epochs<span class="w"> </span><span class="m">100</span><span class="w"> </span>--lr<span class="w"> </span><span class="m">0</span>.001<span class="w"> </span>--batch-size<span class="w"> </span><span class="m">32</span>
+</pre></div>
+</div>
+<p>Single-GPU debugging (set <code class="docutils literal notranslate"><span class="pre">dist.world_size:</span> <span class="pre">1</span></code> in the config):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/mpnn_lstm_4gpu.yaml<span class="w"> </span>--phase<span class="w"> </span>all
+</pre></div>
+</div>
+</section>
+<section id="config-file">
+<h2>Config File<a class="headerlink" href="#config-file" title="Link to this heading"></a></h2>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">configs/mpnn_lstm_4gpu.yaml</span></code></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w">       </span><span class="l l-Scalar l-Scalar-Plain">mpnn_lstm</span>
+<span class="w">  </span><span class="nt">family</span><span class="p">:</span><span class="w">     </span><span class="l l-Scalar l-Scalar-Plain">mpnn_lstm</span>
+<span class="w">  </span><span class="nt">task</span><span class="p">:</span><span class="w">       </span><span class="l l-Scalar l-Scalar-Plain">snapshot_node_regression</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="w">  </span><span class="nt">window</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">             </span><span class="c1"># LSTM history window (number of snapshots)</span>
+
+<span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w">       </span><span class="l l-Scalar l-Scalar-Plain">rec-amazon-ratings</span>
+<span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w">       </span><span class="l l-Scalar l-Scalar-Plain">/mnt/data/zlj/starrygl-data/raw</span>
+<span class="w">  </span><span class="nt">format</span><span class="p">:</span><span class="w">     </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+<span class="w">  </span><span class="nt">graph_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dtdg</span><span class="w">      </span><span class="c1"># ← selects DTDG / Flare path</span>
+
+<span class="nt">train</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">snaps</span><span class="p">:</span><span class="w">         </span><span class="l l-Scalar l-Scalar-Plain">200</span><span class="w">    </span><span class="c1"># number of snapshots used for training</span>
+<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">32</span>
+<span class="w">  </span><span class="nt">lr</span><span class="p">:</span><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">0.001</span>
+<span class="w">  </span><span class="nt">eval_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+
+<span class="nt">runtime</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">torch</span>
+<span class="w">  </span><span class="nt">device</span><span class="p">:</span><span class="w">     </span><span class="l l-Scalar l-Scalar-Plain">cuda</span>
+<span class="w">  </span><span class="nt">checkpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/mnt/data/zlj/starrygl-artifacts/rec-amazon-ratings/mpnn_lstm_4gpu.pt</span>
+
+<span class="nt">dist</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">nccl</span>
+<span class="w">  </span><span class="nt">world_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">         </span><span class="c1"># must equal --nproc_per_node</span>
+
+<span class="nt">dtdg</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">pipeline</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">flare_native</span><span class="w">   </span><span class="c1"># enables Flare partition communication</span>
+<span class="w">  </span><span class="nt">chunk_order</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rand</span><span class="w">           </span><span class="c1"># cluster ordering within a snapshot</span>
+<span class="w">  </span><span class="nt">chunk_decay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">half</span>
+</pre></div>
+</div>
+<p>Key parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model.window.size</span></code> — LSTM history depth; larger → more GPU memory</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train.snaps</span></code> — reduce for faster debugging (e.g. <code class="docutils literal notranslate"><span class="pre">20</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dtdg.pipeline</span></code> — must be <code class="docutils literal notranslate"><span class="pre">flare_native</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dist.world_size</span></code> — must match <code class="docutils literal notranslate"><span class="pre">--nproc_per_node</span></code>; <code class="docutils literal notranslate"><span class="pre">prepare</span></code> and <code class="docutils literal notranslate"><span class="pre">train</span></code>
+must use the same value</p></li>
+</ul>
+</section>
+<section id="artifact-layout">
+<h2>Artifact Layout<a class="headerlink" href="#artifact-layout" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;artifact_root&gt;/
+├── meta/
+│   └── artifacts.json      # graph_mode, num_parts, snapshot_count, pipeline
+├── partitions/
+│   └── manifest.json
+├── routes/
+│   └── manifest.json
+└── flare/
+    ├── manifest.json
+    ├── part_000.pth        # PartitionData for rank 0
+    ├── part_001.pth
+    ├── part_002.pth
+    └── part_003.pth
+</pre></div>
+</div>
+</section>
+<section id="core-class-reference">
+<h2>Core Class Reference<a class="headerlink" href="#core-class-reference" title="Link to this heading"></a></h2>
+<p><strong>FlareDTDGPreprocessor</strong> — <code class="docutils literal notranslate"><span class="pre">backends/dtdg/preprocess.py</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.backends.dtdg</span> <span class="kn">import</span> <span class="n">FlareDTDGPreprocessor</span>
+<span class="n">preprocessor</span> <span class="o">=</span> <span class="n">FlareDTDGPreprocessor</span><span class="p">()</span>
+<span class="n">prepared</span> <span class="o">=</span> <span class="n">preprocessor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">session_ctx</span><span class="p">)</span>   <span class="c1"># writes part_000.pth … part_N.pth</span>
+</pre></div>
+</div>
+<p><strong>FlareRuntimeLoader</strong> — <code class="docutils literal notranslate"><span class="pre">backends/dtdg/runtime/session_loader.py</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.backends.dtdg</span> <span class="kn">import</span> <span class="n">FlareRuntimeLoader</span>
+
+<span class="n">loader</span> <span class="o">=</span> <span class="n">FlareRuntimeLoader</span><span class="o">.</span><span class="n">from_partition_data</span><span class="p">(</span>
+    <span class="n">data</span><span class="o">=</span><span class="n">partition_data</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+    <span class="n">rank</span><span class="o">=</span><span class="n">rank</span><span class="p">,</span> <span class="n">world_size</span><span class="o">=</span><span class="n">world_size</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="k">for</span> <span class="n">blob</span> <span class="ow">in</span> <span class="n">loader</span><span class="o">.</span><span class="n">iter_train</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">):</span>       <span class="c1"># → STGraphBlob</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">run_train_step</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">blob</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">loader</span><span class="o">.</span><span class="n">iter_eval</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;val&quot;</span><span class="p">):</span>         <span class="c1"># → DTDGBatch</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">run_eval_step</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="using-schedulersession">
+<h2>Using SchedulerSession<a class="headerlink" href="#using-schedulersession" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.session</span> <span class="kn">import</span> <span class="n">SchedulerSession</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.types</span> <span class="kn">import</span> <span class="n">SessionContext</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">ctx</span> <span class="o">=</span> <span class="n">SessionContext</span><span class="p">(</span>
+    <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+    <span class="n">project_root</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span>
+    <span class="n">artifact_root</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/mnt/data/zlj/starrygl-artifacts/rec-amazon-ratings&quot;</span><span class="p">),</span>
+    <span class="n">dist</span><span class="o">=</span><span class="n">dist_ctx</span><span class="p">,</span>
+    <span class="o">...</span>
+<span class="p">)</span>
+<span class="n">session</span> <span class="o">=</span> <span class="n">SchedulerSession</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">model_spec</span><span class="o">=...</span><span class="p">,</span> <span class="n">task_adapter</span><span class="o">=...</span><span class="p">)</span>
+
+<span class="c1"># single process</span>
+<span class="n">session</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">()</span>          <span class="c1"># runs FlareDTDGPreprocessor</span>
+
+<span class="c1"># multi-process (launched by torchrun)</span>
+<span class="n">session</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">()</span>         <span class="c1"># creates FlareRuntimeLoader + DDP model</span>
+<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">epochs</span><span class="p">):</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="s2">&quot;val&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="multi-gpu-notes">
+<h2>Multi-GPU Notes<a class="headerlink" href="#multi-gpu-notes" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">prepare</span></code> as a <strong>single process</strong> (no <code class="docutils literal notranslate"><span class="pre">torchrun</span></code>).
+It reads <code class="docutils literal notranslate"><span class="pre">dist.world_size</span></code> from the config and generates that many partition files.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train</span></code> and <code class="docutils literal notranslate"><span class="pre">predict</span></code> must be launched with
+<code class="docutils literal notranslate"><span class="pre">torchrun</span> <span class="pre">--nproc_per_node=&lt;world_size&gt;</span></code>.</p></li>
+<li><p>Each rank automatically loads <code class="docutils literal notranslate"><span class="pre">part_&lt;rank&gt;.pth</span></code>; no manual sharding is needed.</p></li>
+<li><p>DDP gradient synchronization is handled internally by <code class="docutils literal notranslate"><span class="pre">init_flare_training()</span></code>.</p></li>
+</ul>
+</section>
+<section id="performance-tips">
+<h2>Performance Tips<a class="headerlink" href="#performance-tips" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Increase <code class="docutils literal notranslate"><span class="pre">model.window.size</span></code> to capture longer temporal dependencies (uses more
+GPU memory).</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">dtdg.chunk_order:</span> <span class="pre">rand</span></code> to randomize cluster ordering and reduce locality bias.</p></li>
+<li><p>Reduce <code class="docutils literal notranslate"><span class="pre">train.snaps</span></code> or <code class="docutils literal notranslate"><span class="pre">train.batch_size</span></code> if running out of memory.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">STGraphLoader</span></code> uses <code class="docutils literal notranslate"><span class="pre">pin_memory</span></code> and a dedicated <code class="docutils literal notranslate"><span class="pre">torch.cuda.Stream</span></code> for
+asynchronous CPU-to-GPU transfer; this is enabled automatically.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

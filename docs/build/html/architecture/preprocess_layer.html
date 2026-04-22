@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unified Preprocessing Pipeline &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Protocol Reference" href="protocols.html" />
+    <link rel="prev" title="Route Layer Reference" href="route_layer.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="__init__.html">Architecture &amp; Layer Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html">Data Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html">Route Layer Reference</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Unified Preprocessing Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html">Protocol Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html">Artifact Format Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html">Unified Training Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html">Reusable Model Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="__init__.html">Architecture &amp; Layer Reference</a></li>
+      <li class="breadcrumb-item active">Unified Preprocessing Pipeline</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/architecture/preprocess_layer.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="unified-preprocessing-pipeline">
+<h1>Unified Preprocessing Pipeline<a class="headerlink" href="#unified-preprocessing-pipeline" title="Link to this heading"></a></h1>
+<p>The preprocessing layer transforms raw temporal graph data into partition-aware
+artifacts that the runtime can load directly. All supported graph modes follow
+the same high-level lifecycle:</p>
+<ol class="arabic simple">
+<li><p>load raw temporal data</p></li>
+<li><p>partition or chunk that data according to the graph mode</p></li>
+<li><p>emit serialized artifacts for later distributed execution</p></li>
+</ol>
+<p>This shared structure is exposed through the preprocessing contracts in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph.preprocess</span></code> and coordinated by
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph.session.SchedulerSession</span></code>.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The base protocol lives in <code class="docutils literal notranslate"><span class="pre">starry_unigraph.preprocess.base</span></code> and defines the
+common responsibilities for preprocessing implementations.</p>
+<p>The current codebase contains three main entry points:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">starry_unigraph.backends.ctdg.preprocess</span></code> for continuous-time event
+streams</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">starry_unigraph.backends.dtdg.preprocess</span></code> for discrete-time snapshot
+preparation</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">starry_unigraph.preprocess.chunk</span></code> for the experimental chunk path</p></li>
+</ul>
+</section>
+<section id="ctdg-preprocessing">
+<h2>CTDG Preprocessing<a class="headerlink" href="#ctdg-preprocessing" title="Link to this heading"></a></h2>
+<p>For CTDG workloads, preprocessing keeps time continuous and prepares the event
+stream for distributed chronological execution.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Raw events
+    ↓
+event partitioning
+    ↓
+routing / sampling metadata generation
+    ↓
+serialized CTDG artifacts
+</pre></div>
+</div>
+<p>The CTDG preprocessor is responsible for:</p>
+<ul class="simple">
+<li><p>loading timestamped interactions and optional node or edge features</p></li>
+<li><p>partitioning events for distributed workers</p></li>
+<li><p>generating metadata used by temporal neighbor sampling</p></li>
+<li><p>emitting partition artifacts for train, eval, and predict phases</p></li>
+</ul>
+</section>
+<section id="dtdg-preprocessing">
+<h2>DTDG Preprocessing<a class="headerlink" href="#dtdg-preprocessing" title="Link to this heading"></a></h2>
+<p>For DTDG workloads, preprocessing first organizes the temporal graph into
+snapshots and then prepares partition-aware runtime payloads for sliding-window
+training.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Raw events
+    ↓
+snapshot construction
+    ↓
+structural partitioning
+    ↓
+route planning
+    ↓
+serialized DTDG artifacts
+</pre></div>
+</div>
+<p>The DTDG preprocessor is responsible for:</p>
+<ul class="simple">
+<li><p>bucketing events into ordered snapshots</p></li>
+<li><p>constructing per-snapshot graph payloads</p></li>
+<li><p>partitioning topology for distributed execution</p></li>
+<li><p>materializing route metadata consumed by the DTDG runtime loader</p></li>
+</ul>
+</section>
+<section id="chunk-preprocessing">
+<h2>Chunk Preprocessing<a class="headerlink" href="#chunk-preprocessing" title="Link to this heading"></a></h2>
+<p>The chunk path is experimental. It compiles temporal workloads into smaller
+spatio-temporal units that can later be scheduled with finer granularity.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Raw events or snapshots
+    ↓
+temporal slicing
+    ↓
+topology-local grouping
+    ↓
+chunk dependency construction
+    ↓
+serialized chunk artifacts
+</pre></div>
+</div>
+<p>The chunk preprocessor is responsible for:</p>
+<ul class="simple">
+<li><p>defining chunk boundaries in time and topology</p></li>
+<li><p>recording chunk dependency metadata</p></li>
+<li><p>emitting chunk payloads and scheduling-oriented manifests</p></li>
+</ul>
+</section>
+<section id="dispatch-in-schedulersession">
+<h2>Dispatch in <code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code><a class="headerlink" href="#dispatch-in-schedulersession" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SchedulerSession.prepare_data()</span></code> is the library-level entry point that
+selects the correct preprocessor based on <code class="docutils literal notranslate"><span class="pre">data.graph_mode</span></code> and the active
+configuration.</p>
+<p>At a high level, the dispatch looks like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;ctdg&quot;</span><span class="p">:</span>
+    <span class="n">preprocessor</span> <span class="o">=</span> <span class="n">CTDGPreprocessor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="k">elif</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;dtdg&quot;</span><span class="p">:</span>
+    <span class="n">preprocessor</span> <span class="o">=</span> <span class="n">DTDGPreprocessor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="k">elif</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;chunk&quot;</span><span class="p">:</span>
+    <span class="n">preprocessor</span> <span class="o">=</span> <span class="n">ChunkPreprocessor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported graph_mode: </span><span class="si">{</span><span class="n">graph_mode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">preprocessor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This gives StarryGL a consistent user-facing lifecycle even though the actual
+partitioning and serialization logic differs by backend.</p>
+</section>
+<section id="extending-the-preprocessing-layer">
+<h2>Extending the Preprocessing Layer<a class="headerlink" href="#extending-the-preprocessing-layer" title="Link to this heading"></a></h2>
+<p>To add a new preprocessing path, implement the preprocessing contract, register
+the new mode in the session-level dispatcher, and provide a runtime loader that
+can consume the emitted artifacts.</p>
+<p>In practice, that means defining:</p>
+<ul class="simple">
+<li><p>how raw temporal data is loaded</p></li>
+<li><p>how it is partitioned or chunked</p></li>
+<li><p>which manifests and payloads are written to disk</p></li>
+<li><p>how the corresponding runtime reconstructs execution objects later</p></li>
+</ul>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="artifact_format.html"><span class="doc">Artifact Format Reference</span></a> for the serialized outputs produced here</p></li>
+<li><p><a class="reference internal" href="data_layer.html"><span class="doc">Data Layer Reference</span></a> for the in-memory objects used after loading artifacts</p></li>
+<li><p><a class="reference internal" href="route_layer.html"><span class="doc">Route Layer Reference</span></a> for the communication metadata built during preprocessing</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="route_layer.html" class="btn btn-neutral float-left" title="Route Layer Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="protocols.html" class="btn btn-neutral float-right" title="Protocol Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

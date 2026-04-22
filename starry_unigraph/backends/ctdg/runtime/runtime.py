@@ -94,12 +94,31 @@ class CTDGOnlineRuntime:
         # (matches MemShare: sample negatives only from nodes that appear as dst)
         self._dst_node_pool: torch.Tensor | None = None
 
+    def _empty_result(self, batch: CTDGDataBatch, split: str) -> dict[str, Any]:
+        return {
+            "loss": 0.0,
+            "predictions": [],
+            "targets": [],
+            "meta": {
+                "split": split,
+                "batch_size": 0,
+                "metrics": {},
+                "memory": self.memory.describe(),
+                "empty_batch": True,
+            },
+        }
+
+    def _ddp_safe_zero_loss(self) -> torch.Tensor:
+        model_core = self.model.module if hasattr(self.model, "module") else self.model
+        zero = next(model_core.parameters()).sum() * 0.0
+        if self.memory_updater is not None:
+            zero = zero + next(self.memory_updater.parameters()).sum() * 0.0
+        return zero
+
     def iter_batches(self, split: str, batch_size: int) -> Iterable[CTDGDataBatch]:
         yield from self.dataset.iter_batches(
             split=split,
             batch_size=batch_size,
-            rank=self.dist_ctx.rank,
-            world_size=self.dist_ctx.world_size,
         )
 
     def _negative_sample(self, batch: CTDGDataBatch) -> torch.Tensor:
@@ -226,6 +245,18 @@ class CTDGOnlineRuntime:
         self.memory.wait_pending_syncs()
         sync_wait_ms = (time.perf_counter() - t_wait0) * 1000.0
 
+        if batch.is_empty:
+            self.optimizer.zero_grad(set_to_none=True)
+            loss = self._ddp_safe_zero_loss()
+            loss.backward()
+            self.optimizer.step()
+            self._sync_updater_params()
+            result = self._empty_result(batch, split=batch.split)
+            result["meta"]["sync_wait_ms"] = sync_wait_ms
+            result["meta"]["sync_submit_ms"] = 0.0
+            result["meta"]["step_ms"] = (time.perf_counter() - t_step0) * 1000.0
+            return result
+
         # Step 2: negative sampling + BTS sampling
         prepared = self._prepare(batch)
         src = batch.src.to(dev)
@@ -313,6 +344,8 @@ class CTDGOnlineRuntime:
         self.model.eval()
         dev = self.device
         with torch.no_grad():
+            if batch.is_empty:
+                return self._empty_result(batch, split=split)
             prepared = self._prepare(batch)
             src = batch.src.to(dev)
             dst = batch.dst.to(dev)

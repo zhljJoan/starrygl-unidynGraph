@@ -39,6 +39,7 @@ class SessionContext:
     dist: DistributedContext
     warnings: list[str] = field(default_factory=list)
     provider_state: dict[str, Any] = field(default_factory=dict)
+    prepared_artifacts: "PreparedArtifacts | None" = None
 
 
 @dataclass

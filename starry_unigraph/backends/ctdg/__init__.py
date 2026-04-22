@@ -15,6 +15,7 @@ from .runtime import (
     CTDGSampleOutput,
     NativeTemporalSampler,
     TGTemporalDataset,
+    build_ctdg_model,
 )
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "CTDGSampleOutput",
     "NativeTemporalSampler",
     "TGTemporalDataset",
+    "build_ctdg_model",
 ]

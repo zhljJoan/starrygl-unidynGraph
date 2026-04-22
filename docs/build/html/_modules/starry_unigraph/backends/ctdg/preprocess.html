@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.backends.ctdg.preprocess &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.backends.ctdg.preprocess</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for starry_unigraph.backends.ctdg.preprocess</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;CTDG preprocessing pipeline.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span> <span class="nn">starry_unigraph.preprocess.base</span> <span class="kn">import</span> <span class="n">ArtifactOutput</span><span class="p">,</span> <span class="n">ArtifactPayload</span><span class="p">,</span> <span class="n">GraphPreprocessor</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.types</span> <span class="kn">import</span> <span class="n">PreparedArtifacts</span><span class="p">,</span> <span class="n">SessionContext</span>
+
+<span class="n">ARTIFACT_VERSION</span> <span class="o">=</span> <span class="mi">1</span>
+
+
+<div class="viewcode-block" id="CTDGPreprocessor">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGPreprocessor">[docs]</a>
+<span class="k">class</span> <span class="nc">CTDGPreprocessor</span><span class="p">(</span><span class="n">GraphPreprocessor</span><span class="p">):</span>
+    <span class="n">graph_mode</span> <span class="o">=</span> <span class="s2">&quot;ctdg&quot;</span>
+
+<div class="viewcode-block" id="CTDGPreprocessor.prepare_raw">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGPreprocessor.prepare_raw">[docs]</a>
+    <span class="k">def</span> <span class="nf">prepare_raw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">.runtime.data</span> <span class="kn">import</span> <span class="n">TGTemporalDataset</span>
+        <span class="n">dataset_root</span> <span class="o">=</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">dataset_path</span> <span class="ow">or</span> <span class="n">Path</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">][</span><span class="s2">&quot;root&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">TGTemporalDataset</span><span class="p">(</span>
+            <span class="n">dataset_root</span><span class="p">,</span>
+            <span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+            <span class="n">split_ratio</span><span class="o">=</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;split_ratio&quot;</span><span class="p">),</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;ctdg_dataset_stats&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="CTDGPreprocessor.build_partitions">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGPreprocessor.build_partitions">[docs]</a>
+    <span class="k">def</span> <span class="nf">build_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">.runtime.data</span> <span class="kn">import</span> <span class="n">TGTemporalDataset</span>
+        <span class="kn">from</span> <span class="nn">.preprocess_partition</span> <span class="kn">import</span> <span class="n">build_round_robin_node_parts</span><span class="p">,</span> <span class="n">derive_edge_parts</span><span class="p">,</span> <span class="n">speed_partition</span>
+
+        <span class="n">stats</span> <span class="o">=</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;ctdg_dataset_stats&quot;</span><span class="p">]</span>
+        <span class="n">partition_algo</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;graph&quot;</span><span class="p">][</span><span class="s2">&quot;partition&quot;</span><span class="p">])</span>
+        <span class="n">num_parts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;dist&quot;</span><span class="p">][</span><span class="s2">&quot;world_size&quot;</span><span class="p">])</span>
+
+        <span class="n">dataset_root</span> <span class="o">=</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">dataset_path</span> <span class="ow">or</span> <span class="n">Path</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">][</span><span class="s2">&quot;root&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">TGTemporalDataset</span><span class="p">(</span>
+            <span class="n">dataset_root</span><span class="p">,</span>
+            <span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+            <span class="n">split_ratio</span><span class="o">=</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;split_ratio&quot;</span><span class="p">),</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">node_parts</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">edge_parts</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">partition_algo</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;speed&quot;</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing SPEED partitioning for </span><span class="si">{</span><span class="n">num_parts</span><span class="si">}</span><span class="s2"> partitions...&quot;</span><span class="p">)</span>
+                <span class="n">node_parts</span><span class="p">,</span> <span class="n">edge_parts</span> <span class="o">=</span> <span class="n">speed_partition</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">num_parts</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+                <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;node_parts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">node_parts</span>
+                <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;edge_parts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">edge_parts</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SPEED partitioning complete: </span><span class="si">{</span><span class="n">node_parts</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span><span class="si">}</span><span class="s2"> partitions assigned&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: SPEED partitioning failed (</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">), falling back to round-robin&quot;</span><span class="p">)</span>
+                <span class="n">node_parts</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">edge_parts</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">node_parts</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">num_parts</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">node_parts</span> <span class="o">=</span> <span class="n">build_round_robin_node_parts</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">num_parts</span><span class="p">)</span>
+            <span class="n">edge_parts</span> <span class="o">=</span> <span class="n">derive_edge_parts</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">src</span><span class="p">,</span> <span class="n">node_parts</span><span class="p">)</span>
+            <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;node_parts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">node_parts</span>
+            <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;edge_parts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">edge_parts</span>
+
+        <span class="k">if</span> <span class="n">edge_parts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">batch_plan</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">split_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">):</span>
+                <span class="n">split_eids</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">split_event_ids</span><span class="p">(</span><span class="n">split_name</span><span class="p">)</span>
+                <span class="n">local_counts</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">part_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_parts</span><span class="p">):</span>
+                    <span class="n">local_counts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">((</span><span class="n">edge_parts</span><span class="p">[</span><span class="n">split_eids</span><span class="p">]</span> <span class="o">==</span> <span class="n">part_id</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
+                <span class="n">batch_plan</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;num_events&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">split_eids</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span>
+                    <span class="s2">&quot;global_batches_per_local_batch&quot;</span><span class="p">:</span> <span class="n">num_parts</span><span class="p">,</span>
+                    <span class="s2">&quot;max_local_events_per_part&quot;</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span><span class="n">local_counts</span><span class="p">)</span> <span class="k">if</span> <span class="n">local_counts</span> <span class="k">else</span> <span class="mi">0</span><span class="p">,</span>
+                    <span class="s2">&quot;min_local_events_per_part&quot;</span><span class="p">:</span> <span class="nb">min</span><span class="p">(</span><span class="n">local_counts</span><span class="p">)</span> <span class="k">if</span> <span class="n">local_counts</span> <span class="k">else</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;batch_plan&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">batch_plan</span>
+
+        <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;partition_manifest&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;graph_mode&quot;</span><span class="p">:</span> <span class="s2">&quot;ctdg&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;num_parts&quot;</span><span class="p">:</span> <span class="n">num_parts</span><span class="p">,</span>
+            <span class="s2">&quot;partition_algo&quot;</span><span class="p">:</span> <span class="n">partition_algo</span><span class="p">,</span>
+            <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;num_nodes&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;num_edges&quot;</span><span class="p">:</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;num_edges&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;has_node_parts&quot;</span><span class="p">:</span> <span class="n">node_parts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">&quot;has_edge_parts&quot;</span><span class="p">:</span> <span class="n">edge_parts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">&quot;edge_owner&quot;</span><span class="p">:</span> <span class="s2">&quot;src_node_partition&quot;</span> <span class="k">if</span> <span class="n">edge_parts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="CTDGPreprocessor.build_runtime_artifacts">
+<a class="viewcode-back" href="../../../../api/python/starry_unigraph.backends.ctdg.html#starry_unigraph.backends.ctdg.CTDGPreprocessor.build_runtime_artifacts">[docs]</a>
+    <span class="k">def</span> <span class="nf">build_runtime_artifacts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedArtifacts</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">.runtime.route</span> <span class="kn">import</span> <span class="n">CTDGFeatureRoute</span>
+        <span class="n">stats</span> <span class="o">=</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;ctdg_dataset_stats&quot;</span><span class="p">]</span>
+        <span class="n">feature_route</span> <span class="o">=</span> <span class="n">CTDGFeatureRoute</span><span class="p">(</span>
+            <span class="n">route_type</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;graph&quot;</span><span class="p">][</span><span class="s2">&quot;route&quot;</span><span class="p">]),</span>
+            <span class="n">world_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;dist&quot;</span><span class="p">][</span><span class="s2">&quot;world_size&quot;</span><span class="p">]),</span>
+        <span class="p">)</span>
+        <span class="n">provider_meta</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;graph_mode&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_mode</span><span class="p">,</span>
+            <span class="s2">&quot;artifact_version&quot;</span><span class="p">:</span> <span class="n">ARTIFACT_VERSION</span><span class="p">,</span>
+            <span class="s2">&quot;num_parts&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;dist&quot;</span><span class="p">][</span><span class="s2">&quot;world_size&quot;</span><span class="p">]),</span>
+            <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;num_nodes&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;num_edges&quot;</span><span class="p">:</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;num_edges&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;feature_dim&quot;</span><span class="p">:</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;edge_feat_dim&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;task&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;feature_route_plan&quot;</span><span class="p">:</span> <span class="n">feature_route</span><span class="o">.</span><span class="n">describe</span><span class="p">(),</span>
+            <span class="s2">&quot;partition_algo&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;graph&quot;</span><span class="p">][</span><span class="s2">&quot;partition&quot;</span><span class="p">]),</span>
+            <span class="s2">&quot;edge_owner&quot;</span><span class="p">:</span> <span class="s2">&quot;src_node_partition&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;batch_alignment&quot;</span><span class="p">:</span> <span class="s2">&quot;global_time_window&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ArtifactOutput</span><span class="p">(</span><span class="s2">&quot;partitions/manifest.json&quot;</span><span class="p">,</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;partition_manifest&quot;</span><span class="p">]),</span>
+            <span class="n">ArtifactOutput</span><span class="p">(</span><span class="s2">&quot;routes/manifest.json&quot;</span><span class="p">,</span> <span class="n">feature_route</span><span class="o">.</span><span class="n">describe</span><span class="p">()),</span>
+            <span class="n">ArtifactOutput</span><span class="p">(</span><span class="s2">&quot;sampling/index.json&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">],</span> <span class="o">**</span><span class="n">stats</span><span class="p">}),</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Save node_parts tensor if available</span>
+        <span class="k">if</span> <span class="s2">&quot;node_parts&quot;</span> <span class="ow">in</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">:</span>
+            <span class="n">node_parts</span> <span class="o">=</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;node_parts&quot;</span><span class="p">]</span>
+            <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ArtifactOutput</span><span class="p">(</span><span class="s2">&quot;partitions/node_parts.pt&quot;</span><span class="p">,</span> <span class="n">node_parts</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s2">&quot;torch&quot;</span><span class="p">))</span>
+            <span class="n">provider_meta</span><span class="p">[</span><span class="s2">&quot;has_node_parts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="s2">&quot;edge_parts&quot;</span> <span class="ow">in</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">:</span>
+            <span class="n">edge_parts</span> <span class="o">=</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;edge_parts&quot;</span><span class="p">]</span>
+            <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ArtifactOutput</span><span class="p">(</span><span class="s2">&quot;partitions/edge_parts.pt&quot;</span><span class="p">,</span> <span class="n">edge_parts</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s2">&quot;torch&quot;</span><span class="p">))</span>
+            <span class="n">provider_meta</span><span class="p">[</span><span class="s2">&quot;has_edge_parts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="s2">&quot;batch_plan&quot;</span> <span class="ow">in</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">:</span>
+            <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ArtifactOutput</span><span class="p">(</span><span class="s2">&quot;sampling/boundaries.json&quot;</span><span class="p">,</span> <span class="n">session_ctx</span><span class="o">.</span><span class="n">provider_state</span><span class="p">[</span><span class="s2">&quot;batch_plan&quot;</span><span class="p">]))</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">emit_artifacts</span><span class="p">(</span>
+            <span class="n">session_ctx</span><span class="p">,</span>
+            <span class="n">ArtifactPayload</span><span class="p">(</span>
+                <span class="n">provider_meta</span><span class="o">=</span><span class="n">provider_meta</span><span class="p">,</span>
+                <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

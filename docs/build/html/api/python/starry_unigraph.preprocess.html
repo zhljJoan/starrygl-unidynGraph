@@ -22,7 +22,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="starry_unigraph.preprocess.base module" href="starry_unigraph.preprocess.base.html" />
-    <link rel="prev" title="starry_unigraph.native.bts_sampler module" href="starry_unigraph.native.bts_sampler.html" /> 
+    <link rel="prev" title="starry_unigraph.registry.model_registry module" href="starry_unigraph.registry.model_registry.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,17 +47,34 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
-<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.html#subpackages">Subpackages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html">starry_unigraph.backends package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.html">starry_unigraph.data package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.tasks.html">starry_unigraph.tasks package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.registry.html">starry_unigraph.registry package</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">starry_unigraph.preprocess package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.checkpoint.html">starry_unigraph.checkpoint package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.cli.html">starry_unigraph.cli package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.native.html">starry_unigraph.native package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.distributed.html">starry_unigraph.distributed module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.session.html">starry_unigraph.session module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.types.html">starry_unigraph.types module</a></li>
 </ul>
 </li>
 </ul>
@@ -228,29 +245,6 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html">starry_unigraph.preprocess.dtdg_prepare module</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader"><code class="docutils literal notranslate"><span class="pre">WebDataLoader</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.batch_size"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.batch_size</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.edge_file"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.edge_file</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.fallback_snaps"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.fallback_snaps</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.get_dataset"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.get_dataset()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.lags"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.lags</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.name"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.name</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.sep"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.sep</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.skiprows"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.skiprows</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.skiptime"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.skiptime</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.use_batch_split"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.use_batch_split</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.WebDataLoader.window"><code class="docutils literal notranslate"><span class="pre">WebDataLoader.window</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.apply_partition"><code class="docutils literal notranslate"><span class="pre">apply_partition()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.build_dtdg_partitions"><code class="docutils literal notranslate"><span class="pre">build_dtdg_partitions()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.build_flare_partition_data_list"><code class="docutils literal notranslate"><span class="pre">build_flare_partition_data_list()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.build_partition_input_from_raw_dataset"><code class="docutils literal notranslate"><span class="pre">build_partition_input_from_raw_dataset()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.build_web_data_loader"><code class="docutils literal notranslate"><span class="pre">build_web_data_loader()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.preprocess.dtdg_prepare.html#starry_unigraph.preprocess.dtdg_prepare.normalize_snapshot_count"><code class="docutils literal notranslate"><span class="pre">normalize_snapshot_count()</span></code></a></li>
-</ul>
-</li>
 </ul>
 </div>
 </section>
@@ -260,7 +254,7 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="starry_unigraph.native.bts_sampler.html" class="btn btn-neutral float-left" title="starry_unigraph.native.bts_sampler module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.registry.model_registry.html" class="btn btn-neutral float-left" title="starry_unigraph.registry.model_registry module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="starry_unigraph.preprocess.base.html" class="btn btn-neutral float-right" title="starry_unigraph.preprocess.base module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

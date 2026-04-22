@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Layer Reference &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Route Layer Reference" href="route_layer.html" />
+    <link rel="prev" title="Architecture &amp; Layer Reference" href="__init__.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="__init__.html">Architecture &amp; Layer Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Data Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html">Route Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html">Unified Preprocessing Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html">Protocol Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html">Artifact Format Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html">Unified Training Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html">Reusable Model Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="__init__.html">Architecture &amp; Layer Reference</a></li>
+      <li class="breadcrumb-item active">Data Layer Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/architecture/data_layer.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="data-layer-reference">
+<h1>Data Layer Reference<a class="headerlink" href="#data-layer-reference" title="Link to this heading"></a></h1>
+<p>The data layer defines unified data structures that represent graph data uniformly
+across all three backends (CTDG, DTDG, Chunk). These structures form the contract
+between preprocessors and runtime modules.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The data layer consists of:</p>
+<ol class="arabic simple">
+<li><p><strong>Temporal Data Types</strong> (raw, unpartitioned)
+- <code class="docutils literal notranslate"><span class="pre">RawTemporalEvents</span></code> — event stream (timestamp, src, dst, features)
+- Event loading and conversion utilities</p></li>
+<li><p><strong>Partitioned Data Types</strong> (after graph partitioning)
+- <code class="docutils literal notranslate"><span class="pre">PartitionData</span></code> — per-partition snapshot dataset
+- <code class="docutils literal notranslate"><span class="pre">RouteData</span></code> — routing metadata for feature exchange
+- <code class="docutils literal notranslate"><span class="pre">TensorData</span></code> — CSR-packed tensor lists for efficient storage</p></li>
+<li><p><strong>Unified Batch Types</strong> (used by training loop)
+- <code class="docutils literal notranslate"><span class="pre">BatchData</span></code> — unified batch container (all modes + tasks)
+- <code class="docutils literal notranslate"><span class="pre">SampleConfig</span></code> — task-specific sampling parameters</p></li>
+<li><p><strong>Atomic/Chunked Units</strong> (for chunk-based processing)
+- <code class="docutils literal notranslate"><span class="pre">ChunkAtomic</span></code> — time-slice × node-cluster atomic unit
+- <code class="docutils literal notranslate"><span class="pre">ChunkBuilder</span></code> — time + node partitioning pipeline</p></li>
+<li><p><strong>Feature Access Protocols</strong>
+- <code class="docutils literal notranslate"><span class="pre">FeatureStore</span></code> — node/edge feature shard storage
+- <code class="docutils literal notranslate"><span class="pre">GlobalCSR</span></code> — full-graph CSR adjacency access</p></li>
+</ol>
+</section>
+<section id="core-data-structures">
+<h2>Core Data Structures<a class="headerlink" href="#core-data-structures" title="Link to this heading"></a></h2>
+<section id="batchdata-unified-batch-container">
+<h3><code class="docutils literal notranslate"><span class="pre">BatchData</span></code> — Unified Batch Container<a class="headerlink" href="#batchdata-unified-batch-container" title="Link to this heading"></a></h3>
+<p>Used by all training loops (PipelineEngine) to represent a single batch.
+Works identically for CTDG, DTDG, and Chunk modes.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">BatchData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unified batch across all graph modes and tasks.&quot;&quot;&quot;</span>
+    <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span>          <span class="c1"># [B] node IDs (for supervised tasks)</span>
+    <span class="n">edges</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span>      <span class="c1"># [2, E] edge pairs (for link prediction)</span>
+    <span class="n">labels</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span>     <span class="c1"># [B, K] or [B] labels</span>
+    <span class="n">timestamps</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="c1"># [E] edge timestamps or [B] node times</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>  <span class="c1"># Mode/task-specific fields</span>
+</pre></div>
+</div>
+<p>Usage in training:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">batch</span> <span class="o">=</span> <span class="n">BatchData</span><span class="p">(</span>
+    <span class="n">node_ids</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">12</span><span class="p">]),</span>
+    <span class="n">edges</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]]),</span>
+    <span class="n">labels</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">]]),</span>
+    <span class="n">timestamps</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">100.5</span><span class="p">,</span> <span class="mf">102.3</span><span class="p">]),</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="s2">&quot;train&quot;</span><span class="p">}</span>
+<span class="p">)</span>
+<span class="c1"># Pass to model forward(), task adapter computes loss/metrics</span>
+</pre></div>
+</div>
+</section>
+<section id="sampleconfig-task-specific-sampling-parameters">
+<h3><code class="docutils literal notranslate"><span class="pre">SampleConfig</span></code> — Task-Specific Sampling Parameters<a class="headerlink" href="#sampleconfig-task-specific-sampling-parameters" title="Link to this heading"></a></h3>
+<p>Encapsulates how a task samples neighbors/time windows before materialization.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">SampleConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Task-specific sampling configuration.&quot;&quot;&quot;</span>
+    <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># &quot;edge_predict&quot;, &quot;node_regress&quot;, &quot;node_classify&quot;</span>
+    <span class="n">num_hops</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>      <span class="c1"># Multi-hop neighborhoods</span>
+    <span class="n">num_neighbors</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="c1"># Neighbor sampling limit</span>
+    <span class="n">time_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>   <span class="c1"># Temporal lookback window (seconds)</span>
+    <span class="n">neg_sample_ratio</span><span class="p">:</span> <span class="nb">float</span>   <span class="c1"># Negative sampling ratio (edge tasks)</span>
+</pre></div>
+</div>
+</section>
+<section id="tensordata-csr-packed-tensor-lists">
+<h3><code class="docutils literal notranslate"><span class="pre">TensorData</span></code> — CSR-Packed Tensor Lists<a class="headerlink" href="#tensordata-csr-packed-tensor-lists" title="Link to this heading"></a></h3>
+<p>Efficient storage of sparse graph data:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">TensorData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CSR-packed tensor list (efficient sparse representation).&quot;&quot;&quot;</span>
+    <span class="n">rowptr</span><span class="p">:</span> <span class="n">Tensor</span>     <span class="c1"># [N+1] row pointers</span>
+    <span class="n">col</span><span class="p">:</span> <span class="n">Tensor</span>        <span class="c1"># [E] column indices</span>
+    <span class="n">weights</span><span class="p">:</span> <span class="n">Tensor</span>    <span class="c1"># [E] edge weights (optional)</span>
+</pre></div>
+</div>
+<p>Used for both node-to-neighbor CSR and time-series CSR (TCSR) in Chunk mode.</p>
+</section>
+<section id="partitiondata-per-partition-snapshot-dataset">
+<h3><code class="docutils literal notranslate"><span class="pre">PartitionData</span></code> — Per-Partition Snapshot Dataset<a class="headerlink" href="#partitiondata-per-partition-snapshot-dataset" title="Link to this heading"></a></h3>
+<p>Represents all snapshots for a single partition (DTDG):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">PartitionData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;All snapshots for one partition of the graph.&quot;&quot;&quot;</span>
+    <span class="n">partition_id</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">node_map</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>        <span class="c1"># Global → local node ID</span>
+    <span class="n">snapshots</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="c1"># Per-snapshot graph + features</span>
+    <span class="n">routes</span><span class="p">:</span> <span class="n">RouteData</span>                  <span class="c1"># Routing for cross-partition edges</span>
+</pre></div>
+</div>
+</section>
+<section id="routedata-routing-metadata-for-feature-exchange">
+<h3><code class="docutils literal notranslate"><span class="pre">RouteData</span></code> — Routing Metadata for Feature Exchange<a class="headerlink" href="#routedata-routing-metadata-for-feature-exchange" title="Link to this heading"></a></h3>
+<p>Describes how features are routed between partitions in distributed training:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">RouteData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Routing for distributed feature exchange.&quot;&quot;&quot;</span>
+    <span class="n">send_index</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span>  <span class="c1"># [dst_count] local → global ranks</span>
+    <span class="n">recv_index</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span>  <span class="c1"># [src_count] which nodes to fetch from remote</span>
+    <span class="n">send_count</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>      <span class="c1"># How many nodes sent to each rank</span>
+    <span class="n">recv_count</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>      <span class="c1"># How many nodes received from each rank</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="feature-access-protocols">
+<h2>Feature Access Protocols<a class="headerlink" href="#feature-access-protocols" title="Link to this heading"></a></h2>
+<section id="featurestore-node-edge-feature-sharding">
+<h3><code class="docutils literal notranslate"><span class="pre">FeatureStore</span></code> — Node &amp; Edge Feature Sharding<a class="headerlink" href="#featurestore-node-edge-feature-sharding" title="Link to this heading"></a></h3>
+<p>Abstraction for accessing node and edge features (sharded or centralized):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">FeatureStore</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Node and edge feature storage (sharded or centralized).&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">get_node_feat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetch node features by ID. [N, F_node]&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">get_edge_feat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edge_ids</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetch edge features by ID. [E, F_edge]&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">node_feat_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Feature dimension.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">edge_feat_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Edge feature dimension.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">node_feats</span> <span class="o">=</span> <span class="n">feature_store</span><span class="o">.</span><span class="n">get_node_feat</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">node_ids</span><span class="p">)</span>
+<span class="n">edge_feats</span> <span class="o">=</span> <span class="n">feature_store</span><span class="o">.</span><span class="n">get_edge_feat</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">edges</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+</pre></div>
+</div>
+</section>
+<section id="globalcsr-full-graph-csr-adjacency">
+<h3><code class="docutils literal notranslate"><span class="pre">GlobalCSR</span></code> — Full-Graph CSR Adjacency<a class="headerlink" href="#globalcsr-full-graph-csr-adjacency" title="Link to this heading"></a></h3>
+<p>Protocol for accessing graph structure (full adjacency or local partition):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">GlobalCSR</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CSR-format graph adjacency (full or partitioned).&quot;&quot;&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">rowptr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Row pointers [N+1].&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">col</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Column indices [E].&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">neighbors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Neighbors of node_id. [out-degree]&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">subgraph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;GlobalCSR&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract subgraph for node_ids.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Usage (CTDG online):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">csr</span> <span class="o">=</span> <span class="n">global_csr</span>
+<span class="k">for</span> <span class="n">src_id</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">node_ids</span><span class="p">:</span>
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="n">csr</span><span class="o">.</span><span class="n">neighbors</span><span class="p">(</span><span class="n">src_id</span><span class="p">)</span>  <span class="c1"># Sample K neighbors</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="chunked-processing-chunkatomic-chunkbuilder">
+<h2>Chunked Processing: <code class="docutils literal notranslate"><span class="pre">ChunkAtomic</span></code> &amp; <code class="docutils literal notranslate"><span class="pre">ChunkBuilder</span></code><a class="headerlink" href="#chunked-processing-chunkatomic-chunkbuilder" title="Link to this heading"></a></h2>
+<p>For Chunk mode (time + node partitioning):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">ChunkAtomic</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Atomic unit: time-slice × node-cluster.</span>
+
+<span class="sd">    Three-level structure:</span>
+<span class="sd">    - L1: Local TCSR (time-compressed CSR for one cluster)</span>
+<span class="sd">    - L2: Cross-partition neighbors + edges to other clusters</span>
+<span class="sd">    - L3: Scheduling metadata (which GPUs, sync dependencies)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">chunk_id</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">start_time</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">end_time</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">local_tcsr</span><span class="p">:</span> <span class="n">TensorData</span>
+    <span class="n">remote_edges</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="raw-temporal-data-loading-and-conversion">
+<h2>Raw Temporal Data: Loading and Conversion<a class="headerlink" href="#raw-temporal-data-loading-and-conversion" title="Link to this heading"></a></h2>
+<section id="rawtemporalevents-event-stream-loading">
+<h3><code class="docutils literal notranslate"><span class="pre">RawTemporalEvents</span></code> — Event Stream Loading<a class="headerlink" href="#rawtemporalevents-event-stream-loading" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">RawTemporalEvents</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Immutable container for raw temporal events.&quot;&quot;&quot;</span>
+    <span class="n">timestamps</span><span class="p">:</span> <span class="n">Tensor</span>    <span class="c1"># [E]</span>
+    <span class="n">sources</span><span class="p">:</span> <span class="n">Tensor</span>       <span class="c1"># [E]</span>
+    <span class="n">destinations</span><span class="p">:</span> <span class="n">Tensor</span>  <span class="c1"># [E]</span>
+    <span class="n">features</span><span class="p">:</span> <span class="n">Tensor</span>      <span class="c1"># [E, F]</span>
+</pre></div>
+</div>
+<p>Load from CSV:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.data</span> <span class="kn">import</span> <span class="n">load_raw_temporal_events</span>
+
+<span class="n">events</span> <span class="o">=</span> <span class="n">load_raw_temporal_events</span><span class="p">(</span>
+    <span class="n">csv_path</span><span class="o">=</span><span class="s2">&quot;events.csv&quot;</span><span class="p">,</span>
+    <span class="n">time_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">src_col</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dst_col</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">feat_col</span><span class="o">=</span><span class="mi">3</span>
+<span class="p">)</span>
+<span class="c1"># events.timestamps [E], events.sources [E], etc.</span>
+</pre></div>
+</div>
+<p>Snapshot Conversion:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.data</span> <span class="kn">import</span> <span class="n">build_snapshot_dataset_from_events</span>
+
+<span class="n">snapshots</span> <span class="o">=</span> <span class="n">build_snapshot_dataset_from_events</span><span class="p">(</span>
+    <span class="n">events</span><span class="p">,</span>
+    <span class="n">time_window</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># 1-hour snapshots</span>
+    <span class="n">max_nodes</span><span class="o">=</span><span class="mi">10000</span>
+<span class="p">)</span>
+<span class="c1"># List[Dict[str, Tensor]] — one dict per snapshot</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="data-flow-example">
+<h2>Data Flow Example<a class="headerlink" href="#data-flow-example" title="Link to this heading"></a></h2>
+<p>Here’s how data flows from raw → partitioned → training:</p>
+<ol class="arabic">
+<li><p><strong>Load Raw Events</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">events</span> <span class="o">=</span> <span class="n">load_raw_temporal_events</span><span class="p">(</span><span class="s2">&quot;data/events.csv&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Preprocess &amp; Partition</strong> (via preprocessor):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">preprocessor</span> <span class="o">=</span> <span class="n">CTDGPreprocessor</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">artifacts</span> <span class="o">=</span> <span class="n">preprocessor</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">(</span><span class="n">raw_events</span><span class="p">)</span>
+<span class="c1"># artifacts contains: PartitionData list, RouteData, feature stores</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Runtime Materializes Batches</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">backend</span> <span class="o">=</span> <span class="n">CTDGGraphBackend</span><span class="p">(</span><span class="n">artifacts</span><span class="o">.</span><span class="n">partitions</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">backend</span><span class="o">.</span><span class="n">iter_batches</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">):</span>
+    <span class="c1"># batch is BatchData</span>
+    <span class="n">forward_out</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Task Adapter Computes Loss</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">adapter</span> <span class="o">=</span> <span class="n">task_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;edge_predict&quot;</span><span class="p">)</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span><span class="n">forward_out</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+    <span class="n">metrics</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">compute_metrics</span><span class="p">(</span><span class="n">forward_out</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="route_layer.html"><span class="doc">Route Layer Reference</span></a> — How BatchData is assembled from partitions</p></li>
+<li><p><a class="reference internal" href="protocols.html"><span class="doc">Protocol Reference</span></a> — Task and model protocols that consume BatchData</p></li>
+<li><p><a class="reference internal" href="unified_pipeline.html"><span class="doc">Unified Training Pipeline</span></a> — PipelineEngine orchestrates data flow</p></li>
+<li><p><a class="reference internal" href="artifact_format.html"><span class="doc">Artifact Format Reference</span></a> — Serialized PartitionData and RouteData on disk</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="__init__.html" class="btn btn-neutral float-left" title="Architecture &amp; Layer Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="route_layer.html" class="btn btn-neutral float-right" title="Route Layer Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

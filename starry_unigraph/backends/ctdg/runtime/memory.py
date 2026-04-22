@@ -358,7 +358,7 @@ class CTDGMemoryBank:
 
         # Determine owner: use node_parts if available, else fall back to modulo
         if self.node_parts is not None:
-            owner = self.node_parts[node_ids].long()
+            owner = self.node_parts[node_ids.cpu()].long().to(self.device)
         else:
             owner = torch.remainder(node_ids, ctx.world_size).long()
 
@@ -449,7 +449,10 @@ class CTDGMemoryBank:
         node_ids = node_ids.detach().long().to(self.device)
         slots = mail_slots.detach().float().to(self.device)
         ts = mail_ts.detach().float().to(self.device)
-        owner = torch.remainder(node_ids, ctx.world_size).long()
+        if self.node_parts is not None:
+            owner = self.node_parts[node_ids.cpu()].long().to(self.device)
+        else:
+            owner = torch.remainder(node_ids, ctx.world_size).long()
         remote_mask = owner != ctx.rank
         if not remote_mask.any():
             return

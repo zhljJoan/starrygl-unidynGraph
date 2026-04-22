@@ -22,7 +22,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="starry_unigraph.tasks.base module" href="starry_unigraph.tasks.base.html" />
-    <link rel="prev" title="starry_unigraph.runtime.base module" href="starry_unigraph.runtime.base.html" /> 
+    <link rel="prev" title="starry_unigraph.data.chunk_atomic module" href="starry_unigraph.data.chunk_atomic.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,17 +47,34 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
-<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.html#subpackages">Subpackages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html">starry_unigraph.backends package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.data.html">starry_unigraph.data package</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">starry_unigraph.tasks package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.registry.html">starry_unigraph.registry package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.preprocess.html">starry_unigraph.preprocess package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.checkpoint.html">starry_unigraph.checkpoint package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.cli.html">starry_unigraph.cli package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.native.html">starry_unigraph.native package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.distributed.html">starry_unigraph.distributed module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.session.html">starry_unigraph.session module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.types.html">starry_unigraph.types module</a></li>
 </ul>
 </li>
 </ul>
@@ -99,15 +116,43 @@
 <dt class="sig sig-object py" id="starry_unigraph.tasks.BaseTaskAdapter">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.tasks.</span></span><span class="sig-name descname"><span class="pre">BaseTaskAdapter</span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/base.html#BaseTaskAdapter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.BaseTaskAdapter" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Base class for task adapters. Subclass for specific tasks.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.BaseTaskAdapter.build_sample_config">
+<span class="sig-name descname"><span class="pre">build_sample_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig" title="starry_unigraph.data.sample_config.SampleConfig"><span class="pre">SampleConfig</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/base.html#BaseTaskAdapter.build_sample_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.BaseTaskAdapter.build_sample_config" title="Link to this definition"></a></dt>
+<dd><p>Build sampling config. Override in subclass.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="starry_unigraph.tasks.BaseTaskAdapter.compute_loss">
-<span class="sig-name descname"><span class="pre">compute_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/base.html#BaseTaskAdapter.compute_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.BaseTaskAdapter.compute_loss" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<span class="sig-name descname"><span class="pre">compute_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/base.html#BaseTaskAdapter.compute_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.BaseTaskAdapter.compute_loss" title="Link to this definition"></a></dt>
+<dd><p>Compute loss. Override in subclass.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.BaseTaskAdapter.compute_loss_old_api">
+<span class="sig-name descname"><span class="pre">compute_loss_old_api</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/base.html#BaseTaskAdapter.compute_loss_old_api"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.BaseTaskAdapter.compute_loss_old_api" title="Link to this definition"></a></dt>
+<dd><p>Old API: extract loss from output dict directly.
+This is called if new compute_loss() fails.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.BaseTaskAdapter.compute_metrics">
+<span class="sig-name descname"><span class="pre">compute_metrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/base.html#BaseTaskAdapter.compute_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.BaseTaskAdapter.compute_metrics" title="Link to this definition"></a></dt>
+<dd><p>Compute evaluation metrics. Override in subclass.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.BaseTaskAdapter.format_output">
+<span class="sig-name descname"><span class="pre">format_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/base.html#BaseTaskAdapter.format_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.BaseTaskAdapter.format_output" title="Link to this definition"></a></dt>
+<dd><p>Format output for logging/saving. Default: return model_output.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="starry_unigraph.tasks.BaseTaskAdapter.format_prediction">
-<span class="sig-name descname"><span class="pre">format_prediction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/base.html#BaseTaskAdapter.format_prediction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.BaseTaskAdapter.format_prediction" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<span class="sig-name descname"><span class="pre">format_prediction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/base.html#BaseTaskAdapter.format_prediction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.BaseTaskAdapter.format_prediction" title="Link to this definition"></a></dt>
+<dd><p>Old API: format prediction. Kept for backward compatibility.</p>
+</dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="starry_unigraph.tasks.BaseTaskAdapter.task_type">
@@ -117,45 +162,189 @@
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeRegressionTaskAdapter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.tasks.</span></span><span class="sig-name descname"><span class="pre">NodeRegressionTaskAdapter</span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_regression.html#NodeRegressionTaskAdapter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeRegressionTaskAdapter" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="starry_unigraph.tasks.EdgePredictAdapter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.tasks.</span></span><span class="sig-name descname"><span class="pre">EdgePredictAdapter</span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/temporal_link_prediction.html#EdgePredictAdapter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.EdgePredictAdapter" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter" title="starry_unigraph.tasks.base.BaseTaskAdapter"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseTaskAdapter</span></code></a></p>
+<p>Adapter for temporal edge/link prediction task.</p>
+<p>Samples positive and negative edge pairs, computes BCE loss,
+and computes AUC/AP metrics.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeRegressionTaskAdapter.compute_loss">
-<span class="sig-name descname"><span class="pre">compute_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_regression.html#NodeRegressionTaskAdapter.compute_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeRegressionTaskAdapter.compute_loss" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="starry_unigraph.tasks.EdgePredictAdapter.build_sample_config">
+<span class="sig-name descname"><span class="pre">build_sample_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig" title="starry_unigraph.data.sample_config.SampleConfig"><span class="pre">SampleConfig</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/temporal_link_prediction.html#EdgePredictAdapter.build_sample_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.EdgePredictAdapter.build_sample_config" title="Link to this definition"></a></dt>
+<dd><p>For edge prediction, return positive edges to sample from the chunk.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>chunk: ChunkAtomic with tcsr_col, tcsr_ts, tcsr_edge_id
+model: Model instance (unused for now)
+split: Data split</p>
+</dd>
+<dt>Returns:</dt><dd><p>SampleConfig with pos_src/pos_dst for all edges in chunk</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeRegressionTaskAdapter.format_prediction">
-<span class="sig-name descname"><span class="pre">format_prediction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_regression.html#NodeRegressionTaskAdapter.format_prediction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeRegressionTaskAdapter.format_prediction" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="starry_unigraph.tasks.EdgePredictAdapter.compute_loss">
+<span class="sig-name descname"><span class="pre">compute_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/temporal_link_prediction.html#EdgePredictAdapter.compute_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.EdgePredictAdapter.compute_loss" title="Link to this definition"></a></dt>
+<dd><p>Compute binary cross-entropy loss for edge prediction.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>model_output: {‘pos_score’: [M], ‘neg_score’: [M*neg_ratio]}
+batch: BatchData (unused in this implementation)</p>
+</dd>
+<dt>Returns:</dt><dd><p>Scalar loss</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.EdgePredictAdapter.compute_metrics">
+<span class="sig-name descname"><span class="pre">compute_metrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/temporal_link_prediction.html#EdgePredictAdapter.compute_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.EdgePredictAdapter.compute_metrics" title="Link to this definition"></a></dt>
+<dd><p>Compute AUC and AP metrics.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>model_output: {‘pos_score’: [M], ‘neg_score’: [M*neg_ratio]}
+batch: BatchData</p>
+</dd>
+<dt>Returns:</dt><dd><p>{‘auc’: float, ‘ap’: float}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.EdgePredictAdapter.format_output">
+<span class="sig-name descname"><span class="pre">format_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/temporal_link_prediction.html#EdgePredictAdapter.format_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.EdgePredictAdapter.format_output" title="Link to this definition"></a></dt>
+<dd><p>Format edge predictions.</p>
+</dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeRegressionTaskAdapter.task_type">
-<span class="sig-name descname"><span class="pre">task_type</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'snapshot_node_regression'</span></em><a class="headerlink" href="#starry_unigraph.tasks.NodeRegressionTaskAdapter.task_type" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="starry_unigraph.tasks.EdgePredictAdapter.task_type">
+<span class="sig-name descname"><span class="pre">task_type</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'edge_predict'</span></em><a class="headerlink" href="#starry_unigraph.tasks.EdgePredictAdapter.task_type" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.tasks.</span></span><span class="sig-name descname"><span class="pre">TemporalLinkPredictionTaskAdapter</span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/temporal_link_prediction.html#TemporalLinkPredictionTaskAdapter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeClassifyAdapter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.tasks.</span></span><span class="sig-name descname"><span class="pre">NodeClassifyAdapter</span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_classify.html#NodeClassifyAdapter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeClassifyAdapter" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter" title="starry_unigraph.tasks.base.BaseTaskAdapter"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseTaskAdapter</span></code></a></p>
+<p>Adapter for node classification task.</p>
+<p>Predicts discrete class labels for nodes.
+Uses cross-entropy loss and accuracy metrics.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter.compute_loss">
-<span class="sig-name descname"><span class="pre">compute_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/temporal_link_prediction.html#TemporalLinkPredictionTaskAdapter.compute_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter.compute_loss" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeClassifyAdapter.build_sample_config">
+<span class="sig-name descname"><span class="pre">build_sample_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig" title="starry_unigraph.data.sample_config.SampleConfig"><span class="pre">SampleConfig</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_classify.html#NodeClassifyAdapter.build_sample_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeClassifyAdapter.build_sample_config" title="Link to this definition"></a></dt>
+<dd><p>For node classification, sample neighbors of labeled nodes.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>chunk: ChunkAtomic with node_set and optional labeled node info
+model: Model instance
+split: Data split</p>
+</dd>
+<dt>Returns:</dt><dd><p>SampleConfig with target_nodes/target_labels</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter.format_prediction">
-<span class="sig-name descname"><span class="pre">format_prediction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/temporal_link_prediction.html#TemporalLinkPredictionTaskAdapter.format_prediction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter.format_prediction" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeClassifyAdapter.compute_loss">
+<span class="sig-name descname"><span class="pre">compute_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_classify.html#NodeClassifyAdapter.compute_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeClassifyAdapter.compute_loss" title="Link to this definition"></a></dt>
+<dd><p>Compute cross-entropy loss for node classification.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>model_output: {‘logits’: [N, num_classes]}
+batch: BatchData with labels (class indices)</p>
+</dd>
+<dt>Returns:</dt><dd><p>Scalar cross-entropy loss</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeClassifyAdapter.compute_metrics">
+<span class="sig-name descname"><span class="pre">compute_metrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_classify.html#NodeClassifyAdapter.compute_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeClassifyAdapter.compute_metrics" title="Link to this definition"></a></dt>
+<dd><p>Compute accuracy and other metrics for node classification.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>model_output: {‘logits’: [N, num_classes]}
+batch: BatchData with labels</p>
+</dd>
+<dt>Returns:</dt><dd><p>{‘accuracy’: float}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeClassifyAdapter.format_output">
+<span class="sig-name descname"><span class="pre">format_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_classify.html#NodeClassifyAdapter.format_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeClassifyAdapter.format_output" title="Link to this definition"></a></dt>
+<dd><p>Format node classification predictions.</p>
+</dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter.task_type">
-<span class="sig-name descname"><span class="pre">task_type</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'temporal_link_prediction'</span></em><a class="headerlink" href="#starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter.task_type" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeClassifyAdapter.task_type">
+<span class="sig-name descname"><span class="pre">task_type</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'node_classification'</span></em><a class="headerlink" href="#starry_unigraph.tasks.NodeClassifyAdapter.task_type" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeRegressionTaskAdapter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.tasks.</span></span><span class="sig-name descname"><span class="pre">NodeRegressionTaskAdapter</span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_regression.html#NodeRegressionTaskAdapter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeRegressionTaskAdapter" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter" title="starry_unigraph.tasks.base.BaseTaskAdapter"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseTaskAdapter</span></code></a></p>
+<p>Adapter for node regression task.</p>
+<p>Predicts continuous values (e.g., node features) for labeled nodes.
+Uses MSE loss and MAE/RMSE metrics.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeRegressionTaskAdapter.build_sample_config">
+<span class="sig-name descname"><span class="pre">build_sample_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig" title="starry_unigraph.data.sample_config.SampleConfig"><span class="pre">SampleConfig</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_regression.html#NodeRegressionTaskAdapter.build_sample_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeRegressionTaskAdapter.build_sample_config" title="Link to this definition"></a></dt>
+<dd><p>For node regression, sample neighbors of labeled nodes.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>chunk: ChunkAtomic with node_set and optional labeled node info
+model: Model instance
+split: Data split</p>
+</dd>
+<dt>Returns:</dt><dd><p>SampleConfig with target_nodes/target_labels</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeRegressionTaskAdapter.compute_loss">
+<span class="sig-name descname"><span class="pre">compute_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_regression.html#NodeRegressionTaskAdapter.compute_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeRegressionTaskAdapter.compute_loss" title="Link to this definition"></a></dt>
+<dd><p>Compute MSE loss for node regression.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>model_output: {‘node_pred’: [N, feat_dim]}
+batch: BatchData with labels</p>
+</dd>
+<dt>Returns:</dt><dd><p>Scalar MSE loss</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeRegressionTaskAdapter.compute_metrics">
+<span class="sig-name descname"><span class="pre">compute_metrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_regression.html#NodeRegressionTaskAdapter.compute_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeRegressionTaskAdapter.compute_metrics" title="Link to this definition"></a></dt>
+<dd><p>Compute MAE and RMSE metrics for node regression.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>model_output: {‘node_pred’: [N, feat_dim]}
+batch: BatchData with labels</p>
+</dd>
+<dt>Returns:</dt><dd><p>{‘mae’: float, ‘rmse’: float}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeRegressionTaskAdapter.format_output">
+<span class="sig-name descname"><span class="pre">format_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData" title="starry_unigraph.data.batch_data.BatchData"><span class="pre">BatchData</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/tasks/node_regression.html#NodeRegressionTaskAdapter.format_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.tasks.NodeRegressionTaskAdapter.format_output" title="Link to this definition"></a></dt>
+<dd><p>Format node predictions.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.NodeRegressionTaskAdapter.task_type">
+<span class="sig-name descname"><span class="pre">task_type</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'node_regression'</span></em><a class="headerlink" href="#starry_unigraph.tasks.NodeRegressionTaskAdapter.task_type" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter">
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.tasks.</span></span><span class="sig-name descname"><span class="pre">TemporalLinkPredictionTaskAdapter</span></span><a class="headerlink" href="#starry_unigraph.tasks.TemporalLinkPredictionTaskAdapter" title="Link to this definition"></a></dt>
+<dd><p>alias of <a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.EdgePredictAdapter" title="starry_unigraph.tasks.temporal_link_prediction.EdgePredictAdapter"><code class="xref py py-class docutils literal notranslate"><span class="pre">EdgePredictAdapter</span></code></a></p>
 </dd></dl>
 
 <section id="submodules">
@@ -164,27 +353,47 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="starry_unigraph.tasks.base.html">starry_unigraph.tasks.base module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter.build_sample_config"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter.build_sample_config()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter.compute_loss"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter.compute_loss()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter.compute_loss_old_api"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter.compute_loss_old_api()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter.compute_metrics"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter.compute_metrics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter.format_output"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter.format_output()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter.format_prediction"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter.format_prediction()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.base.html#starry_unigraph.tasks.base.BaseTaskAdapter.task_type"><code class="docutils literal notranslate"><span class="pre">BaseTaskAdapter.task_type</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html">starry_unigraph.tasks.temporal_link_prediction module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.EdgePredictAdapter"><code class="docutils literal notranslate"><span class="pre">EdgePredictAdapter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.EdgePredictAdapter.build_sample_config"><code class="docutils literal notranslate"><span class="pre">EdgePredictAdapter.build_sample_config()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.EdgePredictAdapter.compute_loss"><code class="docutils literal notranslate"><span class="pre">EdgePredictAdapter.compute_loss()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.EdgePredictAdapter.compute_metrics"><code class="docutils literal notranslate"><span class="pre">EdgePredictAdapter.compute_metrics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.EdgePredictAdapter.format_output"><code class="docutils literal notranslate"><span class="pre">EdgePredictAdapter.format_output()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.EdgePredictAdapter.task_type"><code class="docutils literal notranslate"><span class="pre">EdgePredictAdapter.task_type</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.TemporalLinkPredictionTaskAdapter"><code class="docutils literal notranslate"><span class="pre">TemporalLinkPredictionTaskAdapter</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="starry_unigraph.tasks.node_regression.html">starry_unigraph.tasks.node_regression module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="starry_unigraph.tasks.node_regression.html#starry_unigraph.tasks.node_regression.NodeRegressionTaskAdapter"><code class="docutils literal notranslate"><span class="pre">NodeRegressionTaskAdapter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_regression.html#starry_unigraph.tasks.node_regression.NodeRegressionTaskAdapter.build_sample_config"><code class="docutils literal notranslate"><span class="pre">NodeRegressionTaskAdapter.build_sample_config()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_regression.html#starry_unigraph.tasks.node_regression.NodeRegressionTaskAdapter.compute_loss"><code class="docutils literal notranslate"><span class="pre">NodeRegressionTaskAdapter.compute_loss()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_regression.html#starry_unigraph.tasks.node_regression.NodeRegressionTaskAdapter.format_prediction"><code class="docutils literal notranslate"><span class="pre">NodeRegressionTaskAdapter.format_prediction()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_regression.html#starry_unigraph.tasks.node_regression.NodeRegressionTaskAdapter.compute_metrics"><code class="docutils literal notranslate"><span class="pre">NodeRegressionTaskAdapter.compute_metrics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_regression.html#starry_unigraph.tasks.node_regression.NodeRegressionTaskAdapter.format_output"><code class="docutils literal notranslate"><span class="pre">NodeRegressionTaskAdapter.format_output()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_regression.html#starry_unigraph.tasks.node_regression.NodeRegressionTaskAdapter.task_type"><code class="docutils literal notranslate"><span class="pre">NodeRegressionTaskAdapter.task_type</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html">starry_unigraph.tasks.temporal_link_prediction module</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.TemporalLinkPredictionTaskAdapter"><code class="docutils literal notranslate"><span class="pre">TemporalLinkPredictionTaskAdapter</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.TemporalLinkPredictionTaskAdapter.compute_loss"><code class="docutils literal notranslate"><span class="pre">TemporalLinkPredictionTaskAdapter.compute_loss()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.TemporalLinkPredictionTaskAdapter.format_prediction"><code class="docutils literal notranslate"><span class="pre">TemporalLinkPredictionTaskAdapter.format_prediction()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.temporal_link_prediction.html#starry_unigraph.tasks.temporal_link_prediction.TemporalLinkPredictionTaskAdapter.task_type"><code class="docutils literal notranslate"><span class="pre">TemporalLinkPredictionTaskAdapter.task_type</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.tasks.node_classify.html">starry_unigraph.tasks.node_classify module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.tasks.node_classify.html#starry_unigraph.tasks.node_classify.NodeClassifyAdapter"><code class="docutils literal notranslate"><span class="pre">NodeClassifyAdapter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_classify.html#starry_unigraph.tasks.node_classify.NodeClassifyAdapter.build_sample_config"><code class="docutils literal notranslate"><span class="pre">NodeClassifyAdapter.build_sample_config()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_classify.html#starry_unigraph.tasks.node_classify.NodeClassifyAdapter.compute_loss"><code class="docutils literal notranslate"><span class="pre">NodeClassifyAdapter.compute_loss()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_classify.html#starry_unigraph.tasks.node_classify.NodeClassifyAdapter.compute_metrics"><code class="docutils literal notranslate"><span class="pre">NodeClassifyAdapter.compute_metrics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_classify.html#starry_unigraph.tasks.node_classify.NodeClassifyAdapter.format_output"><code class="docutils literal notranslate"><span class="pre">NodeClassifyAdapter.format_output()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.tasks.node_classify.html#starry_unigraph.tasks.node_classify.NodeClassifyAdapter.task_type"><code class="docutils literal notranslate"><span class="pre">NodeClassifyAdapter.task_type</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -198,7 +407,7 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="starry_unigraph.runtime.base.html" class="btn btn-neutral float-left" title="starry_unigraph.runtime.base module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.data.chunk_atomic.html" class="btn btn-neutral float-left" title="starry_unigraph.data.chunk_atomic module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="starry_unigraph.tasks.base.html" class="btn btn-neutral float-right" title="starry_unigraph.tasks.base module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

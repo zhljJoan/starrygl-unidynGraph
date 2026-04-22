@@ -47,17 +47,34 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
-<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.html#subpackages">Subpackages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html">starry_unigraph.backends package</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.data.html">starry_unigraph.data package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.tasks.html">starry_unigraph.tasks package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.registry.html">starry_unigraph.registry package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.preprocess.html">starry_unigraph.preprocess package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.checkpoint.html">starry_unigraph.checkpoint package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.cli.html">starry_unigraph.cli package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.native.html">starry_unigraph.native package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.distributed.html">starry_unigraph.distributed module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.session.html">starry_unigraph.session module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.types.html">starry_unigraph.types module</a></li>
 </ul>
 </li>
 </ul>
@@ -142,22 +159,15 @@ with only the first 100 snapshots.</p></li>
 <li><p><strong>Round-trip</strong> — <code class="docutils literal notranslate"><span class="pre">PartitionData.from_blocks(blocks)</span></code> reconstructs
 a PartitionData from DGL blocks.</p></li>
 </ul>
-<dl>
+<dl class="simple">
 <dt>Attributes:</dt><dd><p>src_ids: Remote (boundary) source node IDs per snapshot.
 dst_ids: Local destination node IDs per snapshot.
 edge_ids: Global edge IDs per snapshot.
 edge_src: Edge source indices (into the combined src+dst space).
 edge_dst: Edge destination indices (into the dst-only space).
-node_data: Dict of named per-snapshot node feature TensorData</p>
-<blockquote>
-<div><p>(e.g. <code class="docutils literal notranslate"><span class="pre">&quot;x&quot;</span></code> for features, <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code> for labels, <code class="docutils literal notranslate"><span class="pre">&quot;c&quot;</span></code> for
-chunk assignment).</p>
-</div></blockquote>
-<dl class="simple">
-<dt>edge_data: Dict of named per-snapshot edge feature TensorData</dt><dd><p>(e.g. <code class="docutils literal notranslate"><span class="pre">&quot;w&quot;</span></code> for weights, <code class="docutils literal notranslate"><span class="pre">&quot;gcn_norm&quot;</span></code>).</p>
-</dd>
-</dl>
-<p>routes: Optional <a class="reference internal" href="#starry_unigraph.data.partition.RouteData" title="starry_unigraph.data.partition.RouteData"><code class="xref py py-class docutils literal notranslate"><span class="pre">RouteData</span></code></a> for distributed communication.</p>
+node_data: Dict of named per-snapshot node feature TensorData (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;x&quot;</span></code> for features, <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code> for labels, <code class="docutils literal notranslate"><span class="pre">&quot;c&quot;</span></code> for chunk assignment).
+edge_data: Dict of named per-snapshot edge feature TensorData (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;w&quot;</span></code> for weights, <code class="docutils literal notranslate"><span class="pre">&quot;gcn_norm&quot;</span></code>).
+routes: Optional <a class="reference internal" href="#starry_unigraph.data.partition.RouteData" title="starry_unigraph.data.partition.RouteData"><code class="xref py py-class docutils literal notranslate"><span class="pre">RouteData</span></code></a> for distributed communication.</p>
 </dd>
 </dl>
 <p>Example:</p>
@@ -230,12 +240,9 @@ edge IDs in <code class="docutils literal notranslate"><span class="pre">edata[E
 <dt class="sig sig-object py" id="starry_unigraph.data.partition.PartitionData.load">
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mmap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.data.partition.PartitionData" title="starry_unigraph.data.partition.PartitionData"><span class="pre">PartitionData</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/partition.html#PartitionData.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.partition.PartitionData.load" title="Link to this definition"></a></dt>
 <dd><p>Load a PartitionData from a <code class="docutils literal notranslate"><span class="pre">.pth</span></code> file.</p>
-<dl>
+<dl class="simple">
 <dt>Args:</dt><dd><p>path: Path to the serialized file.
-mmap: If True, memory-map the file (useful for large datasets</p>
-<blockquote>
-<div><p>that don’t fit in RAM).</p>
-</div></blockquote>
+mmap: If True, memory-map the file (useful for large datasets that don’t fit in RAM).</p>
 </dd>
 <dt>Returns:</dt><dd><p>The deserialized <a class="reference internal" href="#starry_unigraph.data.partition.PartitionData" title="starry_unigraph.data.partition.PartitionData"><code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code></a>.</p>
 </dd>
@@ -357,7 +364,7 @@ distributed <code class="docutils literal notranslate"><span class="pre">all_to_
 <dl class="py method">
 <dt class="sig sig-object py" id="starry_unigraph.data.partition.RouteData.item">
 <span class="sig-name descname"><span class="pre">item</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/data/partition.html#RouteData.item"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.partition.RouteData.item" title="Link to this definition"></a></dt>
-<dd><p>Return the single <a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route" title="starry_unigraph.runtime.flare.route.Route"><code class="xref py py-class docutils literal notranslate"><span class="pre">Route</span></code></a> in this container.</p>
+<dd><p>Return the single <code class="xref py py-class docutils literal notranslate"><span class="pre">Route</span></code> in this container.</p>
 <dl class="simple">
 <dt>Args:</dt><dd><dl class="simple">
 <dt>group: Optional <code class="docutils literal notranslate"><span class="pre">torch.distributed</span></code> process group attached to</dt><dd><p>the returned Route.</p>
@@ -424,12 +431,9 @@ distributed <code class="docutils literal notranslate"><span class="pre">all_to_
 single contiguous <code class="docutils literal notranslate"><span class="pre">data</span></code> tensor plus an <code class="docutils literal notranslate"><span class="pre">(N+1)</span></code>-element <code class="docutils literal notranslate"><span class="pre">ptr</span></code>
 array.  Element <em>i</em> is <code class="docutils literal notranslate"><span class="pre">data[ptr[i]:ptr[i+1]]</span></code>.</p>
 <p>Supports integer/slice indexing, <code class="docutils literal notranslate"><span class="pre">.to(device)</span></code>, <code class="docutils literal notranslate"><span class="pre">pin_memory()</span></code>.</p>
-<dl>
-<dt>Attributes:</dt><dd><dl class="simple">
-<dt>ptr: Pointer array of length <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">+</span> <span class="pre">1</span></code>.  <code class="docutils literal notranslate"><span class="pre">ptr[0]</span> <span class="pre">==</span> <span class="pre">0</span></code> and</dt><dd><p><code class="docutils literal notranslate"><span class="pre">ptr[-1]</span> <span class="pre">==</span> <span class="pre">data.size(0)</span></code>.</p>
-</dd>
-</dl>
-<p>data: The packed tensor.</p>
+<dl class="simple">
+<dt>Attributes:</dt><dd><p>ptr: Pointer array of length <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">+</span> <span class="pre">1</span></code>. <code class="docutils literal notranslate"><span class="pre">ptr[0]</span> <span class="pre">==</span> <span class="pre">0</span></code> and <code class="docutils literal notranslate"><span class="pre">ptr[-1]</span> <span class="pre">==</span> <span class="pre">data.size(0)</span></code>.
+data: The packed tensor.</p>
 </dd>
 </dl>
 <p>Example:</p>

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DTDG Training Guide &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="CTDG Training Guide" href="ctdg.html" />
+    <link rel="prev" title="Training Guides by Graph Mode" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Training Guides by Graph Mode</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">DTDG Training Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ctdg.html">CTDG Training Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chunk.html">CHUNK Training Logic (Experimental)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Training Guides by Graph Mode</a></li>
+      <li class="breadcrumb-item active">DTDG Training Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/rel_0_1_1/training/dtdg.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="dtdg-training-guide">
+<h1>DTDG Training Guide<a class="headerlink" href="#dtdg-training-guide" title="Link to this heading"></a></h1>
+<p>The <strong>Discrete-Time Dynamic Graph (DTDG)</strong> path models a temporal graph as an
+ordered sequence of snapshots:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{G} = \{G_1, G_2, \dots, G_T\}\]</div>
+<p>Each snapshot captures graph structure within a specific time bucket, such as
+one hour, one day, or one week. This mode is appropriate when you care about
+graph state over explicit time windows rather than the exact ordering of
+individual events.</p>
+<section id="when-to-use-dtdg">
+<h2>When To Use DTDG<a class="headerlink" href="#when-to-use-dtdg" title="Link to this heading"></a></h2>
+<p>DTDG is usually the right choice when:</p>
+<ul class="simple">
+<li><p>your data is already bucketed into snapshots</p></li>
+<li><p>your model reasons over graph states at discrete time steps</p></li>
+<li><p>preserving intra-snapshot topology matters more than exact event order</p></li>
+</ul>
+</section>
+<section id="what-starrygl-provides-for-dtdg">
+<h2>What StarryGL Provides for DTDG<a class="headerlink" href="#what-starrygl-provides-for-dtdg" title="Link to this heading"></a></h2>
+<p>Building a distributed DTDG pipeline from scratch is difficult. Developers
+usually have to solve graph partitioning, multi-GPU coordination, windowed
+state propagation, and memory pressure at the same time.</p>
+<p>StarryGL abstracts most of that systems complexity away. The DTDG stack
+provides:</p>
+<dl class="simple">
+<dt><strong>Out-of-the-Box Distributed Execution</strong></dt><dd><p>StarryGL partitions the graph, assigns chunks to ranks, and manages
+cross-device communication automatically.</p>
+</dd>
+<dt><strong>Ready-to-Use Temporal Models</strong></dt><dd><p>Built-in models such as <code class="docutils literal notranslate"><span class="pre">mpnn_lstm</span></code>, <code class="docutils literal notranslate"><span class="pre">tgcn</span></code>, and <code class="docutils literal notranslate"><span class="pre">evolvegcn</span></code> are
+already aligned with the DTDG runtime.</p>
+</dd>
+<dt><strong>Unified Session API</strong></dt><dd><p><code class="xref py py-class docutils literal notranslate"><span class="pre">SchedulerSession</span></code> provides a small lifecycle surface centered on
+<code class="docutils literal notranslate"><span class="pre">prepare_data()</span></code>, <code class="docutils literal notranslate"><span class="pre">build_runtime()</span></code>, <code class="docutils literal notranslate"><span class="pre">run_epoch()</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">predict()</span></code>.</p>
+</dd>
+<dt><strong>Transparent Memory Optimization (Flare Backend)</strong></dt><dd><p>The Flare backend keeps recent snapshots at high fidelity while compacting
+older history, making long temporal windows more practical on limited GPU
+memory.</p>
+</dd>
+</dl>
+</section>
+<section id="end-to-end-workflow">
+<h2>End-to-End Workflow<a class="headerlink" href="#end-to-end-workflow" title="Link to this heading"></a></h2>
+<p>The DTDG path follows a consistent three-stage workflow:
+<strong>Prepare -&gt; Train and Validate -&gt; Predict</strong>.</p>
+<ol class="arabic simple">
+<li><p><strong>Prepare</strong>
+Run preprocessing once as a single process to generate partition-aware
+artifacts.</p></li>
+<li><p><strong>Train and Validate</strong>
+Launch distributed training with <code class="docutils literal notranslate"><span class="pre">torchrun</span></code>. The unified CLI runs
+<code class="docutils literal notranslate"><span class="pre">split=&quot;train&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">split=&quot;val&quot;</span></code> inside each epoch, so validation is
+part of the normal training phase.</p></li>
+<li><p><strong>Predict</strong>
+Load the saved checkpoint and run inference on the test split.</p></li>
+</ol>
+</section>
+<section id="annotated-end-to-end-example">
+<h2>Annotated End-to-End Example<a class="headerlink" href="#annotated-end-to-end-example" title="Link to this heading"></a></h2>
+<p>The following example shows the complete DTDG flow with comments for artifact
+generation, training, validation, and inference.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Prepare artifacts once.</span>
+<span class="c1">#    This step partitions the snapshot graph according to dist.world_size.</span>
+python<span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/mpnn_lstm_4gpu.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--phase<span class="w"> </span>prepare
+
+<span class="c1"># 2. Train on 4 GPUs.</span>
+<span class="c1">#    During --phase train, StarryGL runs both training and validation:</span>
+<span class="c1">#      - session.run_epoch(split=&quot;train&quot;)</span>
+<span class="c1">#      - session.run_epoch(split=&quot;val&quot;)</span>
+<span class="c1">#    It also saves a checkpoint at the end.</span>
+torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/mpnn_lstm_4gpu.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--phase<span class="w"> </span>train
+
+<span class="c1"># 3. Run test-time inference.</span>
+<span class="c1">#    This loads the checkpoint and executes session.predict(split=&quot;test&quot;).</span>
+torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/mpnn_lstm_4gpu.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--phase<span class="w"> </span>predict
+</pre></div>
+</div>
+<p>If you want the same flow in Python, the high-level lifecycle is:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.session</span> <span class="kn">import</span> <span class="n">SchedulerSession</span>
+
+<span class="n">session</span> <span class="o">=</span> <span class="n">SchedulerSession</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">model_spec</span><span class="o">=...</span><span class="p">,</span> <span class="n">task_adapter</span><span class="o">=...</span><span class="p">)</span>
+
+<span class="c1"># Offline artifact generation</span>
+<span class="n">session</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">()</span>
+
+<span class="c1"># Distributed runtime setup</span>
+<span class="n">session</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">()</span>
+
+<span class="c1"># One epoch of training</span>
+<span class="n">train_result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
+
+<span class="c1"># Validation on the same runtime</span>
+<span class="n">val_result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;val&quot;</span><span class="p">)</span>
+
+<span class="c1"># Test inference</span>
+<span class="n">prediction</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="how-dtdg-models-are-formulated">
+<h2>How DTDG Models Are Formulated<a class="headerlink" href="#how-dtdg-models-are-formulated" title="Link to this heading"></a></h2>
+<p>Most DTDG models follow a two-stage structure. StarryGL standardizes this
+pattern so you can focus on the model itself rather than on distributed state
+management.</p>
+<p>The goal is to learn a time-aware node embedding <span class="math notranslate nohighlight">\(h_v^t\)</span> for node
+<span class="math notranslate nohighlight">\(v\)</span> at time step <span class="math notranslate nohighlight">\(t\)</span>.</p>
+<ol class="arabic">
+<li><p><strong>Spatial Aggregation</strong></p>
+<p>A GNN extracts structural information from the current snapshot:</p>
+<div class="math notranslate nohighlight">
+\[x_v^t = \text{GNN}(G_t, X_t)\]</div>
+</li>
+<li><p><strong>Temporal Update</strong></p>
+<p>A recurrent module integrates the current structural embedding with the
+hidden state from the previous time step:</p>
+<div class="math notranslate nohighlight">
+\[h_v^t = \text{RNN}(h_v^{t-1}, x_v^t)\]</div>
+</li>
+</ol>
+<p>In StarryGL, built-in models such as <code class="docutils literal notranslate"><span class="pre">mpnn_lstm</span></code> and <code class="docutils literal notranslate"><span class="pre">tgcn</span></code> follow this
+exact formulation.</p>
+</section>
+<section id="built-in-dtdg-models">
+<h2>Built-in DTDG Models<a class="headerlink" href="#built-in-dtdg-models" title="Link to this heading"></a></h2>
+<p>Select the model through <code class="docutils literal notranslate"><span class="pre">model.name</span></code> in the config.</p>
+<dl class="simple">
+<dt><strong>T-GCN (``tgcn``)</strong></dt><dd><p>Combines graph convolution with a GRU-style temporal update. It is a good
+fit when topology and short-term temporal variation are tightly coupled.</p>
+</dd>
+<dt><strong>MPNN-LSTM (``mpnn_lstm``)</strong></dt><dd><p>Combines message passing with stacked LSTM layers. This is the default model
+in the quickstart config and a strong general baseline.</p>
+</dd>
+<dt><strong>EvolveGCN (``evolvegcn``)</strong></dt><dd><p>Evolves GCN parameters over time rather than keeping a fixed graph
+convolution kernel across snapshots.</p>
+</dd>
+</dl>
+</section>
+<section id="sliding-window-training">
+<h2>Sliding Window Training<a class="headerlink" href="#sliding-window-training" title="Link to this heading"></a></h2>
+<p>DTDG training captures temporal dependence by processing ordered windows of
+snapshots instead of isolated frames or the full history at once.</p>
+<p>The key parameters are:</p>
+<dl class="simple">
+<dt><strong>``model.window.size``</strong></dt><dd><p>Controls the length of the snapshot window. Larger windows capture deeper
+temporal context but increase memory usage.</p>
+</dd>
+<dt><strong>``train.snaps``</strong></dt><dd><p>Controls how many snapshots are traversed during an epoch.</p>
+</dd>
+<dt><strong>``dtdg.num_full_snaps``</strong></dt><dd><p>Controls how many of the newest snapshots remain full-fidelity blocks in
+the Flare pipeline before older snapshots are compacted.</p>
+</dd>
+</dl>
+</section>
+<section id="what-the-config-means">
+<h2>What the Config Means<a class="headerlink" href="#what-the-config-means" title="Link to this heading"></a></h2>
+<p>The default DTDG example is <code class="docutils literal notranslate"><span class="pre">configs/mpnn_lstm_4gpu.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mpnn_lstm</span>
+<span class="w">  </span><span class="nt">family</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mpnn_lstm</span>
+<span class="w">  </span><span class="nt">task</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">snapshot_node_regression</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="w">  </span><span class="nt">window</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+
+<span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rec-amazon-ratings</span>
+<span class="w">  </span><span class="nt">graph_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dtdg</span>
+
+<span class="nt">train</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">32</span>
+<span class="w">  </span><span class="nt">snaps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+
+<span class="nt">dtdg</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">pipeline</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flare_native</span>
+<span class="w">  </span><span class="nt">chunk_order</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rand</span>
+<span class="w">  </span><span class="nt">chunk_decay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">half</span>
+<span class="w">  </span><span class="nt">num_full_snaps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+
+<span class="nt">dist</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">world_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</pre></div>
+</div>
+<p>Key configuration takeaways:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">data.graph_mode:</span> <span class="pre">dtdg</span></code> selects the DTDG backend.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model.name</span></code> selects the concrete temporal model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model.window.size</span></code> controls how far the model looks into history.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train.snaps</span></code> controls epoch coverage over snapshots.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dtdg.pipeline:</span> <span class="pre">flare_native</span></code> enables the optimized Flare execution path.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dist.world_size</span></code> must match <code class="docutils literal notranslate"><span class="pre">torchrun</span> <span class="pre">--nproc_per_node</span></code>.</p></li>
+</ul>
+</section>
+<section id="core-module-reference">
+<h2>Core Module Reference<a class="headerlink" href="#core-module-reference" title="Link to this heading"></a></h2>
+<p>If you want to customize the pipeline or inspect the data flow, these are the
+main modules to read.</p>
+<ol class="arabic">
+<li><p><strong>FlareDTDGPreprocessor</strong></p>
+<p>Location: <code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/dtdg/preprocess.py</span></code></p>
+<p>Role: Builds DTDG artifacts and partition-aware preprocessing outputs.</p>
+</li>
+<li><p><strong>FlareRuntimeLoader</strong></p>
+<p>Location: <code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/dtdg/runtime/session_loader.py</span></code></p>
+<p>Role: Loads the partition owned by a rank and exposes iterators for windowed
+training and single-frame evaluation or prediction.</p>
+</li>
+<li><p><strong>SchedulerSession</strong></p>
+<p>Location: <code class="docutils literal notranslate"><span class="pre">starry_unigraph/session.py</span></code></p>
+<p>Role: Connects preprocessing, runtime setup, epoch execution, checkpointing,
+and prediction.</p>
+</li>
+</ol>
+</section>
+<section id="how-to-add-a-new-dtdg-model">
+<h2>How To Add a New DTDG Model<a class="headerlink" href="#how-to-add-a-new-dtdg-model" title="Link to this heading"></a></h2>
+<p>DTDG currently has a clean model factory, so adding a new model to the
+existing chain is relatively direct.</p>
+<ol class="arabic">
+<li><p>Implement the model module in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/dtdg/runtime/models.py</span></code>. The forward path should
+follow the same contract as the existing Flare models: accept either a
+single graph or an <code class="docutils literal notranslate"><span class="pre">STGraphBlob</span></code> window and return predictions plus the
+updated temporal state.</p></li>
+<li><p>Register the model in the DTDG factory in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/dtdg/runtime/models.py</span></code> by adding it to
+<code class="docutils literal notranslate"><span class="pre">MODEL_SPECS</span></code>. This is what makes <code class="docutils literal notranslate"><span class="pre">build_flare_model(...)</span></code> able to
+instantiate it during runtime setup.</p></li>
+<li><p>Register the model name in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/registry/model_registry.py</span></code> so that
+<code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code> can resolve the model spec from the config.</p></li>
+<li><p>If the new model family should imply DTDG mode automatically, add it to
+<code class="docutils literal notranslate"><span class="pre">MODEL_GRAPH_MODES</span></code> in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/config/schema.py</span></code>.</p></li>
+<li><p>Set the config accordingly:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your_new_dtdg_model</span>
+<span class="w">  </span><span class="nt">family</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your_new_dtdg_model</span>
+<span class="w">  </span><span class="nt">task</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">snapshot_node_regression</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+<span class="w">  </span><span class="nt">window</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+
+<span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">graph_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dtdg</span>
+</pre></div>
+</div>
+</li>
+</ol>
+<p>If the new model also requires a new prediction target or loss contract, you
+may additionally need to extend <code class="docutils literal notranslate"><span class="pre">TaskRegistry</span></code> in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/registry/task_registry.py</span></code>.</p>
+</section>
+<section id="practical-performance-tips">
+<h2>Practical Performance Tips<a class="headerlink" href="#practical-performance-tips" title="Link to this heading"></a></h2>
+<dl class="simple">
+<dt><strong>Memory vs. Context</strong></dt><dd><p>Increase <code class="docutils literal notranslate"><span class="pre">model.window.size</span></code> when you need longer context, but reduce
+<code class="docutils literal notranslate"><span class="pre">train.batch_size</span></code> first if memory becomes tight.</p>
+</dd>
+<dt><strong>Reduce Locality Bias</strong></dt><dd><p>Keep <code class="docutils literal notranslate"><span class="pre">dtdg.chunk_order:</span> <span class="pre">rand</span></code> enabled so the model does not overfit to a
+fixed local chunk order.</p>
+</dd>
+<dt><strong>Configuration Consistency</strong></dt><dd><p>Use the same <code class="docutils literal notranslate"><span class="pre">dist.world_size</span></code> in both <code class="docutils literal notranslate"><span class="pre">prepare</span></code> and <code class="docutils literal notranslate"><span class="pre">train</span></code>.</p>
+</dd>
+<dt><strong>Async Transfers</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">FlareRuntimeLoader</span></code> uses pinned memory and asynchronous CPU-to-GPU
+transfer so data loading is less likely to dominate iteration time.</p>
+</dd>
+</dl>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Training Guides by Graph Mode" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="ctdg.html" class="btn btn-neutral float-right" title="CTDG Training Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

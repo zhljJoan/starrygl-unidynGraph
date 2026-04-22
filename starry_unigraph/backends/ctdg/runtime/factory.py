@@ -11,7 +11,7 @@ from starry_unigraph.types import RuntimeBundle, SessionContext
 from .cache import AdaParameter, CTDGHistoricalCache
 from .data import TGTemporalDataset
 from .memory import CTDGMemoryBank
-from .models import CTDGLinkPredictor, CTDGMemoryUpdater
+from .models import CTDGMemoryUpdater, build_ctdg_model
 from .route import CTDGFeatureRoute
 from .runtime import CTDGOnlineRuntime
 from .sampler import NativeTemporalSampler
@@ -58,6 +58,7 @@ def build_ctdg_runtime(session_ctx: SessionContext) -> tuple[CTDGOnlineRuntime, 
 
     # Load node_parts from artifacts if available (from SPEED partitioning)
     node_parts = None
+    edge_parts = None
     if session_ctx.prepared_artifacts and session_ctx.prepared_artifacts.provider_meta.get("has_node_parts"):
         try:
             node_parts_path = session_ctx.prepared_artifacts.directories["partitions"] / "node_parts.pt"
@@ -65,6 +66,20 @@ def build_ctdg_runtime(session_ctx: SessionContext) -> tuple[CTDGOnlineRuntime, 
                 node_parts = torch.load(node_parts_path, weights_only=True)
         except Exception as e:
             print(f"Warning: Failed to load node_parts from artifacts ({e}), using round-robin")
+    if session_ctx.prepared_artifacts and session_ctx.prepared_artifacts.provider_meta.get("has_edge_parts"):
+        try:
+            edge_parts_path = session_ctx.prepared_artifacts.directories["partitions"] / "edge_parts.pt"
+            if edge_parts_path.exists():
+                edge_parts = torch.load(edge_parts_path, weights_only=True)
+        except Exception as e:
+            print(f"Warning: Failed to load edge_parts from artifacts ({e}), using full-stream batches")
+
+    dataset.configure_partition(
+        node_parts=node_parts,
+        edge_parts=edge_parts,
+        rank=dist_ctx.rank,
+        world_size=dist_ctx.world_size,
+    )
 
     memory = CTDGMemoryBank(
         num_nodes=dataset.num_nodes,
@@ -78,7 +93,8 @@ def build_ctdg_runtime(session_ctx: SessionContext) -> tuple[CTDGOnlineRuntime, 
         node_parts=node_parts,
     )
 
-    model = CTDGLinkPredictor(
+    model = build_ctdg_model(
+        str(session_ctx.config["model"]["family"]),
         num_nodes=dataset.num_nodes,
         hidden_dim=hidden_dim,
         edge_feat_dim=edge_feat_dim,

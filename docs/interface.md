@@ -275,10 +275,45 @@ DTDG-specific:
 
 ## 9. End-to-End Examples
 
-### 9.1 CTDG distributed
+### 9.1 CTDG distributed (Flare-style)
 ```bash
-torchrun --nproc_per_node=4 train_tgn_dist.py --dataset WIKI --epochs 2
+# Single-process prepare with the target global worker count
+WORLD_SIZE=8 /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase prepare
+
+# Copy /shared/artifacts/WIKI to every node if storage is not shared
+
+# Multi-node / multi-GPU train: run this on node 0
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=0 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29500 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase train
+
+# Multi-node / multi-GPU train: run this on node 1
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=1 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29500 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase train
+
+# Multi-node / multi-GPU predict: run this on node 0, and rerun with
+# --node_rank=1 on node 1
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=0 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29501 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase predict
 ```
+
+The single-process ``prepare`` step still needs the final distributed partition count.
+Set ``WORLD_SIZE`` to ``nnodes * nproc_per_node`` so the generated CTDG artifacts match
+the later ``torchrun`` job.
+
+The distributed CTDG loader keeps all ranks on the same global time-window
+boundaries, then filters each window to the local edge set for that rank.
+Current edge ownership is ``src_node_partition``.
 
 ### 9.2 DTDG distributed
 ```bash

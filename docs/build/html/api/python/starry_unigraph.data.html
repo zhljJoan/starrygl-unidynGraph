@@ -22,7 +22,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="starry_unigraph.data.partition module" href="starry_unigraph.data.partition.html" />
-    <link rel="prev" title="starry_unigraph.core.protocol module" href="starry_unigraph.core.protocol.html" /> 
+    <link rel="prev" title="starry_unigraph.backends.ctdg package" href="starry_unigraph.backends.ctdg.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,17 +47,34 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#starry_unigraph.SchedulerSession"><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
-<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.html#subpackages">Subpackages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html">starry_unigraph.backends package</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">starry_unigraph.data package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.tasks.html">starry_unigraph.tasks package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.registry.html">starry_unigraph.registry package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.preprocess.html">starry_unigraph.preprocess package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.checkpoint.html">starry_unigraph.checkpoint package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.cli.html">starry_unigraph.cli package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.native.html">starry_unigraph.native package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.distributed.html">starry_unigraph.distributed module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.session.html">starry_unigraph.session module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.types.html">starry_unigraph.types module</a></li>
 </ul>
 </li>
 </ul>
@@ -96,6 +113,204 @@
   <section id="module-starry_unigraph.data">
 <span id="starry-unigraph-data-package"></span><h1>starry_unigraph.data package<a class="headerlink" href="#module-starry_unigraph.data" title="Link to this heading"></a></h1>
 <dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.data.</span></span><span class="sig-name descname"><span class="pre">BatchData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pos_src</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pos_dst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neg_src</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neg_dst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_node_mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_manifest</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/data/batch_data.html#BatchData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.BatchData" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Unified batch container, populated by chunk.materialize().</p>
+<p>Contains graph structure (mfg), node info, and task-specific fields.
+All runtimes and tasks work with this unified interface.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.chunk_id">
+<span class="sig-name descname"><span class="pre">chunk_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.chunk_id" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.labels">
+<span class="sig-name descname"><span class="pre">labels</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.labels" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.local_node_mask">
+<span class="sig-name descname"><span class="pre">local_node_mask</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.local_node_mask" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.mfg">
+<span class="sig-name descname"><span class="pre">mfg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Any</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.mfg" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.neg_dst">
+<span class="sig-name descname"><span class="pre">neg_dst</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.neg_dst" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.neg_src">
+<span class="sig-name descname"><span class="pre">neg_src</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.neg_src" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.node_ids">
+<span class="sig-name descname"><span class="pre">node_ids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.node_ids" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.pos_dst">
+<span class="sig-name descname"><span class="pre">pos_dst</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.pos_dst" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.pos_src">
+<span class="sig-name descname"><span class="pre">pos_src</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.pos_src" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.remote_manifest">
+<span class="sig-name descname"><span class="pre">remote_manifest</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.remote_manifest" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.target_nodes">
+<span class="sig-name descname"><span class="pre">target_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.target_nodes" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.BatchData.timestamps">
+<span class="sig-name descname"><span class="pre">timestamps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.BatchData.timestamps" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.data.</span></span><span class="sig-name descname"><span class="pre">ChunkAtomic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_set</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tcsr_rowptr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tcsr_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tcsr_ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tcsr_edge_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cross_node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cross_node_home</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cross_edge_count</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_estimate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spatial_deps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SpatialDeps</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_deps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">StateDeps</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_neg_hook</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_neighbor_hook</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#ChunkAtomic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>时间切片 × 节点簇的原子计算单元。</p>
+<p>chunk_id = (time_slice_id, node_cluster_id)</p>
+<dl class="simple">
+<dt>数据分三层：</dt><dd><p>L1 — 图结构 (Temporal-CSR)
+L2 — 跨界邻居信息
+L3 — 调度元数据</p>
+</dd>
+</dl>
+<p>Python 层不做任何密集计算；materialize() 调用 C++/CUDA 扩展。</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.chunk_id">
+<span class="sig-name descname"><span class="pre">chunk_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.chunk_id" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.complete">
+<span class="sig-name descname"><span class="pre">complete</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">local_mfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#ChunkAtomic.complete"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.complete" title="Link to this definition"></a></dt>
+<dd><p>Phase 2: 将远程拉取的 embedding 合并入 MFG，生成最终训练 batch。</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>local_mfg:    materialize() 返回的本地 MFG
+remote_data:  CommEngine 拉取并返回的远程 embedding tensor</p>
+</dd>
+<dt>Returns:</dt><dd><p>完整的训练 batch（remote 槽位已填充）</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.cross_edge_count">
+<span class="sig-name descname"><span class="pre">cross_edge_count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.cross_edge_count" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.cross_node_home">
+<span class="sig-name descname"><span class="pre">cross_node_home</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.cross_node_home" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.cross_node_ids">
+<span class="sig-name descname"><span class="pre">cross_node_ids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.cross_node_ids" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.load_estimate">
+<span class="sig-name descname"><span class="pre">load_estimate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.load_estimate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.materialize">
+<span class="sig-name descname"><span class="pre">materialize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sampler_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.RemoteManifest" title="starry_unigraph.data.chunk_atomic.RemoteManifest"><span class="pre">RemoteManifest</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#ChunkAtomic.materialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.materialize" title="Link to this definition"></a></dt>
+<dd><p>Phase 1: 本地时序邻居采样 + 产出远程请求清单。</p>
+<dl class="simple">
+<dt>实现委托给 C++/CUDA 扩展：</dt><dd><ol class="arabic simple">
+<li><p>在 Temporal-CSR 上对每个事件 (src, dst, t) 做二分查找，
+采样 t 之前最近的 k 个邻居。</p></li>
+<li><p>locality_mask 标记每个采样邻居是本地还是远程。</p></li>
+<li><p>构建 local_mfg（本地可直接聚合的子图）。</p></li>
+<li><p>提取 RemoteManifest（需要跨 rank 拉取的远程节点清单）。</p></li>
+</ol>
+</dd>
+<dt>Args:</dt><dd><p>sampler_cfg: 采样配置，含 num_neighbors / num_layers / sample_type。</p>
+</dd>
+<dt>Returns:</dt><dd><dl class="simple">
+<dt>(local_mfg, remote_manifest)</dt><dd><p>local_mfg      — 本地 MFG，可直接用于前向传播（远程槽位待填充）
+remote_manifest — 需要 CommEngine 异步拉取的远程数据描述</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.node_set">
+<span class="sig-name descname"><span class="pre">node_set</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.node_set" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.register_negative_hook">
+<span class="sig-name descname"><span class="pre">register_negative_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">functional</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#ChunkAtomic.register_negative_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.register_negative_hook" title="Link to this definition"></a></dt>
+<dd><p>注册负采样函数，供 C++ 扩展回调。</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.register_neighbor_hook">
+<span class="sig-name descname"><span class="pre">register_neighbor_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">functional</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#ChunkAtomic.register_neighbor_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.register_neighbor_hook" title="Link to this definition"></a></dt>
+<dd><p>注册邻居采样函数，供 C++ 扩展回调。</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.spatial_deps">
+<span class="sig-name descname"><span class="pre">spatial_deps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SpatialDeps</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.spatial_deps" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.state_deps">
+<span class="sig-name descname"><span class="pre">state_deps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">StateDeps</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.state_deps" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.tcsr_col">
+<span class="sig-name descname"><span class="pre">tcsr_col</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.tcsr_col" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.tcsr_edge_id">
+<span class="sig-name descname"><span class="pre">tcsr_edge_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.tcsr_edge_id" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.tcsr_rowptr">
+<span class="sig-name descname"><span class="pre">tcsr_rowptr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.tcsr_rowptr" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.tcsr_ts">
+<span class="sig-name descname"><span class="pre">tcsr_ts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.tcsr_ts" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.ChunkAtomic.time_range">
+<span class="sig-name descname"><span class="pre">time_range</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.data.ChunkAtomic.time_range" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="starry_unigraph.data.PartitionData">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.data.</span></span><span class="sig-name descname"><span class="pre">PartitionData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">src_ids:</span> <span class="pre">TensorData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_ids:</span> <span class="pre">TensorData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_ids:</span> <span class="pre">TensorData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_src:</span> <span class="pre">TensorData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_dst:</span> <span class="pre">TensorData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_data:</span> <span class="pre">dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TensorData]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_data:</span> <span class="pre">dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TensorData]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">routes:</span> <span class="pre">RouteData</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/data/partition.html#PartitionData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.PartitionData" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -114,22 +329,15 @@ with only the first 100 snapshots.</p></li>
 <li><p><strong>Round-trip</strong> — <code class="docutils literal notranslate"><span class="pre">PartitionData.from_blocks(blocks)</span></code> reconstructs
 a PartitionData from DGL blocks.</p></li>
 </ul>
-<dl>
+<dl class="simple">
 <dt>Attributes:</dt><dd><p>src_ids: Remote (boundary) source node IDs per snapshot.
 dst_ids: Local destination node IDs per snapshot.
 edge_ids: Global edge IDs per snapshot.
 edge_src: Edge source indices (into the combined src+dst space).
 edge_dst: Edge destination indices (into the dst-only space).
-node_data: Dict of named per-snapshot node feature TensorData</p>
-<blockquote>
-<div><p>(e.g. <code class="docutils literal notranslate"><span class="pre">&quot;x&quot;</span></code> for features, <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code> for labels, <code class="docutils literal notranslate"><span class="pre">&quot;c&quot;</span></code> for
-chunk assignment).</p>
-</div></blockquote>
-<dl class="simple">
-<dt>edge_data: Dict of named per-snapshot edge feature TensorData</dt><dd><p>(e.g. <code class="docutils literal notranslate"><span class="pre">&quot;w&quot;</span></code> for weights, <code class="docutils literal notranslate"><span class="pre">&quot;gcn_norm&quot;</span></code>).</p>
-</dd>
-</dl>
-<p>routes: Optional <a class="reference internal" href="#starry_unigraph.data.RouteData" title="starry_unigraph.data.RouteData"><code class="xref py py-class docutils literal notranslate"><span class="pre">RouteData</span></code></a> for distributed communication.</p>
+node_data: Dict of named per-snapshot node feature TensorData (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;x&quot;</span></code> for features, <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code> for labels, <code class="docutils literal notranslate"><span class="pre">&quot;c&quot;</span></code> for chunk assignment).
+edge_data: Dict of named per-snapshot edge feature TensorData (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;w&quot;</span></code> for weights, <code class="docutils literal notranslate"><span class="pre">&quot;gcn_norm&quot;</span></code>).
+routes: Optional <a class="reference internal" href="#starry_unigraph.data.RouteData" title="starry_unigraph.data.RouteData"><code class="xref py py-class docutils literal notranslate"><span class="pre">RouteData</span></code></a> for distributed communication.</p>
 </dd>
 </dl>
 <p>Example:</p>
@@ -202,12 +410,9 @@ edge IDs in <code class="docutils literal notranslate"><span class="pre">edata[E
 <dt class="sig sig-object py" id="starry_unigraph.data.PartitionData.load">
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mmap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#starry_unigraph.data.PartitionData" title="starry_unigraph.data.PartitionData"><span class="pre">PartitionData</span></a></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/partition.html#PartitionData.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.PartitionData.load" title="Link to this definition"></a></dt>
 <dd><p>Load a PartitionData from a <code class="docutils literal notranslate"><span class="pre">.pth</span></code> file.</p>
-<dl>
+<dl class="simple">
 <dt>Args:</dt><dd><p>path: Path to the serialized file.
-mmap: If True, memory-map the file (useful for large datasets</p>
-<blockquote>
-<div><p>that don’t fit in RAM).</p>
-</div></blockquote>
+mmap: If True, memory-map the file (useful for large datasets that don’t fit in RAM).</p>
 </dd>
 <dt>Returns:</dt><dd><p>The deserialized <a class="reference internal" href="#starry_unigraph.data.PartitionData" title="starry_unigraph.data.PartitionData"><code class="xref py py-class docutils literal notranslate"><span class="pre">PartitionData</span></code></a>.</p>
 </dd>
@@ -375,7 +580,7 @@ distributed <code class="docutils literal notranslate"><span class="pre">all_to_
 <dl class="py method">
 <dt class="sig sig-object py" id="starry_unigraph.data.RouteData.item">
 <span class="sig-name descname"><span class="pre">item</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/data/partition.html#RouteData.item"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.RouteData.item" title="Link to this definition"></a></dt>
-<dd><p>Return the single <a class="reference internal" href="starry_unigraph.runtime.flare.route.html#starry_unigraph.runtime.flare.route.Route" title="starry_unigraph.runtime.flare.route.Route"><code class="xref py py-class docutils literal notranslate"><span class="pre">Route</span></code></a> in this container.</p>
+<dd><p>Return the single <code class="xref py py-class docutils literal notranslate"><span class="pre">Route</span></code> in this container.</p>
 <dl class="simple">
 <dt>Args:</dt><dd><dl class="simple">
 <dt>group: Optional <code class="docutils literal notranslate"><span class="pre">torch.distributed</span></code> process group attached to</dt><dd><p>the returned Route.</p>
@@ -434,6 +639,67 @@ distributed <code class="docutils literal notranslate"><span class="pre">all_to_
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.data.</span></span><span class="sig-name descname"><span class="pre">SampleConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos_src:</span> <span class="pre">~torch.Tensor</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pos_dst:</span> <span class="pre">~torch.Tensor</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neg_strategy:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'none'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neg_ratio:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_nodes:</span> <span class="pre">~torch.Tensor</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_labels:</span> <span class="pre">~torch.Tensor</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_neighbors:</span> <span class="pre">~typing.List[int]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_layers:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_type:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'temporal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra:</span> <span class="pre">~typing.Dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">~typing.Any]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/data/sample_config.html#SampleConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.SampleConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration passed to chunk.materialize() to control sampling.</p>
+<p>Fields are task-specific and optional:
+- EdgePredict uses pos_src/pos_dst for edge pairs
+- NodeRegress/Classify use target_nodes/target_labels
+- All modes use num_neighbors/num_layers for GNN fanout</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig.extra">
+<span class="sig-name descname"><span class="pre">extra</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.data.SampleConfig.extra" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig.neg_ratio">
+<span class="sig-name descname"><span class="pre">neg_ratio</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#starry_unigraph.data.SampleConfig.neg_ratio" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig.neg_strategy">
+<span class="sig-name descname"><span class="pre">neg_strategy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'none'</span></em><a class="headerlink" href="#starry_unigraph.data.SampleConfig.neg_strategy" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig.num_layers">
+<span class="sig-name descname"><span class="pre">num_layers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#starry_unigraph.data.SampleConfig.num_layers" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig.num_neighbors">
+<span class="sig-name descname"><span class="pre">num_neighbors</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.data.SampleConfig.num_neighbors" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig.pos_dst">
+<span class="sig-name descname"><span class="pre">pos_dst</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.SampleConfig.pos_dst" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig.pos_src">
+<span class="sig-name descname"><span class="pre">pos_src</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.SampleConfig.pos_src" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig.sample_type">
+<span class="sig-name descname"><span class="pre">sample_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'temporal'</span></em><a class="headerlink" href="#starry_unigraph.data.SampleConfig.sample_type" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig.target_labels">
+<span class="sig-name descname"><span class="pre">target_labels</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.SampleConfig.target_labels" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.SampleConfig.target_nodes">
+<span class="sig-name descname"><span class="pre">target_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.SampleConfig.target_nodes" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="starry_unigraph.data.TensorData">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.data.</span></span><span class="sig-name descname"><span class="pre">TensorData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ptr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/data/partition.html#TensorData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.TensorData" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -442,12 +708,9 @@ distributed <code class="docutils literal notranslate"><span class="pre">all_to_
 single contiguous <code class="docutils literal notranslate"><span class="pre">data</span></code> tensor plus an <code class="docutils literal notranslate"><span class="pre">(N+1)</span></code>-element <code class="docutils literal notranslate"><span class="pre">ptr</span></code>
 array.  Element <em>i</em> is <code class="docutils literal notranslate"><span class="pre">data[ptr[i]:ptr[i+1]]</span></code>.</p>
 <p>Supports integer/slice indexing, <code class="docutils literal notranslate"><span class="pre">.to(device)</span></code>, <code class="docutils literal notranslate"><span class="pre">pin_memory()</span></code>.</p>
-<dl>
-<dt>Attributes:</dt><dd><dl class="simple">
-<dt>ptr: Pointer array of length <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">+</span> <span class="pre">1</span></code>.  <code class="docutils literal notranslate"><span class="pre">ptr[0]</span> <span class="pre">==</span> <span class="pre">0</span></code> and</dt><dd><p><code class="docutils literal notranslate"><span class="pre">ptr[-1]</span> <span class="pre">==</span> <span class="pre">data.size(0)</span></code>.</p>
-</dd>
-</dl>
-<p>data: The packed tensor.</p>
+<dl class="simple">
+<dt>Attributes:</dt><dd><p>ptr: Pointer array of length <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">+</span> <span class="pre">1</span></code>. <code class="docutils literal notranslate"><span class="pre">ptr[0]</span> <span class="pre">==</span> <span class="pre">0</span></code> and <code class="docutils literal notranslate"><span class="pre">ptr[-1]</span> <span class="pre">==</span> <span class="pre">data.size(0)</span></code>.
+data: The packed tensor.</p>
 </dd>
 </dl>
 <p>Example:</p>
@@ -507,7 +770,7 @@ array.  Element <em>i</em> is <code class="docutils literal notranslate"><span c
 
 <dl class="py function">
 <dt class="sig sig-object py" id="starry_unigraph.data.build_snapshot_dataset_from_events">
-<span class="sig-prename descclassname"><span class="pre">starry_unigraph.data.</span></span><span class="sig-name descname"><span class="pre">build_snapshot_dataset_from_events</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">events</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.raw_temporal.html#starry_unigraph.data.raw_temporal.RawTemporalEvents" title="starry_unigraph.data.raw_temporal.RawTemporalEvents"><span class="pre">RawTemporalEvents</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">snaps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/raw_temporal.html#build_snapshot_dataset_from_events"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.build_snapshot_dataset_from_events" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">starry_unigraph.data.</span></span><span class="sig-name descname"><span class="pre">build_snapshot_dataset_from_events</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">events</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="starry_unigraph.data.raw_temporal.html#starry_unigraph.data.raw_temporal.RawTemporalEvents" title="starry_unigraph.data.raw_temporal.RawTemporalEvents"><span class="pre">RawTemporalEvents</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">snaps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/raw_temporal.html#build_snapshot_dataset_from_events"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.build_snapshot_dataset_from_events" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
@@ -583,6 +846,69 @@ array.  Element <em>i</em> is <code class="docutils literal notranslate"><span c
 <li class="toctree-l2"><a class="reference internal" href="starry_unigraph.data.raw_temporal.html#starry_unigraph.data.raw_temporal.load_raw_temporal_events"><code class="docutils literal notranslate"><span class="pre">load_raw_temporal_events()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.data.batch_data.html">starry_unigraph.data.batch_data module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData"><code class="docutils literal notranslate"><span class="pre">BatchData</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.chunk_id"><code class="docutils literal notranslate"><span class="pre">BatchData.chunk_id</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.labels"><code class="docutils literal notranslate"><span class="pre">BatchData.labels</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.local_node_mask"><code class="docutils literal notranslate"><span class="pre">BatchData.local_node_mask</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.mfg"><code class="docutils literal notranslate"><span class="pre">BatchData.mfg</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.neg_dst"><code class="docutils literal notranslate"><span class="pre">BatchData.neg_dst</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.neg_src"><code class="docutils literal notranslate"><span class="pre">BatchData.neg_src</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.node_ids"><code class="docutils literal notranslate"><span class="pre">BatchData.node_ids</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.pos_dst"><code class="docutils literal notranslate"><span class="pre">BatchData.pos_dst</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.pos_src"><code class="docutils literal notranslate"><span class="pre">BatchData.pos_src</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.remote_manifest"><code class="docutils literal notranslate"><span class="pre">BatchData.remote_manifest</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.target_nodes"><code class="docutils literal notranslate"><span class="pre">BatchData.target_nodes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.batch_data.html#starry_unigraph.data.batch_data.BatchData.timestamps"><code class="docutils literal notranslate"><span class="pre">BatchData.timestamps</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.data.sample_config.html">starry_unigraph.data.sample_config module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig"><code class="docutils literal notranslate"><span class="pre">SampleConfig</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig.extra"><code class="docutils literal notranslate"><span class="pre">SampleConfig.extra</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig.neg_ratio"><code class="docutils literal notranslate"><span class="pre">SampleConfig.neg_ratio</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig.neg_strategy"><code class="docutils literal notranslate"><span class="pre">SampleConfig.neg_strategy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig.num_layers"><code class="docutils literal notranslate"><span class="pre">SampleConfig.num_layers</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig.num_neighbors"><code class="docutils literal notranslate"><span class="pre">SampleConfig.num_neighbors</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig.pos_dst"><code class="docutils literal notranslate"><span class="pre">SampleConfig.pos_dst</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig.pos_src"><code class="docutils literal notranslate"><span class="pre">SampleConfig.pos_src</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig.sample_type"><code class="docutils literal notranslate"><span class="pre">SampleConfig.sample_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig.target_labels"><code class="docutils literal notranslate"><span class="pre">SampleConfig.target_labels</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.sample_config.html#starry_unigraph.data.sample_config.SampleConfig.target_nodes"><code class="docutils literal notranslate"><span class="pre">SampleConfig.target_nodes</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html">starry_unigraph.data.chunk_atomic module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.chunk_id"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.chunk_id</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.complete"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.cross_edge_count"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.cross_edge_count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.cross_node_home"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.cross_node_home</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.cross_node_ids"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.cross_node_ids</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.load_estimate"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.load_estimate</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.materialize"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.materialize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.node_set"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.node_set</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.register_negative_hook"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.register_negative_hook()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.register_neighbor_hook"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.register_neighbor_hook()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.spatial_deps"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.spatial_deps</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.state_deps"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.state_deps</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_col"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.tcsr_col</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_edge_id"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.tcsr_edge_id</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_rowptr"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.tcsr_rowptr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_ts"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.tcsr_ts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.ChunkAtomic.time_range"><code class="docutils literal notranslate"><span class="pre">ChunkAtomic.time_range</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.RemoteManifest"><code class="docutils literal notranslate"><span class="pre">RemoteManifest</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.RemoteManifest.local_slots"><code class="docutils literal notranslate"><span class="pre">RemoteManifest.local_slots</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.RemoteManifest.remote_node_ids"><code class="docutils literal notranslate"><span class="pre">RemoteManifest.remote_node_ids</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="starry_unigraph.data.chunk_atomic.html#starry_unigraph.data.chunk_atomic.RemoteManifest.remote_owners"><code class="docutils literal notranslate"><span class="pre">RemoteManifest.remote_owners</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </div>
 </section>
@@ -592,7 +918,7 @@ array.  Element <em>i</em> is <code class="docutils literal notranslate"><span c
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="starry_unigraph.core.protocol.html" class="btn btn-neutral float-left" title="starry_unigraph.core.protocol module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.backends.ctdg.html" class="btn btn-neutral float-left" title="starry_unigraph.backends.ctdg package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="starry_unigraph.data.partition.html" class="btn btn-neutral float-right" title="starry_unigraph.data.partition module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

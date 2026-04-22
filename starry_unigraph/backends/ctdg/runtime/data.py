@@ -44,6 +44,10 @@ class CTDGDataBatch:
     def size(self) -> int:
         return int(self.src.numel())
 
+    @property
+    def is_empty(self) -> bool:
+        return self.size == 0
+
 
 class TGTemporalDataset:
     """Temporal graph dataset with train/val/test splitting.
@@ -89,6 +93,23 @@ class TGTemporalDataset:
         self._split_cache: dict[str, torch.Tensor] = {}
         self._sampler_cache: dict[str, dict[str, torch.Tensor]] = {}
         self.split_ratio = normalize_split_ratio(merged_config["data"].get("split_ratio"))
+        self.node_parts: torch.Tensor | None = None
+        self.edge_parts: torch.Tensor | None = None
+        self.partition_rank: int = 0
+        self.partition_world_size: int = 1
+
+    def configure_partition(
+        self,
+        *,
+        node_parts: torch.Tensor | None,
+        edge_parts: torch.Tensor | None,
+        rank: int,
+        world_size: int,
+    ) -> None:
+        self.node_parts = node_parts
+        self.edge_parts = edge_parts
+        self.partition_rank = rank
+        self.partition_world_size = world_size
 
     def split_event_ids(self, split: str) -> torch.Tensor:
         cached = self._split_cache.get(split)
@@ -99,23 +120,26 @@ class TGTemporalDataset:
         self._split_cache[split] = event_ids
         return event_ids
 
-    def iter_batches(self, split: str, batch_size: int, rank: int = 0, world_size: int = 1) -> Iterator[CTDGDataBatch]:
+    def iter_batches(self, split: str, batch_size: int) -> Iterator[CTDGDataBatch]:
         """Iterate over mini-batches for the given split.
 
         Args:
             split: ``"train"``, ``"val"``, or ``"test"``.
             batch_size: Number of events per batch.
-            rank: This worker's distributed rank (for sharding).
-            world_size: Total number of workers.
 
         Yields:
             :class:`CTDGDataBatch` instances.
         """
         indices = self.split_event_ids(split)
-        if world_size > 1:
-            indices = indices[rank::world_size]
-        for batch_index, start in enumerate(range(0, int(indices.numel()), batch_size)):
-            event_ids = indices[start : start + batch_size]
+        global_batch_size = batch_size
+        if self.partition_world_size > 1 and self.edge_parts is not None:
+            global_batch_size = batch_size * self.partition_world_size
+
+        for batch_index, start in enumerate(range(0, int(indices.numel()), global_batch_size)):
+            event_ids = indices[start : start + global_batch_size]
+            if self.partition_world_size > 1 and self.edge_parts is not None:
+                local_mask = self.edge_parts[event_ids] == self.partition_rank
+                event_ids = event_ids[local_mask]
             yield CTDGDataBatch(
                 index=batch_index,
                 split=split,

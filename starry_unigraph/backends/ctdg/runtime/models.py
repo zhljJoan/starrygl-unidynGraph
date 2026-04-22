@@ -6,6 +6,7 @@
 - :func:`build_dgl_block` — convert a BTS ``TemporalGraphBlock`` to DGL.
 - :class:`CTDGMemoryUpdater` — GRU-based memory updater over K-slot mailbox.
 - :class:`CTDGLinkPredictor` — full link prediction module (conv + scoring).
+- :func:`build_ctdg_model` — instantiate a CTDG model by family.
 """
 
 from __future__ import annotations
@@ -321,3 +322,65 @@ class CTDGLinkPredictor(nn.Module):
         pos_logits = self.out_fc(F.relu(h_src + h_dst)).squeeze(-1)
         neg_logits = self.out_fc(F.relu(h_src + h_neg)).squeeze(-1)
         return CTDGModelOutput(pos_logits=pos_logits, neg_logits=neg_logits)
+
+
+@dataclass(frozen=True)
+class CTDGModelSpec:
+    model_cls: type[nn.Module]
+
+
+CTDG_MODEL_SPECS: dict[str, CTDGModelSpec] = {
+    # The current online runtime uses one shared implementation for the
+    # supported CTDG families. Family-based dispatch is kept explicit here so
+    # specialized implementations can be added without changing the runtime
+    # builder contract.
+    "tgn": CTDGModelSpec(CTDGLinkPredictor),
+    "jodie": CTDGModelSpec(CTDGLinkPredictor),
+    "dyrep": CTDGModelSpec(CTDGLinkPredictor),
+    "tgat": CTDGModelSpec(CTDGLinkPredictor),
+    "apan": CTDGModelSpec(CTDGLinkPredictor),
+}
+
+
+def build_ctdg_model(
+    model_family: str,
+    *,
+    num_nodes: int,
+    hidden_dim: int,
+    edge_feat_dim: int,
+    dim_time: int = 100,
+    num_head: int = 2,
+    dropout: float = 0.1,
+    att_dropout: float = 0.1,
+) -> nn.Module:
+    """Instantiate a CTDG model by family.
+
+    Args:
+        model_family: CTDG model family name from the config.
+        num_nodes: Total number of nodes in the graph.
+        hidden_dim: Node memory / representation dimension.
+        edge_feat_dim: Edge feature dimension.
+        dim_time: Time encoding dimension.
+        num_head: Number of attention heads.
+        dropout: Dropout rate for output projection.
+        att_dropout: Dropout rate for attention weights.
+
+    Returns:
+        A CTDG model instance.
+
+    Raises:
+        KeyError: If the family is not registered.
+    """
+    family = model_family.lower()
+    spec = CTDG_MODEL_SPECS.get(family)
+    if spec is None:
+        raise KeyError(f"Unsupported CTDG model family: {model_family}")
+    return spec.model_cls(
+        num_nodes=num_nodes,
+        hidden_dim=hidden_dim,
+        edge_feat_dim=edge_feat_dim,
+        dim_time=dim_time,
+        num_head=num_head,
+        dropout=dropout,
+        att_dropout=att_dropout,
+    )
