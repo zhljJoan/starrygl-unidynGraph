@@ -191,7 +191,7 @@ def _compute_degrees(edge_index: torch.Tensor, edge_weight: torch.Tensor, num_no
     return in_deg, out_deg
 
 
-def build_snapshot_dataset_from_events(events: RawTemporalEvents, snaps: int) -> dict[str, Any]:
+def build_snapshot_dataset_from_events(events: RawTemporalEvents, snaps: int, input_x = None, input_y = None) -> dict[str, Any]:
     snaps = max(1, int(snaps))
     num_edges = int(events.num_edges)
     per_snap = max(1, (num_edges + snaps - 1) // snaps) if num_edges > 0 else 1
@@ -213,8 +213,8 @@ def build_snapshot_dataset_from_events(events: RawTemporalEvents, snaps: int) ->
             {
                 "edge_index": edge_index,
                 "edge_weight": edge_weight,
-                "x": torch.stack([in_deg, out_deg], dim=1),
-                "y": labels,
+                "x": torch.stack([in_deg, out_deg], dim=1) if input_x is None else input_x[snap_idx],
+                "y": labels if input_y is None else input_y[snap_idx],
             }
         )
     return {

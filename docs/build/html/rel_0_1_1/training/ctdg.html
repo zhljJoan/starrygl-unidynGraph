@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CTDG Training Guide &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="CHUNK Training Logic (Experimental)" href="chunk.html" />
+    <link rel="prev" title="DTDG Training Guide" href="dtdg.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Training Guides by Graph Mode</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dtdg.html">DTDG Training Guide</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">CTDG Training Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chunk.html">CHUNK Training Logic (Experimental)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Training Guides by Graph Mode</a></li>
+      <li class="breadcrumb-item active">CTDG Training Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/rel_0_1_1/training/ctdg.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="ctdg-training-guide">
+<h1>CTDG Training Guide<a class="headerlink" href="#ctdg-training-guide" title="Link to this heading"></a></h1>
+<p>The <strong>Continuous-Time Dynamic Graph (CTDG)</strong> path models the graph as a
+continuous stream of timestamped interactions:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{E} = \{(u_i, v_i, t_i, x_i)\}_{i=1}^{N}\]</div>
+<p>Each interaction carries an exact timestamp. This mode is appropriate when
+fine-grained event order matters, such as in temporal link prediction, fraud
+detection, recommendation, and transaction modeling.</p>
+<section id="when-to-use-ctdg">
+<h2>When To Use CTDG<a class="headerlink" href="#when-to-use-ctdg" title="Link to this heading"></a></h2>
+<p>CTDG is usually the right choice when:</p>
+<ul class="simple">
+<li><p>exact event ordering matters</p></li>
+<li><p>your model depends on memory, mailbox, or other time-aware state</p></li>
+<li><p>temporal dependencies are defined by interaction streams rather than snapshots</p></li>
+</ul>
+</section>
+<section id="what-starrygl-provides-for-ctdg">
+<h2>What StarryGL Provides for CTDG<a class="headerlink" href="#what-starrygl-provides-for-ctdg" title="Link to this heading"></a></h2>
+<p>CTDG training is fundamentally event-driven. Every batch depends on the memory
+state produced by earlier events, which makes distributed execution difficult
+to implement correctly by hand.</p>
+<p>StarryGL provides:</p>
+<dl class="simple">
+<dt><strong>Transparent Hotspot Memory Sharing</strong></dt><dd><p>Frequently accessed nodes can dominate state synchronization cost. StarryGL
+includes built-in support for synchronizing hotspot memory more efficiently
+across ranks.</p>
+</dd>
+<dt><strong>Automated Event-Driven Runtime</strong></dt><dd><p>The runtime handles chronological memory updates, temporal neighbor
+sampling, mailbox management, and cross-rank state consistency.</p>
+</dd>
+<dt><strong>Ready-to-Use Memory Models</strong></dt><dd><p>Built-in model families such as <code class="docutils literal notranslate"><span class="pre">tgn</span></code> and <code class="docutils literal notranslate"><span class="pre">jodie</span></code> run directly on the
+CTDG runtime.</p>
+</dd>
+<dt><strong>Unified Session API</strong></dt><dd><p>The same high-level <code class="xref py py-class docutils literal notranslate"><span class="pre">SchedulerSession</span></code> lifecycle is used for prepare,
+train, validate, and predict.</p>
+</dd>
+</dl>
+</section>
+<section id="end-to-end-workflow">
+<h2>End-to-End Workflow<a class="headerlink" href="#end-to-end-workflow" title="Link to this heading"></a></h2>
+<p>The CTDG path follows the same high-level workflow as DTDG:
+<strong>Prepare -&gt; Train and Validate -&gt; Predict</strong>.</p>
+<ol class="arabic simple">
+<li><p><strong>Prepare</strong>
+Run preprocessing once to build partition-aware artifacts and routing state.</p></li>
+<li><p><strong>Train and Validate</strong>
+Launch the distributed runtime with <code class="docutils literal notranslate"><span class="pre">torchrun</span></code>. As in DTDG mode,
+<code class="docutils literal notranslate"><span class="pre">--phase</span> <span class="pre">train</span></code> runs both the training split and the validation split
+inside each epoch.</p></li>
+<li><p><strong>Predict</strong>
+Load the saved checkpoint and run inference on the test split.</p></li>
+</ol>
+</section>
+<section id="annotated-end-to-end-example">
+<h2>Annotated End-to-End Example<a class="headerlink" href="#annotated-end-to-end-example" title="Link to this heading"></a></h2>
+<p>The following example covers CTDG artifact generation, training, validation,
+and inference.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Prepare CTDG artifacts once.</span>
+<span class="c1">#    This computes partition-aware metadata using dist.world_size.</span>
+python<span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/tgn_wikitalk.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--phase<span class="w"> </span>prepare
+
+<span class="c1"># 2. Train on 4 GPUs.</span>
+<span class="c1">#    During --phase train, StarryGL executes:</span>
+<span class="c1">#      - session.run_epoch(split=&quot;train&quot;)</span>
+<span class="c1">#      - session.run_epoch(split=&quot;val&quot;)</span>
+<span class="c1">#    and saves the resulting checkpoint.</span>
+torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/tgn_wikitalk.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--phase<span class="w"> </span>train
+
+<span class="c1"># 3. Run test-time inference.</span>
+<span class="c1">#    This loads the checkpoint and calls session.predict(split=&quot;test&quot;).</span>
+torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/tgn_wikitalk.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--phase<span class="w"> </span>predict
+</pre></div>
+</div>
+<p>The same lifecycle in Python is:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.session</span> <span class="kn">import</span> <span class="n">SchedulerSession</span>
+
+<span class="n">session</span> <span class="o">=</span> <span class="n">SchedulerSession</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">model_spec</span><span class="o">=...</span><span class="p">,</span> <span class="n">task_adapter</span><span class="o">=...</span><span class="p">)</span>
+
+<span class="c1"># Offline artifact generation</span>
+<span class="n">session</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">()</span>
+
+<span class="c1"># Distributed runtime setup</span>
+<span class="n">session</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">()</span>
+
+<span class="c1"># One epoch of training</span>
+<span class="n">train_result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">)</span>
+
+<span class="c1"># Validation on the same runtime</span>
+<span class="n">val_result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;val&quot;</span><span class="p">)</span>
+
+<span class="c1"># Test inference</span>
+<span class="n">prediction</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="how-ctdg-models-are-formulated">
+<h2>How CTDG Models Are Formulated<a class="headerlink" href="#how-ctdg-models-are-formulated" title="Link to this heading"></a></h2>
+<p>CTDG models are usually organized around a three-stage memory pipeline for an
+event between nodes <span class="math notranslate nohighlight">\(u\)</span> and <span class="math notranslate nohighlight">\(v\)</span> at time <span class="math notranslate nohighlight">\(t\)</span>.</p>
+<ol class="arabic">
+<li><p><strong>Message Generation</strong></p>
+<div class="math notranslate nohighlight">
+\[m_u(t) = \text{Message}(s_u(t^-), s_v(t^-), t, x_e)\]</div>
+</li>
+<li><p><strong>Memory Update</strong></p>
+<div class="math notranslate nohighlight">
+\[s_u(t) = \text{RNN}(s_u(t^-), m_u(t))\]</div>
+</li>
+<li><p><strong>Temporal Embedding Computation</strong></p>
+<div class="math notranslate nohighlight">
+\[z_u(t) = \text{TemporalAttention}(s_u(t), \{s_k(t_k)\}_{k \in \mathcal{N}(u, t)})\]</div>
+</li>
+</ol>
+<p>StarryGL handles the hard parts around this formulation: mailbox buffering,
+chronological state updates, temporal neighbor lookup, and distributed memory
+synchronization.</p>
+</section>
+<section id="built-in-ctdg-models">
+<h2>Built-in CTDG Models<a class="headerlink" href="#built-in-ctdg-models" title="Link to this heading"></a></h2>
+<p>Select the model family through <code class="docutils literal notranslate"><span class="pre">model.family</span></code>.</p>
+<dl class="simple">
+<dt><strong>TGN (Temporal Graph Network)</strong></dt><dd><p>Maintains per-node memory, updates it chronologically after events, and
+computes embeddings using temporal neighbor information.</p>
+</dd>
+<dt><strong>JODIE</strong></dt><dd><p>Models the temporal co-evolution of interacting entities and is particularly
+suitable for user-item style event streams.</p>
+</dd>
+</dl>
+<p>These model families share the same memory, mailbox, and temporal sampling
+runtime in StarryGL.</p>
+</section>
+<section id="event-driven-batching-and-sampling">
+<h2>Event-Driven Batching and Sampling<a class="headerlink" href="#event-driven-batching-and-sampling" title="Link to this heading"></a></h2>
+<p>Unlike DTDG, CTDG does not slide over snapshots. It processes a chronological
+event stream, so batching and sampling parameters directly affect both accuracy
+and systems behavior.</p>
+<dl class="simple">
+<dt><strong>``train.batch_size``</strong></dt><dd><p>Number of chronological events processed in one forward-backward pass.</p>
+</dd>
+<dt><strong>``sampling.neighbor_limit``</strong></dt><dd><p>Number of recent temporal interactions used when building temporal neighbor
+context.</p>
+</dd>
+<dt><strong>``ctdg.mailbox_slots``</strong></dt><dd><p>Number of pending message slots retained for each node.</p>
+</dd>
+<dt><strong>``ctdg.async_sync``</strong></dt><dd><p>Whether distributed memory synchronization is overlapped with later
+computation.</p>
+</dd>
+</dl>
+</section>
+<section id="what-the-config-means">
+<h2>What the Config Means<a class="headerlink" href="#what-the-config-means" title="Link to this heading"></a></h2>
+<p>The default CTDG example is <code class="docutils literal notranslate"><span class="pre">configs/tgn_wikitalk.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tgn</span>
+<span class="w">  </span><span class="nt">family</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tgn</span>
+<span class="w">  </span><span class="nt">task</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">temporal_link_prediction</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+
+<span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WikiTalk</span>
+<span class="w">  </span><span class="nt">graph_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ctdg</span>
+
+<span class="nt">train</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3000</span>
+<span class="w">  </span><span class="nt">lr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0004</span>
+
+<span class="nt">ctdg</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">pipeline</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">online</span>
+<span class="w">  </span><span class="nt">mailbox_slots</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">historical_alpha</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
+<span class="w">  </span><span class="nt">async_sync</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+
+<span class="nt">sampling</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">neighbor_limit</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">20</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">recent</span>
+<span class="w">  </span><span class="nt">history</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+
+<span class="nt">dist</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">world_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</pre></div>
+</div>
+<p>Key configuration takeaways:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model.family</span></code> selects the CTDG model family.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train.batch_size</span></code> controls the number of events per update.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ctdg.pipeline:</span> <span class="pre">online</span></code> selects the event-driven runtime.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ctdg.mailbox_slots</span></code> and <code class="docutils literal notranslate"><span class="pre">ctdg.async_sync</span></code> control memory behavior and
+synchronization overlap.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sampling.neighbor_limit</span></code> controls temporal neighbor depth.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dist.world_size</span></code> must match <code class="docutils literal notranslate"><span class="pre">torchrun</span> <span class="pre">--nproc_per_node</span></code>.</p></li>
+</ul>
+</section>
+<section id="core-module-reference">
+<h2>Core Module Reference<a class="headerlink" href="#core-module-reference" title="Link to this heading"></a></h2>
+<p>If you want to customize the CTDG pipeline, start with these modules.</p>
+<ol class="arabic">
+<li><p><strong>CTDGPreprocessor</strong></p>
+<p>Location: <code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/ctdg/preprocess.py</span></code></p>
+<p>Role: Builds CTDG artifacts, partition manifests, and routing metadata.</p>
+</li>
+<li><p><strong>CTDGMemoryBank</strong></p>
+<p>Location: <code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/ctdg/runtime/memory.py</span></code></p>
+<p>Role: Stores per-node memory, mailbox state, and pending distributed syncs.</p>
+</li>
+<li><p><strong>CTDG Runtime Factory and Runtime</strong></p>
+<p>Locations:
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/ctdg/runtime/factory.py</span></code> and
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/ctdg/runtime/runtime.py</span></code></p>
+<p>Role: Build the online runtime, wire together memory, sampling, model, and
+distributed execution, and run train, eval, and predict steps.</p>
+</li>
+<li><p><strong>SchedulerSession</strong></p>
+<p>Location: <code class="docutils literal notranslate"><span class="pre">starry_unigraph/session.py</span></code></p>
+<p>Role: Exposes the same unified high-level lifecycle as in DTDG mode.</p>
+</li>
+</ol>
+</section>
+<section id="how-to-add-a-new-ctdg-model">
+<h2>How To Add a New CTDG Model<a class="headerlink" href="#how-to-add-a-new-ctdg-model" title="Link to this heading"></a></h2>
+<p>CTDG now uses an explicit model factory, similar to DTDG. The runtime builder
+dispatches on <code class="docutils literal notranslate"><span class="pre">model.family</span></code> through <code class="docutils literal notranslate"><span class="pre">build_ctdg_model(...)</span></code>. This means
+new CTDG model families can be attached to the existing runtime without
+rewiring the whole execution path.</p>
+<ol class="arabic">
+<li><p>Implement the new model in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/ctdg/runtime/models.py</span></code> or in a neighboring
+runtime module. The model should remain compatible with the current online
+runtime assumptions around memory state, temporal sampling, and task-level
+outputs.</p></li>
+<li><p>Register the model in the CTDG factory in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/ctdg/runtime/models.py</span></code> by adding it to
+<code class="docutils literal notranslate"><span class="pre">CTDG_MODEL_SPECS</span></code>. This is what makes <code class="docutils literal notranslate"><span class="pre">build_ctdg_model(...)</span></code> select
+your new implementation from <code class="docutils literal notranslate"><span class="pre">model.family</span></code>.</p></li>
+<li><p>Register the new family in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/registry/model_registry.py</span></code> so that
+<code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code> can resolve it from the config.</p></li>
+<li><p>Add the family to <code class="docutils literal notranslate"><span class="pre">MODEL_GRAPH_MODES</span></code> in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/config/schema.py</span></code> if you want <code class="docutils literal notranslate"><span class="pre">data.graph_mode</span></code> to be
+inferred automatically as <code class="docutils literal notranslate"><span class="pre">ctdg</span></code>.</p></li>
+<li><p>Configure the new model:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your_new_ctdg_model</span>
+<span class="w">  </span><span class="nt">family</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your_new_ctdg_model</span>
+<span class="w">  </span><span class="nt">task</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">temporal_link_prediction</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+
+<span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">graph_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ctdg</span>
+
+<span class="nt">ctdg</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">pipeline</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">online</span>
+</pre></div>
+</div>
+</li>
+</ol>
+<p>If the new model requires different construction arguments or a different
+runtime wiring pattern, you may additionally need to extend
+<code class="docutils literal notranslate"><span class="pre">build_ctdg_model(...)</span></code> in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/backends/ctdg/runtime/models.py</span></code>.</p>
+<p>If the new model changes the prediction contract or loss definition, you may
+also need to update the relevant task adapter in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph/registry/task_registry.py</span></code>.</p>
+</section>
+<section id="practical-performance-tips">
+<h2>Practical Performance Tips<a class="headerlink" href="#practical-performance-tips" title="Link to this heading"></a></h2>
+<dl class="simple">
+<dt><strong>Start Small</strong></dt><dd><p>Reduce <code class="docutils literal notranslate"><span class="pre">train.batch_size</span></code> first when debugging runtime stability.</p>
+</dd>
+<dt><strong>Watch Synchronization Cost</strong></dt><dd><p>If throughput stalls, inspect hotspot behavior and asynchronous sync
+settings before scaling model size.</p>
+</dd>
+<dt><strong>Keep Configurations Consistent</strong></dt><dd><p>Use the same <code class="docutils literal notranslate"><span class="pre">dist.world_size</span></code> assumptions in <code class="docutils literal notranslate"><span class="pre">prepare</span></code> and <code class="docutils literal notranslate"><span class="pre">train</span></code>.</p>
+</dd>
+<dt><strong>Tune Sampling Before Scaling</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">sampling.neighbor_limit</span></code> and mailbox-related settings often matter more
+than model width in early optimization.</p>
+</dd>
+</dl>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dtdg.html" class="btn btn-neutral float-left" title="DTDG Training Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="chunk.html" class="btn btn-neutral float-right" title="CHUNK Training Logic (Experimental)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

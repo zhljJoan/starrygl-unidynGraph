@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chunk Training Guide &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Chunk Training Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/rel_0_1_0/ChunkTraining.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="chunk-training-guide">
+<h1>Chunk Training Guide<a class="headerlink" href="#chunk-training-guide" title="Link to this heading"></a></h1>
+<p>Chunk training is StarryUniGraph’s flexible time-windowed training pathway,
+using <strong>ChunkAtomic</strong> as the underlying data unit and unified scheduling
+through <strong>PipelineEngine</strong> for both DTDG and CTDG modes.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The Chunk pathway provides:</p>
+<ul class="simple">
+<li><p><strong>Time-Windowed Processing</strong>: Divide the temporal graph into fixed or adaptive time windows</p></li>
+<li><p><strong>Node Clustering</strong>: Within each time window, partition nodes into clusters for load balancing</p></li>
+<li><p><strong>Unified Scheduling</strong>: Single <code class="docutils literal notranslate"><span class="pre">PipelineEngine</span></code> orchestrates both DTDG and CTDG via the same protocol</p></li>
+<li><p><strong>State Management</strong>: Pluggable StateManager for temporal state tracking</p></li>
+</ul>
+<section id="comparison-with-other-modes">
+<h3>Comparison with Other Modes<a class="headerlink" href="#comparison-with-other-modes" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 25.0%" />
+<col style="width: 25.0%" />
+<col style="width: 25.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Feature</p></th>
+<th class="head"><p>CTDG</p></th>
+<th class="head"><p>DTDG</p></th>
+<th class="head"><p>Chunk</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Data Unit</p></td>
+<td><p>Event batch</p></td>
+<td><p>Snapshot</p></td>
+<td><p>ChunkAtomic (time slice × cluster)</p></td>
+</tr>
+<tr class="row-odd"><td><p>State Management</p></td>
+<td><p>CTDGMemoryBank</p></td>
+<td><p>RNNStateManager</p></td>
+<td><p>StateManager Protocol</p></td>
+</tr>
+<tr class="row-even"><td><p>Scheduler</p></td>
+<td><p>CTDGOnlineRuntime</p></td>
+<td><p>FlareRuntimeLoader</p></td>
+<td><p>PipelineEngine (unified)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Communication</p></td>
+<td><p>On-demand fetch</p></td>
+<td><p>all_to_all</p></td>
+<td><p>CommEngine (unified primitives)</p></td>
+</tr>
+<tr class="row-even"><td><p>Parallelism</p></td>
+<td><p>Temporal Parallelism</p></td>
+<td><p>Spatial Parallelism</p></td>
+<td><p>Spatio-Temporal Hybrid</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<p><strong>Preprocessing (partition graph into ChunkAtomic pool):</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span>--config<span class="w"> </span>configs/chunk_default.yaml<span class="w"> </span>--phase<span class="w"> </span>prepare
+</pre></div>
+</div>
+<p><strong>Training with distributed launcher:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>configs/chunk_default.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--phase<span class="w"> </span>train
+</pre></div>
+</div>
+<p><strong>Configuration example:</strong></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">graph_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chunk</span>
+<span class="w">  </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data/my_events.csv</span>
+<span class="w">  </span><span class="nt">num_time_slices</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">    </span><span class="c1"># Partition time axis into 100 slices</span>
+<span class="w">  </span><span class="nt">num_event_slices</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000.</span><span class="w"> </span><span class="c1"># Partition events into 1000 slices for finer-grained processing</span>
+<span class="w">  </span><span class="nt">num_clusters</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span><span class="w">         </span><span class="c1"># Cluster nodes per slice (load balancing)</span>
+<span class="w">  </span><span class="nt">cluster_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">metis</span><span class="w">   </span><span class="c1"># Node clustering algorithm</span>
+
+<span class="nt">training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">32</span>
+<span class="w">  </span><span class="nt">num_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span>
+</pre></div>
+</div>
+</section>
+<section id="chunkatomic-data-structure">
+<h2>ChunkAtomic Data Structure<a class="headerlink" href="#chunkatomic-data-structure" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ChunkAtomic</span></code> is the minimal scheduling and data unit in Chunk mode,
+representing one time slice × one node cluster:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.data.chunk_atomic</span> <span class="kn">import</span> <span class="n">ChunkAtomic</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="n">chunk</span> <span class="o">=</span> <span class="n">ChunkAtomic</span><span class="p">(</span>
+    <span class="n">chunk_id</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>                       <span class="c1"># (time_slice_id=0, cluster_id=2)</span>
+    <span class="n">time_range</span><span class="o">=</span><span class="p">(</span><span class="mf">1000.0</span><span class="p">,</span> <span class="mf">2000.0</span><span class="p">),</span>           <span class="c1"># Time range for this chunk</span>
+    <span class="n">node_set</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">]),</span>   <span class="c1"># Master nodes in this cluster</span>
+    <span class="n">tcsr_rowptr</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]),</span>
+    <span class="c1"># ... structural data ...</span>
+    <span class="n">tcsr_edge_id</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]),</span>
+    <span class="n">cross_node_ids</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">50</span><span class="p">,</span> <span class="mi">60</span><span class="p">]),</span>  <span class="c1"># Neighbors from other clusters</span>
+    <span class="n">cross_node_home</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]),</span>   <span class="c1"># Owner cluster for each neighbor</span>
+    <span class="n">cross_edge_count</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">8</span><span class="p">),</span>
+    <span class="n">load_estimate</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Core interface: materialize chunk data for sampling/inference</span>
+<span class="n">local_mfg</span><span class="p">,</span> <span class="n">remote_manifest</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">materialize</span><span class="p">(</span><span class="n">sampler_config</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="chunkbuilder-constructing-chunk-pool">
+<h2>ChunkBuilder: Constructing Chunk Pool<a class="headerlink" href="#chunkbuilder-constructing-chunk-pool" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.data.chunk_builder</span> <span class="kn">import</span> <span class="n">ChunkBuilder</span><span class="p">,</span> <span class="n">ChunkBuildConfig</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">ChunkBuildConfig</span><span class="p">(</span>
+    <span class="n">num_time_slices</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>    <span class="c1"># Partition time axis</span>
+    <span class="n">num_clusters</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>         <span class="c1"># Clusters per time slice</span>
+    <span class="n">cluster_method</span><span class="o">=</span><span class="s2">&quot;metis&quot;</span><span class="p">,</span> <span class="c1"># Clustering algorithm</span>
+    <span class="n">adaptive_split</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>   <span class="c1"># Uniform time splits</span>
+<span class="p">)</span>
+
+<span class="n">builder</span> <span class="o">=</span> <span class="n">ChunkBuilder</span><span class="p">()</span>
+<span class="n">pool</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">raw_graph</span><span class="p">)</span>          <span class="c1"># Generate ChunkAtomic list</span>
+<span class="n">assignment</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">assign_devices</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># Assign to 4 ranks</span>
+
+<span class="c1"># assignment[rank_id] = chunks assigned to this rank</span>
+<span class="c1"># Uses greedy load balancing by load_estimate</span>
+</pre></div>
+</div>
+</section>
+<section id="pipelineengine-execution">
+<h2>PipelineEngine Execution<a class="headerlink" href="#pipelineengine-execution" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.engine</span> <span class="kn">import</span> <span class="n">PipelineEngine</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime.backend_adapters</span> <span class="kn">import</span> <span class="n">ChunkGraphBackend</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="c1"># Create CUDA streams for overlapping computation and communication</span>
+<span class="n">compute_stream</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Stream</span><span class="p">()</span>
+<span class="n">comm_stream</span>    <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Stream</span><span class="p">()</span>
+
+<span class="n">engine</span> <span class="o">=</span> <span class="n">PipelineEngine</span><span class="p">(</span>
+    <span class="n">compute_stream</span><span class="o">=</span><span class="n">compute_stream</span><span class="p">,</span>
+    <span class="n">comm_stream</span><span class="o">=</span><span class="n">comm_stream</span><span class="p">,</span>
+    <span class="n">overlap</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Enable double-buffering (overlap communication and compute)</span>
+<span class="p">)</span>
+
+<span class="n">backend</span> <span class="o">=</span> <span class="n">ChunkGraphBackend</span><span class="p">(</span><span class="n">chunk_pool</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="n">world_size</span><span class="p">)</span>
+<span class="n">state_manager</span> <span class="o">=</span> <span class="n">ChunkStateManager</span><span class="p">(</span><span class="n">num_nodes</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">feat_dim</span><span class="o">=</span><span class="mi">64</span><span class="p">)</span>
+
+<span class="c1"># Training loop</span>
+<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">):</span>
+    <span class="n">train_losses</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
+    <span class="n">val_losses</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="s2">&quot;val&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="si">}</span><span class="s2">: train_loss=</span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="n">train_losses</span><span class="p">)</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">train_losses</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="custom-runner-implementation">
+<h2>Custom Runner Implementation<a class="headerlink" href="#custom-runner-implementation" title="Link to this heading"></a></h2>
+<p>Implement a custom Runner by inheriting and implementing 5 core methods:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.backend</span> <span class="kn">import</span> <span class="n">GraphBackend</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.data.chunk_atomic</span> <span class="kn">import</span> <span class="n">ChunkAtomic</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.data.batch_data</span> <span class="kn">import</span> <span class="n">BatchData</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="k">class</span> <span class="nc">ChunkGraphBackend</span><span class="p">(</span><span class="n">GraphBackend</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom chunk-based data backend.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chunk_pool</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="n">world_size</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">chunk_pool</span> <span class="o">=</span> <span class="n">chunk_pool</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">=</span> <span class="n">rank</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span> <span class="o">=</span> <span class="n">world_size</span>
+
+    <span class="k">def</span> <span class="nf">iter_batches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Iterate over chunks in order, yielding materialized batches.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_pool</span><span class="p">:</span>
+            <span class="n">local_mfg</span><span class="p">,</span> <span class="n">remote_manifest</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">materialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampler_config</span><span class="p">)</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="n">BatchData</span><span class="p">(</span>
+                <span class="n">node_ids</span><span class="o">=</span><span class="n">local_mfg</span><span class="o">.</span><span class="n">node_ids</span><span class="p">,</span>
+                <span class="n">edges</span><span class="o">=</span><span class="n">local_mfg</span><span class="o">.</span><span class="n">edges</span><span class="p">,</span>
+                <span class="n">timestamps</span><span class="o">=</span><span class="n">chunk</span><span class="o">.</span><span class="n">time_range</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;chunk_id&quot;</span><span class="p">:</span> <span class="n">chunk</span><span class="o">.</span><span class="n">chunk_id</span><span class="p">}</span>
+            <span class="p">)</span>
+            <span class="k">yield</span> <span class="n">batch</span>
+
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset chunk iterator state.&quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Describe backend configuration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;backend&quot;</span><span class="p">:</span> <span class="s2">&quot;chunk&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;num_chunks&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">chunk_pool</span><span class="p">),</span>
+            <span class="s2">&quot;num_time_slices&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">chunk_id</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_pool</span><span class="p">)),</span>
+        <span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="custom-statemanager-implementation">
+<h2>Custom StateManager Implementation<a class="headerlink" href="#custom-statemanager-implementation" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.backend</span> <span class="kn">import</span> <span class="n">StateManager</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="k">class</span> <span class="nc">ChunkStateManager</span><span class="p">(</span><span class="n">StateManager</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom state manager with temporal caching.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">,</span> <span class="n">feat_dim</span><span class="p">,</span> <span class="n">world_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">=</span> <span class="n">num_nodes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feat_dim</span> <span class="o">=</span> <span class="n">feat_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span> <span class="o">=</span> <span class="n">world_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">feat_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetch state for required nodes (synchronous or async).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="n">node_ids</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">chunk</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update node states after forward pass.&quot;&quot;&quot;</span>
+        <span class="n">node_ids</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">node_ids</span>
+        <span class="n">new_state</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">embeddings</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="n">node_ids</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_state</span>
+
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset state manager.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Describe state manager configuration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;num_nodes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span>
+            <span class="s2">&quot;feat_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feat_dim</span><span class="p">,</span>
+            <span class="s2">&quot;world_size&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+        <span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="caching-systems">
+<h2>Caching Systems<a class="headerlink" href="#caching-systems" title="Link to this heading"></a></h2>
+<p>Chunk mode supports three-tier caching managed by StateManager:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.cache.hot_cache</span> <span class="kn">import</span> <span class="n">HotCache</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime.cache.decay_cache</span> <span class="kn">import</span> <span class="n">DecayCache</span>
+
+<span class="c1"># Hot cache: recently accessed node states</span>
+<span class="n">hot_cache</span> <span class="o">=</span> <span class="n">HotCache</span><span class="p">(</span><span class="n">capacity</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">feat_dim</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
+
+<span class="c1"># Decay cache: frequently accessed with time-decay eviction</span>
+<span class="n">decay_cache</span> <span class="o">=</span> <span class="n">DecayCache</span><span class="p">(</span>
+    <span class="n">capacity</span><span class="o">=</span><span class="mi">50000</span><span class="p">,</span> <span class="n">feat_dim</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
+    <span class="n">decay_factor</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Usage</span>
+<span class="n">hit_mask</span><span class="p">,</span> <span class="n">cached_vals</span> <span class="o">=</span> <span class="n">hot_cache</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">node_ids</span><span class="p">)</span>
+<span class="n">hot_cache</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">node_ids</span><span class="p">,</span> <span class="n">new_vals</span><span class="p">)</span>
+<span class="n">evicted</span> <span class="o">=</span> <span class="n">hot_cache</span><span class="o">.</span><span class="n">evict</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="communication-patterns">
+<h2>Communication Patterns<a class="headerlink" href="#communication-patterns" title="Link to this heading"></a></h2>
+<p>Chunk mode provides flexible communication via the <strong>CommEngine</strong> protocol:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.comm.comm_engine</span> <span class="kn">import</span> <span class="n">CommEngine</span>
+
+<span class="k">class</span> <span class="nc">ChunkCommEngine</span><span class="p">(</span><span class="n">CommEngine</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Communication primitive for cross-cluster feature exchange.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">async_exchange</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">send_ids</span><span class="p">,</span> <span class="n">send_vals</span><span class="p">,</span> <span class="n">plan</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;All-to-all or point-to-point exchange.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_to_all_single</span><span class="p">(</span><span class="n">send_ids</span><span class="p">,</span> <span class="n">send_vals</span><span class="p">,</span> <span class="n">plan</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">async_fetch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">,</span> <span class="n">owners</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Asynchronous fetch with caching.&quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">try_recv_delta</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Non-blocking query for received state updates.&quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">all_reduce_gradients</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Synchronize gradients across all ranks (DDP).&quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+</pre></div>
+</div>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../architecture/data_layer.html"><span class="doc">Data Layer Reference</span></a> — BatchData and ChunkAtomic structures</p></li>
+<li><p><a class="reference internal" href="../architecture/unified_pipeline.html"><span class="doc">Unified Training Pipeline</span></a> — PipelineEngine design</p></li>
+<li><p><a class="reference internal" href="../architecture/protocols.html"><span class="doc">Protocol Reference</span></a> — StateManager and GraphBackend protocols</p></li>
+<li><p><a class="reference internal" href="UniTraining.html"><span class="doc">Unified Training Entry Point</span></a> — Unified training entry point</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

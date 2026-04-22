@@ -1,20 +1,22 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph.session &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" /> 
@@ -31,6 +33,9 @@
           <a href="../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -39,11 +44,20 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../guide/index.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/python/index.html">API Reference</a></li>
 </ul>
 
@@ -72,35 +86,50 @@
            <div itemprop="articleBody">
              
   <h1>Source code for starry_unigraph.session</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_checkpoint</span><span class="p">,</span> <span class="n">save_checkpoint</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.config.schema</span><span class="w"> </span><span class="kn">import</span> <span class="n">detect_graph_mode</span><span class="p">,</span> <span class="n">load_config</span><span class="p">,</span> <span class="n">validate_config</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.distributed</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_distributed_env</span><span class="p">,</span> <span class="n">build_distributed_context</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.providers</span><span class="w"> </span><span class="kn">import</span> <span class="n">CTDGProvider</span><span class="p">,</span> <span class="n">DTDGProvider</span>  <span class="c1"># noqa: F401</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelRegistry</span><span class="p">,</span> <span class="n">ProviderRegistry</span><span class="p">,</span> <span class="n">TaskRegistry</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">PredictionResult</span><span class="p">,</span> <span class="n">PreparedArtifacts</span><span class="p">,</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">SessionContext</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
+
+<span class="kn">from</span> <span class="nn">starry_unigraph.checkpoint</span> <span class="kn">import</span> <span class="n">load_checkpoint</span><span class="p">,</span> <span class="n">save_checkpoint</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.config.schema</span> <span class="kn">import</span> <span class="n">detect_graph_mode</span><span class="p">,</span> <span class="n">load_config</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.distributed</span> <span class="kn">import</span> <span class="n">apply_distributed_env</span><span class="p">,</span> <span class="n">build_distributed_context</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.backends.ctdg.preprocess</span> <span class="kn">import</span> <span class="n">CTDGPreprocessor</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.backends.dtdg</span> <span class="kn">import</span> <span class="n">FlareDTDGPreprocessor</span><span class="p">,</span> <span class="n">FlareRuntimeLoader</span><span class="p">,</span> <span class="n">init_flare_training</span><span class="p">,</span> <span class="n">run_flare_eval_step</span><span class="p">,</span> <span class="n">run_flare_predict_step</span><span class="p">,</span> <span class="n">run_flare_train_step</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.backends.dtdg.preprocess</span> <span class="kn">import</span> <span class="n">load_prepared_from_disk</span><span class="p">,</span> <span class="n">validate_artifacts</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.preprocess.chunk</span> <span class="kn">import</span> <span class="n">ChunkPreprocessor</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.registry</span> <span class="kn">import</span> <span class="n">ModelRegistry</span><span class="p">,</span> <span class="n">TaskRegistry</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime.chunk</span> <span class="kn">import</span> <span class="n">ChunkRuntimeLoader</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.backends.ctdg.runtime.session</span> <span class="kn">import</span> <span class="n">CTDGSession</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.types</span> <span class="kn">import</span> <span class="n">PredictionResult</span><span class="p">,</span> <span class="n">PreparedArtifacts</span><span class="p">,</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">SessionContext</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime.engine</span> <span class="kn">import</span> <span class="n">PipelineEngine</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime.backend_adapters</span> <span class="kn">import</span> <span class="n">CTDGGraphBackend</span><span class="p">,</span> <span class="n">FlareGraphBackend</span><span class="p">,</span> <span class="n">ChunkGraphBackend</span><span class="p">,</span> <span class="n">DummyStateManager</span>
 
 
 <div class="viewcode-block" id="SchedulerSession">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">SchedulerSession</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">model_spec</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">task_adapter</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">SchedulerSession</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">model_spec</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">task_adapter</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span> <span class="o">=</span> <span class="n">session_ctx</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">provider</span> <span class="o">=</span> <span class="n">provider</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_spec</span> <span class="o">=</span> <span class="n">model_spec</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">task_adapter</span> <span class="o">=</span> <span class="n">task_adapter</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">current_epoch</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">global_step</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="n">RuntimeBundle</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="p">:</span> <span class="n">FlareRuntimeLoader</span> <span class="o">|</span> <span class="n">ChunkRuntimeLoader</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="p">:</span> <span class="n">CTDGSession</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span><span class="p">:</span> <span class="n">PreparedArtifacts</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># New: unified pipeline engine (optional, for refactored code path)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline_engine</span><span class="p">:</span> <span class="n">PipelineEngine</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="SchedulerSession.from_config">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.from_config">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">from_config</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">from_config</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">config_or_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">dataset_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -112,8 +141,6 @@
             <span class="n">model_name</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
             <span class="n">family</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;family&quot;</span><span class="p">],</span>
         <span class="p">)</span>
-        <span class="n">graph_mode</span> <span class="o">=</span> <span class="n">detect_graph_mode</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-        <span class="n">provider_cls</span> <span class="o">=</span> <span class="n">ProviderRegistry</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">graph_mode</span><span class="p">)</span>
         <span class="n">task_cls</span> <span class="o">=</span> <span class="n">TaskRegistry</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;task&quot;</span><span class="p">])</span>
         <span class="n">artifact_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;artifacts&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
         <span class="n">ctx</span> <span class="o">=</span> <span class="n">SessionContext</span><span class="p">(</span>
@@ -124,73 +151,301 @@
             <span class="n">dist</span><span class="o">=</span><span class="n">build_distributed_context</span><span class="p">(</span><span class="n">config</span><span class="p">),</span>
             <span class="n">warnings</span><span class="o">=</span><span class="n">warnings</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">provider</span> <span class="o">=</span> <span class="n">provider_cls</span><span class="p">(</span><span class="n">task_adapter</span><span class="o">=</span><span class="n">task_cls</span><span class="p">())</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span> <span class="n">model_spec</span><span class="o">=</span><span class="n">model_spec</span><span class="p">,</span> <span class="n">task_adapter</span><span class="o">=</span><span class="n">task_cls</span><span class="p">())</span></div>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">session_ctx</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">model_spec</span><span class="o">=</span><span class="n">model_spec</span><span class="p">,</span> <span class="n">task_adapter</span><span class="o">=</span><span class="n">task_cls</span><span class="p">())</span></div>
 
 
 <div class="viewcode-block" id="SchedulerSession.prepare_data">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.prepare_data">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedArtifacts</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span></div>
+    <span class="k">def</span> <span class="nf">prepare_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedArtifacts</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">starry_unigraph.config.schema</span> <span class="kn">import</span> <span class="n">detect_graph_mode</span>
+        <span class="n">graph_mode</span> <span class="o">=</span> <span class="n">detect_graph_mode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;ctdg&quot;</span><span class="p">:</span>
+            <span class="n">preprocessor</span> <span class="o">=</span> <span class="n">CTDGPreprocessor</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;dtdg&quot;</span><span class="p">:</span>
+            <span class="n">preprocessor</span> <span class="o">=</span> <span class="n">FlareDTDGPreprocessor</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;chunk&quot;</span><span class="p">:</span>
+            <span class="n">preprocessor</span> <span class="o">=</span> <span class="n">ChunkPreprocessor</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown graph_mode for preprocessing: </span><span class="si">{</span><span class="n">graph_mode</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span> <span class="o">=</span> <span class="n">preprocessor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">prepared_artifacts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span></div>
 
 
 <div class="viewcode-block" id="SchedulerSession.build_runtime">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.build_runtime">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_runtime</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RuntimeBundle</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span></div>
+    <span class="k">def</span> <span class="nf">build_runtime</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RuntimeBundle</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span> <span class="o">=</span> <span class="n">load_prepared_from_disk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">artifact_root</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">prepared_artifacts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span>
+
+        <span class="n">graph_mode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span><span class="o">.</span><span class="n">provider_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;graph_mode&quot;</span><span class="p">)</span>
+
+        <span class="n">base_device</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;runtime&quot;</span><span class="p">][</span><span class="s2">&quot;device&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">base_device</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="ow">and</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="ow">and</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;cuda:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">local_rank</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">base_device</span>
+
+        <span class="k">if</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;ctdg&quot;</span><span class="p">:</span>
+            <span class="c1"># CTDG online runtime (standalone)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span> <span class="o">=</span> <span class="n">CTDGSession</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">_runtime</span>
+        <span class="k">elif</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;dtdg&quot;</span><span class="p">:</span>
+            <span class="c1"># DTDG Flare runtime (standalone)</span>
+            <span class="n">validate_artifacts</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prepared</span><span class="p">,</span> <span class="n">expected_graph_mode</span><span class="o">=</span><span class="s2">&quot;dtdg&quot;</span><span class="p">,</span> <span class="n">expected_num_parts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="p">)</span>
+            <span class="n">flare_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span><span class="o">.</span><span class="n">directories</span><span class="p">[</span><span class="s2">&quot;flare&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">flare_dir</span> <span class="o">/</span> <span class="s2">&quot;manifest.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing flare manifest: </span><span class="si">{</span><span class="n">flare_dir</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="s1">&#39;manifest.json&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">part_id</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">partition_path</span> <span class="o">=</span> <span class="n">flare_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;part_</span><span class="si">{</span><span class="n">part_id</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">.pth&quot;</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">partition_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing flare partition artifact: </span><span class="si">{</span><span class="n">partition_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">partition_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">partition_path</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span> <span class="o">=</span> <span class="n">FlareRuntimeLoader</span><span class="o">.</span><span class="n">from_partition_data</span><span class="p">(</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">partition_data</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+                <span class="n">rank</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span>
+                <span class="n">world_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="n">RuntimeBundle</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;graph_mode&quot;</span><span class="p">:</span> <span class="s2">&quot;dtdg&quot;</span><span class="p">})</span>
+            <span class="n">init_flare_training</span><span class="p">(</span><span class="n">runtime</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="p">,</span> <span class="n">session_ctx</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">partition_data</span><span class="o">=</span><span class="n">partition_data</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;flare_partition_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">partition_path</span><span class="p">),</span>
+                    <span class="s2">&quot;window_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">describe_window_state</span><span class="p">(),</span>
+                    <span class="s2">&quot;snapshot_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">dump_state</span><span class="p">(),</span>
+                    <span class="s2">&quot;route_cache&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">describe_route_cache</span><span class="p">(),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;chunk&quot;</span><span class="p">:</span>
+            <span class="c1"># Chunk runtime (independent, with internal CTDG/DTDG branching)</span>
+            <span class="n">validate_artifacts</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prepared</span><span class="p">,</span> <span class="n">expected_graph_mode</span><span class="o">=</span><span class="s2">&quot;chunk&quot;</span><span class="p">,</span> <span class="n">expected_num_parts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span> <span class="o">=</span> <span class="n">ChunkRuntimeLoader</span><span class="o">.</span><span class="n">from_prepared_artifacts</span><span class="p">(</span>
+                <span class="n">prepared_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">artifact_root</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+                <span class="n">rank</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span>
+                <span class="n">world_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">partition_data</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># TODO: get from chunk manifest for model init</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="n">RuntimeBundle</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;graph_mode&quot;</span><span class="p">:</span> <span class="s2">&quot;chunk&quot;</span><span class="p">})</span>
+            <span class="n">init_flare_training</span><span class="p">(</span><span class="n">runtime</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="p">,</span> <span class="n">session_ctx</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">partition_data</span><span class="o">=</span><span class="n">partition_data</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;chunk_manifest&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">chunk_manifest</span><span class="p">,</span>
+                    <span class="s2">&quot;window_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">describe_window_state</span><span class="p">(),</span>
+                    <span class="s2">&quot;snapshot_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">dump_state</span><span class="p">(),</span>
+                    <span class="s2">&quot;route_cache&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">describe_route_cache</span><span class="p">(),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown graph_mode: </span><span class="si">{</span><span class="n">graph_mode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span></div>
+
+
+<div class="viewcode-block" id="SchedulerSession.build_pipeline_engine">
+<a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.build_pipeline_engine">[docs]</a>
+    <span class="k">def</span> <span class="nf">build_pipeline_engine</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PipelineEngine</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build unified PipelineEngine (new architecture, optional).</span>
+
+<span class="sd">        This creates a PipelineEngine that composes GraphBackend + TaskAdapter + StateManager + Model.</span>
+<span class="sd">        For now, this is opt-in. Existing code path via run_epoch() still works.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model: Neural network model (if None, will be loaded from model_spec)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            PipelineEngine ready for run_epoch() calls</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This is part of the Graph Mode × Task Type orthogonal separation refactoring.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span> <span class="o">=</span> <span class="n">load_prepared_from_disk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">artifact_root</span><span class="p">)</span>
+
+        <span class="n">graph_mode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span><span class="o">.</span><span class="n">provider_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;graph_mode&quot;</span><span class="p">)</span>
+        <span class="n">base_device</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;runtime&quot;</span><span class="p">][</span><span class="s2">&quot;device&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">base_device</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="ow">and</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="ow">and</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;cuda:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">local_rank</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">base_device</span>
+
+        <span class="c1"># Build GraphBackend and StateManager adapters based on graph_mode</span>
+        <span class="k">if</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;ctdg&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span> <span class="o">=</span> <span class="n">CTDGSession</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span>
+            <span class="n">backend</span> <span class="o">=</span> <span class="n">CTDGGraphBackend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;dtdg&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Build FlareRuntimeLoader (same as build_runtime)</span>
+                <span class="n">validate_artifacts</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prepared</span><span class="p">,</span> <span class="n">expected_graph_mode</span><span class="o">=</span><span class="s2">&quot;dtdg&quot;</span><span class="p">,</span> <span class="n">expected_num_parts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="p">)</span>
+                <span class="n">flare_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span><span class="o">.</span><span class="n">directories</span><span class="p">[</span><span class="s2">&quot;flare&quot;</span><span class="p">]</span>
+                <span class="n">part_id</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">partition_path</span> <span class="o">=</span> <span class="n">flare_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;part_</span><span class="si">{</span><span class="n">part_id</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">.pth&quot;</span>
+                <span class="n">partition_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">partition_path</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span> <span class="o">=</span> <span class="n">FlareRuntimeLoader</span><span class="o">.</span><span class="n">from_partition_data</span><span class="p">(</span>
+                    <span class="n">data</span><span class="o">=</span><span class="n">partition_data</span><span class="p">,</span>
+                    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+                    <span class="n">rank</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span>
+                    <span class="n">world_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+                    <span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">backend</span> <span class="o">=</span> <span class="n">FlareGraphBackend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">graph_mode</span> <span class="o">==</span> <span class="s2">&quot;chunk&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">validate_artifacts</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prepared</span><span class="p">,</span> <span class="n">expected_graph_mode</span><span class="o">=</span><span class="s2">&quot;chunk&quot;</span><span class="p">,</span> <span class="n">expected_num_parts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span> <span class="o">=</span> <span class="n">ChunkRuntimeLoader</span><span class="o">.</span><span class="n">from_prepared_artifacts</span><span class="p">(</span>
+                    <span class="n">prepared_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">artifact_root</span><span class="p">,</span>
+                    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+                    <span class="n">rank</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span>
+                    <span class="n">world_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="p">,</span>
+                    <span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">backend</span> <span class="o">=</span> <span class="n">ChunkGraphBackend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown graph_mode: </span><span class="si">{</span><span class="n">graph_mode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Create PipelineEngine</span>
+        <span class="n">state_manager</span> <span class="o">=</span> <span class="n">DummyStateManager</span><span class="p">()</span>  <span class="c1"># Placeholder; could be replaced with real state managers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline_engine</span> <span class="o">=</span> <span class="n">PipelineEngine</span><span class="p">(</span>
+            <span class="n">backend</span><span class="o">=</span><span class="n">backend</span><span class="p">,</span>
+            <span class="n">state_manager</span><span class="o">=</span><span class="n">state_manager</span><span class="p">,</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec</span><span class="p">,</span>  <span class="c1"># Placeholder model</span>
+            <span class="n">task_adapter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">task_adapter</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline_engine</span></div>
 
 
 <div class="viewcode-block" id="SchedulerSession.run_epoch">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.run_epoch">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="n">iterator</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">build_train_iterator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span>
-            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">build_eval_iterator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-        <span class="n">outputs</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
-                <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">run_train_step</span><span class="p">(</span><span class="n">batch</span><span class="p">))</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">global_step</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
-                <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">run_eval_step</span><span class="p">(</span><span class="n">batch</span><span class="p">))</span>
-        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
-        <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">current_epoch</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="n">losses</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">task_adapter</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">outputs</span> <span class="k">if</span> <span class="s2">&quot;loss&quot;</span> <span class="ow">in</span> <span class="n">item</span><span class="p">]</span>
-        <span class="n">metric_accumulator</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">:</span>
-            <span class="n">metrics</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metrics&quot;</span><span class="p">,</span> <span class="p">{})</span>
-            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">metric_accumulator</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">run_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># CTDG path (standalone)</span>
+            <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
+                <span class="n">iterator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">iter_train</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">iterator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">iter_eval</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span>
 
-        <span class="n">loss_sum</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">losses</span><span class="p">))</span>
-        <span class="n">step_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span> <span class="k">if</span> <span class="n">split</span> <span class="o">!=</span> <span class="s2">&quot;train&quot;</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
-        <span class="n">total_loss_sum</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">,</span> <span class="n">max_elapsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributed_epoch_stats</span><span class="p">(</span><span class="n">loss_sum</span><span class="p">,</span> <span class="n">step_count</span><span class="p">,</span> <span class="n">elapsed</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split</span><span class="p">,</span>
-            <span class="s2">&quot;steps&quot;</span><span class="p">:</span> <span class="n">total_steps</span><span class="p">,</span>
-            <span class="s2">&quot;local_steps&quot;</span><span class="p">:</span> <span class="n">step_count</span><span class="p">,</span>
-            <span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">total_loss_sum</span> <span class="o">/</span> <span class="n">total_steps</span> <span class="k">if</span> <span class="n">total_steps</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
-            <span class="s2">&quot;local_loss&quot;</span><span class="p">:</span> <span class="n">loss_sum</span> <span class="o">/</span> <span class="n">step_count</span> <span class="k">if</span> <span class="n">step_count</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
-            <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="n">key</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))</span>
-                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">metric_accumulator</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-                <span class="k">if</span> <span class="n">values</span>
-            <span class="p">},</span>
-            <span class="s2">&quot;elapsed_s&quot;</span><span class="p">:</span> <span class="n">max_elapsed</span><span class="p">,</span>
-            <span class="s2">&quot;local_elapsed_s&quot;</span><span class="p">:</span> <span class="n">elapsed</span><span class="p">,</span>
-            <span class="s2">&quot;outputs&quot;</span><span class="p">:</span> <span class="n">outputs</span><span class="p">,</span>
-        <span class="p">}</span></div>
+            <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+                    <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">train_step</span><span class="p">(</span><span class="n">batch</span><span class="p">))</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">global_step</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+                    <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">eval_step</span><span class="p">(</span><span class="n">batch</span><span class="p">))</span>
+            <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
+
+            <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">current_epoch</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="n">losses</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">])</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">outputs</span> <span class="k">if</span> <span class="s2">&quot;loss&quot;</span> <span class="ow">in</span> <span class="n">item</span><span class="p">]</span>
+            <span class="n">metric_accumulator</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">:</span>
+                <span class="n">metrics</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metrics&quot;</span><span class="p">,</span> <span class="p">{})</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">metric_accumulator</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+
+            <span class="n">loss_sum</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">losses</span><span class="p">))</span>
+            <span class="n">step_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span> <span class="k">if</span> <span class="n">split</span> <span class="o">!=</span> <span class="s2">&quot;train&quot;</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
+            <span class="n">total_loss_sum</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">,</span> <span class="n">max_elapsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributed_epoch_stats</span><span class="p">(</span><span class="n">loss_sum</span><span class="p">,</span> <span class="n">step_count</span><span class="p">,</span> <span class="n">elapsed</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split</span><span class="p">,</span>
+                <span class="s2">&quot;steps&quot;</span><span class="p">:</span> <span class="n">total_steps</span><span class="p">,</span>
+                <span class="s2">&quot;local_steps&quot;</span><span class="p">:</span> <span class="n">step_count</span><span class="p">,</span>
+                <span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">total_loss_sum</span> <span class="o">/</span> <span class="n">total_steps</span> <span class="k">if</span> <span class="n">total_steps</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">&quot;local_loss&quot;</span><span class="p">:</span> <span class="n">loss_sum</span> <span class="o">/</span> <span class="n">step_count</span> <span class="k">if</span> <span class="n">step_count</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="n">key</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">metric_accumulator</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">values</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;elapsed_s&quot;</span><span class="p">:</span> <span class="n">max_elapsed</span><span class="p">,</span>
+                <span class="s2">&quot;local_elapsed_s&quot;</span><span class="p">:</span> <span class="n">elapsed</span><span class="p">,</span>
+                <span class="s2">&quot;outputs&quot;</span><span class="p">:</span> <span class="n">outputs</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># DTDG or Chunk path (snapshot_core dispatch)</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Call build_runtime() first&quot;</span>
+            <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
+                <span class="n">iterator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">iter_train</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;eval_rnn_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">iterator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">iter_eval</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span>
+
+            <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+                    <span class="c1"># snapshot_core handles its own step dispatch (Flare or Chunk)</span>
+                    <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">run_train_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+                    <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">global_step</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+                    <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">run_eval_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+                    <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+            <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
+
+            <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">current_epoch</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="n">losses</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">task_adapter</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">outputs</span> <span class="k">if</span> <span class="s2">&quot;loss&quot;</span> <span class="ow">in</span> <span class="n">item</span><span class="p">]</span>
+            <span class="n">metric_accumulator</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">:</span>
+                <span class="n">metrics</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metrics&quot;</span><span class="p">,</span> <span class="p">{})</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">metric_accumulator</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+
+            <span class="n">loss_sum</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">losses</span><span class="p">))</span>
+            <span class="n">step_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span> <span class="k">if</span> <span class="n">split</span> <span class="o">!=</span> <span class="s2">&quot;train&quot;</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
+            <span class="n">total_loss_sum</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">,</span> <span class="n">max_elapsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributed_epoch_stats</span><span class="p">(</span><span class="n">loss_sum</span><span class="p">,</span> <span class="n">step_count</span><span class="p">,</span> <span class="n">elapsed</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split</span><span class="p">,</span>
+                <span class="s2">&quot;steps&quot;</span><span class="p">:</span> <span class="n">total_steps</span><span class="p">,</span>
+                <span class="s2">&quot;local_steps&quot;</span><span class="p">:</span> <span class="n">step_count</span><span class="p">,</span>
+                <span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">total_loss_sum</span> <span class="o">/</span> <span class="n">total_steps</span> <span class="k">if</span> <span class="n">total_steps</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">&quot;local_loss&quot;</span><span class="p">:</span> <span class="n">loss_sum</span> <span class="o">/</span> <span class="n">step_count</span> <span class="k">if</span> <span class="n">step_count</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="n">key</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">metric_accumulator</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">values</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;elapsed_s&quot;</span><span class="p">:</span> <span class="n">max_elapsed</span><span class="p">,</span>
+                <span class="s2">&quot;local_elapsed_s&quot;</span><span class="p">:</span> <span class="n">elapsed</span><span class="p">,</span>
+                <span class="s2">&quot;outputs&quot;</span><span class="p">:</span> <span class="n">outputs</span><span class="p">,</span>
+            <span class="p">}</span>
+
+            <span class="n">loss_sum</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">losses</span><span class="p">))</span>
+            <span class="n">step_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span> <span class="k">if</span> <span class="n">split</span> <span class="o">!=</span> <span class="s2">&quot;train&quot;</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
+            <span class="n">total_loss_sum</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">,</span> <span class="n">max_elapsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributed_epoch_stats</span><span class="p">(</span><span class="n">loss_sum</span><span class="p">,</span> <span class="n">step_count</span><span class="p">,</span> <span class="n">elapsed</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split</span><span class="p">,</span>
+                <span class="s2">&quot;steps&quot;</span><span class="p">:</span> <span class="n">total_steps</span><span class="p">,</span>
+                <span class="s2">&quot;local_steps&quot;</span><span class="p">:</span> <span class="n">step_count</span><span class="p">,</span>
+                <span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">total_loss_sum</span> <span class="o">/</span> <span class="n">total_steps</span> <span class="k">if</span> <span class="n">total_steps</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">&quot;local_loss&quot;</span><span class="p">:</span> <span class="n">loss_sum</span> <span class="o">/</span> <span class="n">step_count</span> <span class="k">if</span> <span class="n">step_count</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="n">key</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">metric_accumulator</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">values</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;elapsed_s&quot;</span><span class="p">:</span> <span class="n">max_elapsed</span><span class="p">,</span>
+                <span class="s2">&quot;local_elapsed_s&quot;</span><span class="p">:</span> <span class="n">elapsed</span><span class="p">,</span>
+                <span class="s2">&quot;outputs&quot;</span><span class="p">:</span> <span class="n">outputs</span><span class="p">,</span>
+            <span class="p">}</span></div>
 
 
 <div class="viewcode-block" id="SchedulerSession.run_task">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.run_task">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run_task</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="c1">#self.prepare_data()</span>
+    <span class="k">def</span> <span class="nf">run_task</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">()</span>
         <span class="n">train_summary</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">eval_summary</span> <span class="o">=</span> <span class="p">[]</span>
@@ -215,36 +470,50 @@
 
 <div class="viewcode-block" id="SchedulerSession.evaluate">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.evaluate">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SchedulerSession.predict">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.predict">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PredictionResult</span><span class="p">:</span>
-        <span class="c1">#if self.provider.runtime.model is None:</span>
-        <span class="c1">#    self.build_runtime()</span>
-        <span class="n">predictions</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split</span><span class="p">,</span> <span class="s2">&quot;graph_mode&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec</span><span class="o">.</span><span class="n">graph_mode</span><span class="p">}</span>
-        <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">build_predict_iterator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">):</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">run_predict_step</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
-            <span class="n">predictions</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;predictions&quot;</span><span class="p">,</span> <span class="p">[]))</span>
-            <span class="k">if</span> <span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;targets&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">targets</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;targets&quot;</span><span class="p">,</span> <span class="p">[]))</span>
-        <span class="k">return</span> <span class="n">PredictionResult</span><span class="p">(</span>
-            <span class="n">predictions</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span>
-            <span class="n">targets</span><span class="o">=</span><span class="n">targets</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span>
-        <span class="p">)</span></div>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PredictionResult</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># CTDG path (standalone)</span>
+            <span class="n">predictions</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">iter_predict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">):</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">predict_step</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+                <span class="n">predictions</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;predictions&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+                <span class="k">if</span> <span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;targets&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">targets</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;targets&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+            <span class="k">return</span> <span class="n">PredictionResult</span><span class="p">(</span>
+                <span class="n">predictions</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span>
+                <span class="n">targets</span><span class="o">=</span><span class="n">targets</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">meta</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split</span><span class="p">,</span> <span class="s2">&quot;graph_mode&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec</span><span class="o">.</span><span class="n">graph_mode</span><span class="p">},</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># DTDG or Chunk path (snapshot_core dispatch)</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Call build_runtime() first&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;eval_rnn_state&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">predictions</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split</span><span class="p">,</span> <span class="s2">&quot;graph_mode&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec</span><span class="o">.</span><span class="n">graph_mode</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">iter_predict</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">):</span>
+                <span class="c1"># snapshot_core handles its own predict dispatch (Flare or Chunk)</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">snapshot_core</span><span class="o">.</span><span class="n">run_predict_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+                <span class="n">predictions</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;predictions&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+                <span class="k">if</span> <span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;targets&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">targets</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;targets&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+            <span class="k">return</span> <span class="n">PredictionResult</span><span class="p">(</span>
+                <span class="n">predictions</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span>
+                <span class="n">targets</span><span class="o">=</span><span class="n">targets</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span>
+            <span class="p">)</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_distributed_epoch_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loss_sum</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">step_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">elapsed</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_distributed_epoch_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loss_sum</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">step_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">elapsed</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">dist</span><span class="o">.</span><span class="n">is_distributed</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">loss_sum</span><span class="p">,</span> <span class="n">step_count</span><span class="p">,</span> <span class="n">elapsed</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
-
         <span class="k">if</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
             <span class="k">return</span> <span class="n">loss_sum</span><span class="p">,</span> <span class="n">step_count</span><span class="p">,</span> <span class="n">elapsed</span>
         <span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;runtime&quot;</span><span class="p">][</span><span class="s2">&quot;device&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
@@ -255,34 +524,38 @@
 
 <div class="viewcode-block" id="SchedulerSession.save_checkpoint">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.save_checkpoint">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">save_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-        <span class="n">runtime_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime_adapter</span><span class="o">.</span><span class="n">dump_runtime_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="p">)</span>
-        <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;model_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
-            <span class="s2">&quot;optimizer_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span>
-            <span class="s2">&quot;scheduler_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">scheduler</span><span class="p">,</span>
-            <span class="s2">&quot;runtime_state&quot;</span><span class="p">:</span> <span class="n">runtime_state</span><span class="p">,</span>
-            <span class="s2">&quot;provider_meta&quot;</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">prepared</span><span class="p">,</span> <span class="s2">&quot;provider_meta&quot;</span><span class="p">,</span> <span class="p">{}),</span>
-            <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
-            <span class="s2">&quot;epoch&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_epoch</span><span class="p">,</span>
-            <span class="s2">&quot;global_step&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">global_step</span><span class="p">,</span>
-        <span class="p">}</span>
-        <span class="k">return</span> <span class="n">save_checkpoint</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span></div>
+    <span class="k">def</span> <span class="nf">save_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">save_checkpoint</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;model_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+                <span class="s2">&quot;optimizer_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span>
+                <span class="s2">&quot;scheduler_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">scheduler</span><span class="p">,</span>
+                <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+                <span class="s2">&quot;epoch&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_epoch</span><span class="p">,</span>
+                <span class="s2">&quot;global_step&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">global_step</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">return</span> <span class="n">save_checkpoint</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SchedulerSession.load_checkpoint">
 <a class="viewcode-back" href="../../api/python/starry_unigraph.session.html#starry_unigraph.SchedulerSession.load_checkpoint">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">load_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="n">payload</span> <span class="o">=</span> <span class="n">load_checkpoint</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_state&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;optimizer_state&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">scheduler</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scheduler_state&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime_adapter</span><span class="o">.</span><span class="n">load_runtime_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">runtime</span><span class="p">,</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;runtime_state&quot;</span><span class="p">,</span> <span class="p">{}))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">current_epoch</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;epoch&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">global_step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;global_step&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">payload</span></div>
+    <span class="k">def</span> <span class="nf">load_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ctdg_session</span><span class="o">.</span><span class="n">load_checkpoint</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">payload</span> <span class="o">=</span> <span class="n">load_checkpoint</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_state&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;optimizer_state&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span><span class="o">.</span><span class="n">scheduler</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scheduler_state&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_epoch</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;epoch&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">global_step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;global_step&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">payload</span></div>
 </div>
 
 </pre></div>

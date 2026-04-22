@@ -39,9 +39,9 @@ def _log(msg: str) -> None:
 
 
 def _build_session() -> "SchedulerSession":
-    from starry_unigraph.config.schema import load_config, validate_config, detect_graph_mode
+    from starry_unigraph.config.schema import load_config, validate_config
     from starry_unigraph.distributed import apply_distributed_env, build_distributed_context
-    from starry_unigraph.registry import ModelRegistry, ProviderRegistry, TaskRegistry
+    from starry_unigraph.registry import ModelRegistry, TaskRegistry
     from starry_unigraph.types import SessionContext
     from starry_unigraph.session import SchedulerSession
 
@@ -55,8 +55,6 @@ def _build_session() -> "SchedulerSession":
         model_name=config["model"]["name"],
         family=config["model"]["family"],
     )
-    graph_mode = detect_graph_mode(config)
-    provider_cls = ProviderRegistry.resolve(graph_mode)
     task_cls = TaskRegistry.resolve(config["model"]["task"])
 
     ctx = SessionContext(
@@ -67,10 +65,8 @@ def _build_session() -> "SchedulerSession":
         dist=build_distributed_context(config),
         warnings=warnings,
     )
-    provider = provider_cls(task_adapter=task_cls())
     session = SchedulerSession(
         session_ctx=ctx,
-        provider=provider,
         model_spec=model_spec,
         task_adapter=task_cls(),
     )
@@ -165,7 +161,7 @@ def run_predict() -> None:
             if dist.is_available() and dist.is_initialized():
                 local_rank = session.ctx.dist.local_rank
                 device = f"cuda:{local_rank}"
-                session.provider.runtime.model = session.provider.runtime.model.to(device)
+                session.runtime.model = session.runtime.model.to(device)
         else:
             _log(f"No checkpoint found at {ckpt_path}, using initialized model")
 

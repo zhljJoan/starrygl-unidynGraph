@@ -1,20 +1,22 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>starry_unigraph.runtime.base &mdash; StarryUniGraph 0.1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
 
   
-      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../../../_static/doctools.js?v=888ff710"></script>
-      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -31,6 +33,9 @@
           <a href="../../../index.html" class="icon icon-home">
             StarryUniGraph
           </a>
+              <div class="version">
+                0.1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -39,11 +44,20 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../guide/index.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../tutorial/index.html">Tutorials</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/python/index.html">API Reference</a></li>
 </ul>
 
@@ -72,137 +86,49 @@
            <div itemprop="articleBody">
              
   <h1>Source code for starry_unigraph.runtime.base</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+<span></span><span class="sd">&quot;&quot;&quot;Base runtime protocol.</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Iterable</span>
+<span class="sd">Defines :class:`RuntimeProtocol` — minimal abstract interface for any graph</span>
+<span class="sd">computation paradigm (Flare DTDG, CTDG online, etc.).</span>
+<span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">starry_unigraph.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">PredictionResult</span><span class="p">,</span> <span class="n">PreparedArtifacts</span><span class="p">,</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">SessionContext</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Iterable</span>
 
 
-<div class="viewcode-block" id="RuntimeAdapter">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.RuntimeAdapter">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">RuntimeAdapter</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-<div class="viewcode-block" id="RuntimeAdapter.init_model">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.RuntimeAdapter.init_model">[docs]</a>
+<div class="viewcode-block" id="RuntimeProtocol">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.base.RuntimeProtocol">[docs]</a>
+<span class="k">class</span> <span class="nc">RuntimeProtocol</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Minimal runtime interface for all graph computation paradigms.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="RuntimeProtocol.iter_batches">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.base.RuntimeProtocol.iter_batches">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">init_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+    <span class="k">def</span> <span class="nf">iter_batches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="o">...</span></div>
 
 
-<div class="viewcode-block" id="RuntimeAdapter.init_optimizer">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.RuntimeAdapter.init_optimizer">[docs]</a>
+<div class="viewcode-block" id="RuntimeProtocol.step">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.base.RuntimeProtocol.step">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">init_optimizer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">training</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="o">...</span></div>
 
 
-<div class="viewcode-block" id="RuntimeAdapter.load_runtime_state">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.RuntimeAdapter.load_runtime_state">[docs]</a>
+<div class="viewcode-block" id="RuntimeProtocol.state_dict">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.base.RuntimeProtocol.state_dict">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">load_runtime_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+    <span class="k">def</span> <span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="o">...</span></div>
 
 
-<div class="viewcode-block" id="RuntimeAdapter.dump_runtime_state">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.RuntimeAdapter.dump_runtime_state">[docs]</a>
+<div class="viewcode-block" id="RuntimeProtocol.load_state_dict">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.base.RuntimeProtocol.load_state_dict">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">dump_runtime_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-</div>
-
-
-
-<div class="viewcode-block" id="ExecutionAdapter">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.ExecutionAdapter">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">ExecutionAdapter</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-<div class="viewcode-block" id="ExecutionAdapter.train_step">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.ExecutionAdapter.train_step">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">train_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-
-<div class="viewcode-block" id="ExecutionAdapter.eval_step">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.ExecutionAdapter.eval_step">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">eval_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-
-<div class="viewcode-block" id="ExecutionAdapter.predict_step">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.ExecutionAdapter.predict_step">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="n">RuntimeBundle</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-</div>
-
-
-
-<div class="viewcode-block" id="GraphProvider">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.GraphProvider">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">GraphProvider</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="n">graph_mode</span> <span class="o">=</span> <span class="s2">&quot;base&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_adapter</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">task_adapter</span> <span class="o">=</span> <span class="n">task_adapter</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">prepared</span><span class="p">:</span> <span class="n">PreparedArtifacts</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="n">RuntimeBundle</span><span class="p">()</span>
-
-<div class="viewcode-block" id="GraphProvider.prepare_data">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.GraphProvider.prepare_data">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PreparedArtifacts</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-
-<div class="viewcode-block" id="GraphProvider.build_runtime">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.GraphProvider.build_runtime">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_runtime</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RuntimeBundle</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-
-<div class="viewcode-block" id="GraphProvider.build_train_iterator">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.GraphProvider.build_train_iterator">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_train_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-
-<div class="viewcode-block" id="GraphProvider.build_eval_iterator">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.GraphProvider.build_eval_iterator">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_eval_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;val&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-
-<div class="viewcode-block" id="GraphProvider.build_predict_iterator">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.GraphProvider.build_predict_iterator">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">build_predict_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_ctx</span><span class="p">:</span> <span class="n">SessionContext</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-
-<div class="viewcode-block" id="GraphProvider.run_train_step">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.GraphProvider.run_train_step">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run_train_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-
-<div class="viewcode-block" id="GraphProvider.run_eval_step">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.GraphProvider.run_eval_step">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run_eval_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-
-<div class="viewcode-block" id="GraphProvider.run_predict_step">
-<a class="viewcode-back" href="../../../api/python/starry_unigraph.runtime.base.html#starry_unigraph.runtime.GraphProvider.run_predict_step">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run_predict_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+    <span class="k">def</span> <span class="nf">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
 </div>
 
 </pre></div>

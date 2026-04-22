@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHUNK Training Logic (Experimental) &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Reference and Architecture" href="../reference.html" />
+    <link rel="prev" title="CTDG Training Guide" href="ctdg.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Training Guides by Graph Mode</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dtdg.html">DTDG Training Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ctdg.html">CTDG Training Guide</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">CHUNK Training Logic (Experimental)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Training Guides by Graph Mode</a></li>
+      <li class="breadcrumb-item active">CHUNK Training Logic (Experimental)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/rel_0_1_1/training/chunk.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="chunk-training-logic-experimental">
+<h1>CHUNK Training Logic (Experimental)<a class="headerlink" href="#chunk-training-logic-experimental" title="Link to this heading"></a></h1>
+<p>The DTDG (snapshots) and CTDG (event streams) paths solve fundamentally
+different modeling problems. Historically, graph learning systems have
+implemented them as completely disconnected pipelines.</p>
+<p>If you force an event stream (CTDG) into a snapshot abstraction, you lose
+fine-grained temporal dependencies between individual interactions. If you
+force snapshots (DTDG) into an event-stream abstraction, you lose the holistic
+structural topology that exists within a defined time bucket. This
+fragmentation forces systems to maintain two incompatible execution chains: one
+scheduler and caching strategy for snapshots, and another entirely different
+one for events.</p>
+<p>StarryGL bridges this divide with its next-generation chunk-centric execution
+model.</p>
+<section id="the-atomic-chunk-abstraction">
+<h2>The Atomic CHUNK Abstraction<a class="headerlink" href="#the-atomic-chunk-abstraction" title="Link to this heading"></a></h2>
+<p>To eliminate pipeline fragmentation, StarryGL introduces a unified execution
+and scheduling unit: the <strong>CHUNK</strong>.</p>
+<p>A CHUNK is neither merely a snapshot nor merely an event batch. Instead, it is
+a standardized, mode-agnostic unit that encapsulates:</p>
+<ul class="simple">
+<li><p>a bounded time range</p></li>
+<li><p>a bounded topology region, including local nodes and edges</p></li>
+<li><p>the metadata required for distributed routing</p></li>
+<li><p>the dependency information required for memory prefetching and synchronization</p></li>
+</ul>
+<p>By compiling both discrete snapshots and continuous events down into these
+standardized CHUNKs, StarryGL preserves high-level graph semantics while
+feeding a single, highly optimized runtime underneath.</p>
+</section>
+<section id="how-dtdg-and-ctdg-map-to-chunks">
+<h2>How DTDG and CTDG Map to CHUNKs<a class="headerlink" href="#how-dtdg-and-ctdg-map-to-chunks" title="Link to this heading"></a></h2>
+<p>To understand the value of this unified abstraction, it helps to see how the
+user-facing graph modes are compiled into CHUNKs internally. The translation
+focuses on mapping different graph semantics into the same spatio-temporal
+coordinates.</p>
+<section id="mapping-dtdg-snapshots-to-chunks">
+<h3>Mapping DTDG (Snapshots) to CHUNKs<a class="headerlink" href="#mapping-dtdg-snapshots-to-chunks" title="Link to this heading"></a></h3>
+<p>In DTDG mode, the translation is primarily structural.</p>
+<ul class="simple">
+<li><p>A single graph snapshot naturally maps to one time slice in the unified
+pipeline.</p></li>
+<li><p>A graph partitioning algorithm, such as METIS, splits the topology of that
+snapshot into multiple structural CHUNKs.</p></li>
+<li><p>Dependencies between CHUNKs are relatively straightforward: spatial
+dependencies resolve cross-partition edges, while temporal dependencies link
+a CHUNK to its corresponding spatial twin in the previous snapshot so it can
+inherit temporal state such as RNN hidden states.</p></li>
+</ul>
+</section>
+<section id="mapping-ctdg-event-streams-to-chunks">
+<h3>Mapping CTDG (Event Streams) to CHUNKs<a class="headerlink" href="#mapping-ctdg-event-streams-to-chunks" title="Link to this heading"></a></h3>
+<p>In CTDG mode, the translation is primarily chronological.</p>
+<ul class="simple">
+<li><p>A sequential batch of events, for example 200 timestamped interactions, is
+grouped to form a continuous time slice.</p></li>
+<li><p>Within that slice, the active nodes, their interactions, and the required
+historical neighbors are grouped into CHUNKs.</p></li>
+<li><p>Dependencies between CHUNKs are more dynamic. Instead of broadcasting node
+memories globally, the runtime inspects CHUNK metadata to establish targeted
+peer-to-peer memory synchronization routes before computation begins.</p></li>
+</ul>
+<p>By expressing both structural snapshots and sequential events in the same
+CHUNK vocabulary, StarryGL can reuse shared scheduling, pinned-memory
+management, and distributed communication patterns across very different
+temporal workloads.</p>
+</section>
+</section>
+<section id="how-chunk-organizes-data">
+<h2>How CHUNK Organizes Data<a class="headerlink" href="#how-chunk-organizes-data" title="Link to this heading"></a></h2>
+<p>The chunk pipeline reorganizes a large temporal graph in two orthogonal
+dimensions:</p>
+<dl class="simple">
+<dt><strong>Temporal Slicing</strong></dt><dd><p>The workload is first split along the time axis. This creates bounded
+temporal segments so chronological processing can be scheduled and prefetched
+predictably.</p>
+</dd>
+<dt><strong>Spatial Partitioning</strong></dt><dd><p>Inside each temporal segment, the graph structure is partitioned into
+topology-aware regions such as clusters or local subgraphs.</p>
+</dd>
+</dl>
+<p>The intersection of these two slices forms a CHUNK: a compact, independently
+schedulable execution unit containing local data, time bounds, and explicit
+references for remote cross-partition access.</p>
+</section>
+<section id="unified-dependency-model-and-overlap">
+<h2>Unified Dependency Model and Overlap<a class="headerlink" href="#unified-dependency-model-and-overlap" title="Link to this heading"></a></h2>
+<p>Once the training workload is expressed as CHUNKs, distributed communication
+becomes easier to reason about. Chunk-to-chunk dependencies are abstracted into
+two dimensions:</p>
+<dl class="simple">
+<dt><strong>Spatial Dependencies</strong></dt><dd><p>Data required from remote partitions because of graph topology, such as
+cross-GPU edges.</p>
+</dd>
+<dt><strong>Temporal Dependencies</strong></dt><dd><p>State required from previous time steps, such as historical node memory or
+recurrent hidden states.</p>
+</dd>
+</dl>
+<p>This abstraction is the basis for StarryGL’s communication-computation overlap.
+Because dependencies are declared at the CHUNK level, the runtime can look
+ahead:</p>
+<ol class="arabic simple">
+<li><p>It identifies which remote features or memory states a future CHUNK will
+require.</p></li>
+<li><p>It issues asynchronous prefetch requests during compute gaps in the current
+CHUNK.</p></li>
+<li><p>It prunes unnecessary network transfers when the dependency graph shows that
+the next CHUNK does not require them.</p></li>
+</ol>
+</section>
+<section id="end-to-end-pipeline">
+<h2>End-to-End Pipeline<a class="headerlink" href="#end-to-end-pipeline" title="Link to this heading"></a></h2>
+<p>For system developers targeting the experimental CHUNK API, the execution
+pipeline follows six standardized steps:</p>
+<ol class="arabic simple">
+<li><p><strong>Preprocess</strong>: Compile the raw temporal graph into partition-aware
+artifacts.</p></li>
+<li><p><strong>Chunkify</strong>: Convert snapshots or event streams into standardized CHUNK
+units based on time and topology boundaries.</p></li>
+<li><p><strong>Map Dependencies</strong>: Build the spatial and temporal dependency graph
+between generated CHUNKs.</p></li>
+<li><p><strong>Dispatch</strong>: Assign CHUNKs to distributed workers based on load balancing
+and communication locality.</p></li>
+<li><p><strong>Execute and Overlap</strong>: Run the training loop while overlapping network
+prefetching, data routing, and GPU computation asynchronously.</p></li>
+<li><p><strong>Commit</strong>: Commit node memory or state updates and advance to the next
+CHUNK.</p></li>
+</ol>
+</section>
+<section id="why-this-matters">
+<h2>Why This Matters<a class="headerlink" href="#why-this-matters" title="Link to this heading"></a></h2>
+<p>For most users, the key takeaway is simple.</p>
+<p>First, you still choose <strong>DTDG</strong> or <strong>CTDG</strong> according to your data and model.</p>
+<p>Next, the CHUNK abstraction provides a shared internal coordinate system for
+time, topology, and dependency management.</p>
+<p>Finally, this unified abstraction creates more room for load-aware scheduling,
+asynchronous prefetch, and reusable distributed execution logic across graph
+modes.</p>
+</section>
+<section id="config-example">
+<h2>Config Example<a class="headerlink" href="#config-example" title="Link to this heading"></a></h2>
+<p>The repository includes a template config at <code class="docutils literal notranslate"><span class="pre">configs/chunk_default.yaml</span></code>.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">graph_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chunk</span>
+
+<span class="nt">chunk</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">time_slices</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">node_clusters</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</pre></div>
+</div>
+<p>This file is best understood as a systems template rather than a single fixed
+training recipe. Its purpose is to show how chunk-based execution can be
+configured independently from the user-facing DTDG and CTDG guides.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ctdg.html" class="btn btn-neutral float-left" title="CTDG Training Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../reference.html" class="btn btn-neutral float-right" title="Reference and Architecture" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,9 +1,17 @@
-from .collection import RouteData, TensorData
-from .models import build_flare_model, extract_graph_labels
-from .partition_data import PartitionData
-from .route import Route
-from .stgraph_blob import RNNStateManager, STGraphBlob, STWindowState
-from .stgraph_loader import STGraphLoader
+# Flare backend moved to starry_unigraph.backends.dtdg
+# This module is kept for backward compatibility re-exports.
+from starry_unigraph.backends.dtdg.runtime import (
+    PartitionData,
+    RNNStateManager,
+    Route,
+    RouteData,
+    STGraphBlob,
+    STGraphLoader,
+    STWindowState,
+    TensorData,
+    build_flare_model,
+    extract_graph_labels,
+)
 
 __all__ = [
     "PartitionData",

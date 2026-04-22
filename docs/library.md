@@ -4,10 +4,10 @@
 
 `StarryUniGraph` is a unified scheduling and runtime library for distributed dynamic graph learning. It exposes one top-level session API for both:
 
-- `CTDG` workloads: continuous-time dynamic graphs, currently aligned with BTS-MTGNN-style sampling and memory-driven execution.
-- `DTDG` workloads: discrete-time dynamic graphs, currently aligned with Flare-style snapshot/window-driven execution.
+- `CTDG` workloads: continuous-time dynamic graphs, aligned with BTS-MTGNN-style sampling and memory-driven execution.
+- `DTDG` workloads: discrete-time dynamic graphs, aligned with Flare-style snapshot/window-driven execution.
 
-The library is organized so that users interact with a single orchestration layer, while the system internally dispatches to graph-family-specific kernels.
+The library is organized so that users interact with a single orchestration layer, while the system internally dispatches to graph-family-specific runtime backends.
 
 Current status:
 
@@ -15,7 +15,9 @@ Current status:
 - Unified `core/protocol.py` is implemented.
 - `CTDG` and `DTDG` family-specific kernels are implemented.
 - BTS C++ sampler has been vendored into this repository and a runtime loader is provided.
-- Flare high-performance `PartitionData/STGraphLoader` pipeline has not been merged yet.
+- CTDG online runtime (`runtime/online/`) is implemented with memory bank, historical cache, sampler, and distributed sync.
+- Flare high-performance components are fully merged: `PartitionData`, `STGraphLoader`, `RNNStateManager`, route-aware pinned-memory loading, and CUDA-stream-based async data movement.
+- DTDG `flare_native` pipeline is end-to-end operational with DDP training support.
 
 ## Design Goals
 
@@ -30,77 +32,116 @@ The library is designed around four goals:
 
 ### Top-level package
 
-- [starry_unigraph/__init__.py](/home/zlj/StarryUniGraph/starry_unigraph/__init__.py)
-- [starry_unigraph/session.py](/home/zlj/StarryUniGraph/starry_unigraph/session.py)
-- [starry_unigraph/types.py](/home/zlj/StarryUniGraph/starry_unigraph/types.py)
+- `starry_unigraph/__init__.py` — re-exports `SchedulerSession`
+- `starry_unigraph/session.py` — unified session lifecycle
+- `starry_unigraph/types.py` — shared data types (`DistributedContext`, `SessionContext`, `RuntimeBundle`, `PreparedArtifacts`, `PredictionResult`)
+- `starry_unigraph/distributed.py` — distributed init/finalize utilities
 
 ### Configuration
 
-- [starry_unigraph/config/default.yaml](/home/zlj/StarryUniGraph/starry_unigraph/config/default.yaml)
-- [starry_unigraph/config/schema.py](/home/zlj/StarryUniGraph/starry_unigraph/config/schema.py)
+- `starry_unigraph/config/default.yaml` — default config values
+- `starry_unigraph/config/schema.py` — config loading, merging, validation, graph mode detection
 
 ### Registries
 
-- [starry_unigraph/registry/model_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/model_registry.py)
-- [starry_unigraph/registry/provider_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/provider_registry.py)
-- [starry_unigraph/registry/task_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/task_registry.py)
+- `starry_unigraph/registry/model_registry.py` — maps model name/family to `ModelSpec` and `graph_mode`
+- `starry_unigraph/registry/provider_registry.py` — maps `graph_mode` to provider class
+- `starry_unigraph/registry/task_registry.py` — maps task type to task adapter
 
 ### Core execution
 
-- [starry_unigraph/core/protocol.py](/home/zlj/StarryUniGraph/starry_unigraph/core/protocol.py)
-- [starry_unigraph/core/ctdg_kernel.py](/home/zlj/StarryUniGraph/starry_unigraph/core/ctdg_kernel.py)
-- [starry_unigraph/core/dtdg_kernel.py](/home/zlj/StarryUniGraph/starry_unigraph/core/dtdg_kernel.py)
-- [starry_unigraph/core/ctdg.py](/home/zlj/StarryUniGraph/starry_unigraph/core/ctdg.py)
-- [starry_unigraph/core/dtdg.py](/home/zlj/StarryUniGraph/starry_unigraph/core/dtdg.py)
+- `starry_unigraph/core/protocol.py` — unified kernel protocol (`KernelBatch`, `KernelExecutor`, `PipelineTrace`, etc.)
+- `starry_unigraph/core/ctdg_kernel.py` — CTDG-specific kernel data types and executor
+- `starry_unigraph/core/dtdg_kernel.py` — DTDG-specific kernel data types and executor
+- `starry_unigraph/core/data_split.py` — train/val/test split ratio normalization and bounds computation
+
+### Data
+
+- `starry_unigraph/data/raw_temporal.py` — raw event loading (`RawTemporalEvents`, CSV/edge-file/mock loaders)
+- `starry_unigraph/data/partition.py` — partition data structures (`TensorData`, `RouteData`, `PartitionData`)
 
 ### Providers
 
-- [starry_unigraph/providers/common.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/common.py)
-- [starry_unigraph/providers/ctdg.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/ctdg.py)
-- [starry_unigraph/providers/dtdg.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/dtdg.py)
+- `starry_unigraph/providers/common.py` — shared artifact utilities, `BaseProvider` abstract class
+- `starry_unigraph/providers/ctdg.py` — `CTDGPreprocessor`, `CTDGProvider`
+- `starry_unigraph/providers/dtdg.py` — `DTDGProvider` (dispatches to Flare pipeline)
+- `starry_unigraph/providers/dtdg_loaders.py` — `FlareRuntimeLoader` (wraps `STGraphLoader` with split management)
+- `starry_unigraph/providers/dtdg_preprocess.py` — `BaseDTDGPreprocessor`, `FlareDTDGPreprocessor`
+- `starry_unigraph/providers/dtdg_train.py` — Flare training helpers (`init_flare_training`, `run_flare_train_step`, etc.)
+
+### Preprocessing
+
+- `starry_unigraph/preprocess/base.py` — abstract `GraphPreprocessor`, `ArtifactLayout`, `ArtifactOutput`
+- `starry_unigraph/preprocess/dtdg_prepare.py` — DTDG-specific data preparation (snapshot extraction, METIS partitioning, `PartitionData` generation)
+
+### Runtime
+
+- `starry_unigraph/runtime/base.py` — abstract protocols (`RuntimeProtocol`, `RuntimeAdapter`, `ExecutionAdapter`, `GraphProvider`)
+
+#### Flare runtime (`runtime/flare/`)
+
+- `starry_unigraph/runtime/flare/loader.py` — `STGraphLoader` (snapshot iteration with CUDA stream prefetch)
+- `starry_unigraph/runtime/flare/state.py` — `RNNStateManager`, `STGraphBlob`, `STWindowState`
+- `starry_unigraph/runtime/flare/route.py` — `Route`, `RouteAgent`, differentiable all-to-all exchange with autograd hooks
+- `starry_unigraph/runtime/flare/models.py` — Flare DTDG models (`FlareEvolveGCN`, `FlareTGCN`, `FlareMPNNLSTM`, `GCNStack`)
+- `starry_unigraph/runtime/flare/training.py` — Flare training/eval/predict step functions with DDP support
+
+#### Online runtime (`runtime/online/`)
+
+- `starry_unigraph/runtime/online/data.py` — `CTDGDataBatch`, `TGTemporalDataset`
+- `starry_unigraph/runtime/online/memory.py` — `CTDGMemoryBank` (per-node memory + K-slot mailbox + distributed async sync)
+- `starry_unigraph/runtime/online/cache.py` — `CTDGHistoricalCache`, `AdaParameter` (cosine-distance change detection)
+- `starry_unigraph/runtime/online/sampler.py` — `NativeTemporalSampler`, `CTDGSampleOutput`
+- `starry_unigraph/runtime/online/models.py` — `CTDGMemoryUpdater`, `CTDGLinkPredictor`, `CTDGModelOutput`
+- `starry_unigraph/runtime/online/route.py` — `CTDGFeatureRoute`, `AsyncExchangeHandle`
+- `starry_unigraph/runtime/online/runtime.py` — `CTDGOnlineRuntime` (full CTDG train/eval/predict orchestration)
+
+### Backends (compatibility shims)
+
+- `starry_unigraph/backends/__init__.py` — re-exports commonly used classes
+- `starry_unigraph/backends/flare/__init__.py` — re-exports from `runtime/flare/`
+- `starry_unigraph/backends/ctdg/__init__.py` — re-exports from `runtime/online/`
 
 ### Tasks
 
-- [starry_unigraph/tasks/base.py](/home/zlj/StarryUniGraph/starry_unigraph/tasks/base.py)
-- [starry_unigraph/tasks/temporal_link_prediction.py](/home/zlj/StarryUniGraph/starry_unigraph/tasks/temporal_link_prediction.py)
-- [starry_unigraph/tasks/node_regression.py](/home/zlj/StarryUniGraph/starry_unigraph/tasks/node_regression.py)
+- `starry_unigraph/tasks/base.py` — `BaseTaskAdapter`
+- `starry_unigraph/tasks/temporal_link_prediction.py` — `TemporalLinkPredictionTaskAdapter`
+- `starry_unigraph/tasks/node_regression.py` — `NodeRegressionTaskAdapter`
 
 ### Native and vendored code
 
-- [starry_unigraph/native/bts_sampler.py](/home/zlj/StarryUniGraph/starry_unigraph/native/bts_sampler.py)
-- [starry_unigraph/lib/loader.py](/home/zlj/StarryUniGraph/starry_unigraph/lib/loader.py)
-- [starry_unigraph/lib/libstarrygl_sampler.so](/home/zlj/StarryUniGraph/starry_unigraph/lib/libstarrygl_sampler.so)
-- [starry_unigraph/vendor/bts_sampler/CMakeLists.txt](/home/zlj/StarryUniGraph/starry_unigraph/vendor/bts_sampler/CMakeLists.txt)
+- `starry_unigraph/native/bts_sampler.py` — BTS sampler Python wrapper (`BTSNativeSampler`, `build_temporal_neighbor_block`)
+- `starry_unigraph/lib/loader.py` — `load_bts_sampler_module()` (lazy `.so` loading via importlib)
+- `starry_unigraph/lib/libstarrygl_sampler.so` — precompiled BTS sampler binary
+- `starry_unigraph/vendor/bts_sampler/` — BTS C++ source and CMake build
 
-### Runtime and checkpoint
+### Checkpoint
 
-- [starry_unigraph/runtime/base.py](/home/zlj/StarryUniGraph/starry_unigraph/runtime/base.py)
-- [starry_unigraph/checkpoint/io.py](/home/zlj/StarryUniGraph/starry_unigraph/checkpoint/io.py)
+- `starry_unigraph/checkpoint/io.py` — `save_checkpoint()`, `load_checkpoint()`
 
 ### CLI and tests
 
-- [starry_unigraph/cli/main.py](/home/zlj/StarryUniGraph/starry_unigraph/cli/main.py)
-- [tests/test_session.py](/home/zlj/StarryUniGraph/tests/test_session.py)
+- `starry_unigraph/cli/main.py` — CLI entrypoint (prepare/train/predict/resume)
+- `tests/test_session.py` — session-level tests
 
 ## Core Architecture
 
-The current architecture has three main layers.
+The architecture has three main layers plus two runtime backends.
 
 ### 1. Session layer
 
-The top-level user interface is `SchedulerSession` in [session.py](/home/zlj/StarryUniGraph/starry_unigraph/session.py).
+The top-level user interface is `SchedulerSession` in `session.py`.
 
 Main entrypoints:
 
-- `SchedulerSession.from_config(...)`
-- `prepare_data()`
-- `build_runtime()`
-- `train_step()`
-- `run_epoch()`
-- `run_task()`
-- `predict()`
-- `save_checkpoint()`
-- `load_checkpoint()`
+- `SchedulerSession.from_config(...)` — load config, infer graph mode, construct provider
+- `prepare_data()` — trigger preprocessing, write artifacts
+- `build_runtime()` — initialize model, optimizer, loaders, runtime state
+- `run_epoch(split)` — iterate batches for one epoch
+- `run_task()` — full train/eval loop across epochs
+- `evaluate(split)` — single evaluation pass
+- `predict(split)` — inference pass returning `PredictionResult`
+- `save_checkpoint(path)` / `load_checkpoint(path)` — persist/restore state
 
 `SchedulerSession` is responsible for:
 
@@ -113,196 +154,120 @@ It is intentionally not responsible for implementing graph-family-specific execu
 
 ### 2. Provider layer
 
-Providers map config and artifacts to kernels.
+Providers map config and artifacts to runtime backends.
 
-- [providers/ctdg.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/ctdg.py)
-- [providers/dtdg.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/dtdg.py)
+- `providers/ctdg.py` — orchestrates via `CTDGOnlineRuntime`
+- `providers/dtdg.py` — orchestrates via `FlareRuntimeLoader` + Flare training steps
 
 Provider responsibilities:
 
 - prepare artifact directories and metadata
 - instantiate family-specific partition/route/runtime objects
-- construct the correct kernel from config
 - expose iterators to the session layer
-- map kernel state into unified runtime/checkpoint state
+- delegate step execution to runtime backends
 
 Provider non-responsibilities:
 
-- sampling implementation
-- snapshot execution implementation
-- memory update logic
-- sparse operator execution logic
-
-Those belong in `core`.
+- sampling implementation (belongs in `runtime/online/`)
+- snapshot execution (belongs in `runtime/flare/`)
+- memory update logic (belongs in `runtime/online/`)
 
 ### 3. Kernel layer
 
-The kernel layer is the actual execution layer.
+The kernel layer defines execution protocol and family-specific data types.
 
 - `core/protocol.py` defines the unified execution protocol.
-- `core/ctdg_kernel.py` implements the CTDG kernel.
-- `core/dtdg_kernel.py` implements the DTDG kernel.
+- `core/ctdg_kernel.py` defines CTDG batch/state/result types.
+- `core/dtdg_kernel.py` defines DTDG batch/state/result types.
 
-This is the layer where pipeline semantics live.
+### 4. Runtime backends
+
+The actual execution logic lives in two runtime backends:
+
+- `runtime/flare/` — Flare-style DTDG execution (snapshot loading, GCN/RNN models, route exchange, DDP training)
+- `runtime/online/` — BTS-style CTDG execution (temporal sampling, memory bank, historical cache, distributed sync)
+
+These backends are the layer where pipeline semantics live. The `backends/` package provides backward-compatible re-exports.
 
 ## Unified Protocol Layer
 
-The protocol is defined in [protocol.py](/home/zlj/StarryUniGraph/starry_unigraph/core/protocol.py).
+The protocol is defined in `core/protocol.py`.
 
 Key abstractions:
 
-- `KernelBatch`
-- `KernelRuntimeState`
-- `KernelResult`
-- `KernelExecutor`
-- `PipelineTrace`
-- `AsyncStageHandle`
-- `StateHandle`
-- `StateDelta`
-- `StateWriteback`
+- `KernelBatch` — base for batch types (has `index`, `split`, `chain`, `to_payload()`)
+- `KernelRuntimeState` — execution state that evolves across steps
+- `KernelResult` — step output (`predictions`, `targets`, `loss`, `meta`)
+- `KernelExecutor` — common execution interface (`iter_batches`, `execute_train/eval/predict`, `dump_state`)
+- `PipelineTrace` — records stage-level execution with async-flow management
+- `AsyncStageHandle` — async stage tracking (`token`, `name`, `status`, `depends_on`)
+- `StateHandle` — identifies state container (CTDG: node memory; DTDG: window state)
+- `StateDelta` — describes state change produced by a step
+- `StateWriteback` — combines `StateHandle` + `StateDelta` + version
 
-### KernelBatch
+Pipeline trace stages:
 
-Represents one unit of work.
-
-Shared assumptions:
-
-- has `index`
-- has `split`
-- has `chain`
-- can serialize itself with `to_payload()`
-
-### KernelRuntimeState
-
-Represents execution-state that evolves across steps.
-
-Examples:
-
-- sampler cursor for CTDG
-- snapshot cursor for DTDG
-- last prediction
-- last active split
-
-### KernelResult
-
-Represents one step result.
-
-Shared payload shape:
-
-- `predictions`
-- `targets` when available
-- `loss` when available
-- `meta`
-
-### KernelExecutor
-
-Defines the common execution interface:
-
-- `iter_batches(split, count)`
-- `execute_train(batch)`
-- `execute_eval(batch)`
-- `execute_predict(batch)`
-- `dump_state()`
-
-This is the main internal unification point between BTS-style and Flare-style execution.
-
-### PipelineTrace
-
-`PipelineTrace` records stage-level information while preserving the original family-specific pipeline shape.
-
-It now also carries async-flow management semantics:
-
-- stage ordering for synchronous steps
-- async stage tokens
-- async lifecycle states: `pending` / `completed` / `failed`
-- dependency relationships across async tasks
-
-Current use:
-
-- CTDG records `sample`, `feature_fetch`, `state_fetch`, `memory_updater`, `neighbor_attention_aggregate`, `message_generate`, `state_transition`, `state_writeback`
-- DTDG records `load_snapshot`, `route_apply`, `state_fetch`, `state_transition`, `state_writeback`
-
-### AsyncStageHandle
-
-`AsyncStageHandle` represents a stage that can be scheduled or tracked asynchronously.
-
-It carries:
-
-- `token`
-- `name`
-- `status`
-- `payload`
-- `depends_on`
-
-### StateHandle
-
-`StateHandle` identifies the runtime state container being operated on.
-
-Typical usage:
-
-- CTDG: node-level memory/mailbox state
-- DTDG: window-level temporal state
-
-### StateDelta
-
-`StateDelta` describes the state change produced by the current step.
-
-Typical usage:
-
-- CTDG: memory updater and message generation effects
-- DTDG: snapshot propagation and temporal fusion effects
-
-### StateWriteback
-
-`StateWriteback` describes how a `StateDelta` is committed back into a `StateHandle`.
-
-This allows unified inspection, logging, and checkpoint-friendly metadata without erasing the execution differences between CTDG and DTDG.
+- CTDG: `sample`, `feature_fetch`, `state_fetch`, `memory_updater`, `neighbor_attention_aggregate`, `message_generate`, `state_transition`, `state_writeback`
+- DTDG: `load_snapshot`, `route_apply`, `state_fetch`, `state_transition`, `state_writeback`
 
 ## CTDG Library Stack
 
-CTDG components are implemented in [ctdg_kernel.py](/home/zlj/StarryUniGraph/starry_unigraph/core/ctdg_kernel.py).
+### Core kernel types (`core/ctdg_kernel.py`)
 
-### Data and state objects
+- `FeatureRoutePlan` — route_type, fanout, feature_keys
+- `StateSyncPlan` — sync mode and version counter
+- `CTDGPartitionBook` — partition metadata
+- `CTDGMailboxState` — memory/mailbox versioning
+- `CTDGBatch(KernelBatch)` — batch with sampling plan
+- `CTDGPreparedBatch` — materialized batch
+- `CTDGStepResult(KernelResult)` — step output
+- `CTDGRuntimeState(KernelRuntimeState)` — runtime cursor
 
-- `FeatureRoutePlan`
-- `StateSyncPlan`
-- `CTDGPartitionBook`
-- `CTDGMailboxState`
-- `CTDGBatch`
-- `CTDGPreparedBatch`
-- `CTDGStepResult`
-- `CTDGRuntimeState`
-- `CTDGSamplerCore`
-- `CTDGKernel`
+### Online runtime (`runtime/online/`)
+
+The CTDG execution path is implemented in `runtime/online/`:
+
+**Data pipeline:**
+
+- `TGTemporalDataset` — loads raw events, provides distributed-aware batched iteration with train/val/test splits
+- `CTDGDataBatch` — mini-batch of events (src, dst, ts, edge_feat)
+
+**Sampling:**
+
+- `NativeTemporalSampler` — wraps vendored BTS C++ sampler for multi-hop temporal neighbor sampling
+- `CTDGSampleOutput` — sampled neighbors, edges, timestamps
+
+**Memory and state:**
+
+- `CTDGMemoryBank` — per-node hidden memory + K-slot mailbox with distributed async sync via `all_to_all_single`
+- `CTDGHistoricalCache` — caches last-synced memory, uses cosine-distance filtering (`AdaParameter`) to skip redundant syncs
+
+**Models:**
+
+- `CTDGMemoryUpdater` — GRU-based memory update over mailbox history
+- `CTDGLinkPredictor` — temporal transformer attention for link prediction
+
+**Routing:**
+
+- `CTDGFeatureRoute` — inter-partition feature exchange
+- `AsyncExchangeHandle` — async send/recv handles
+
+**Orchestration:**
+
+- `CTDGOnlineRuntime` — full CTDG train/eval/predict loop (memory update -> sampling -> conv -> scoring -> distributed sync)
 
 ### CTDG execution pipeline
 
-The current CTDG kernel preserves the BTS-style stage order:
+The CTDG runtime preserves the BTS-style stage order:
 
-1. `sample`
-2. `feature_fetch`
-3. `state_fetch`
-4. `memory_updater`
-5. `neighbor_attention_aggregate`
-6. `message_generate`
-7. `state_transition`
-8. `state_writeback`
-
-This is implemented by `CTDGKernel`.
-
-Main methods:
-
-- `iter_batches()`
-- `_state_fetch()`
-- `_materialize()`
-- `_memory_updater()`
-- `_neighbor_attention_aggregate()`
-- `_message_generate()`
-- `_state_writeback()`
-- `_run_pipeline()`
-- `execute_train()`
-- `execute_eval()`
-- `execute_predict()`
+1. `sample` — temporal neighbor sampling via native BTS sampler
+2. `feature_fetch` — route-aware feature retrieval
+3. `state_fetch` — gather memory/mailbox state
+4. `memory_updater` — GRU update over mailbox
+5. `neighbor_attention_aggregate` — attention over sampled temporal neighborhood
+6. `message_generate` — produce messages for state update
+7. `state_transition` — update node memory
+8. `state_writeback` — write back to distributed memory bank
 
 ### CTDG artifact model
 
@@ -313,77 +278,81 @@ The CTDG provider writes:
 - `artifacts/{dataset}/routes/manifest.json`
 - `artifacts/{dataset}/sampling/index.json`
 
-These files encode:
+### BTS native sampler integration
 
-- graph mode
-- partition algorithm
-- number of parts
-- feature route plan
-- state sync plan
-- sampling lookup metadata
+- vendored source: `vendor/bts_sampler/` (C++ with CMake)
+- precompiled binary: `lib/libstarrygl_sampler.so`
+- runtime loader: `lib/loader.py` (`load_bts_sampler_module()`)
+- Python wrapper: `native/bts_sampler.py` (`BTSNativeSampler`, `build_temporal_neighbor_block`, `is_bts_sampler_available`)
 
-### CTDG native sampler integration
-
-The repository now contains a vendored BTS sampler integration:
-
-- vendored source: [vendor/bts_sampler](/home/zlj/StarryUniGraph/starry_unigraph/vendor/bts_sampler)
-- packaged shared object: [libstarrygl_sampler.so](/home/zlj/StarryUniGraph/starry_unigraph/lib/libstarrygl_sampler.so)
-- runtime loader: [loader.py](/home/zlj/StarryUniGraph/starry_unigraph/lib/loader.py)
-- Python wrapper: [bts_sampler.py](/home/zlj/StarryUniGraph/starry_unigraph/native/bts_sampler.py)
-
-Available native helpers:
-
-- `is_bts_sampler_available()`
-- `build_temporal_neighbor_block(...)`
-- `BTSNativeSampler`
-
-Current status:
-
-- BTS sampler binary and source are merged into the repository.
-- CTDG sampler core can attach a native sampler through `attach_native_sampler(...)`.
-- The default session flow does not yet automatically drive the full CTDG kernel through the native sampler output.
-
-So the repository now contains the native sampler asset and wrapper, but the end-to-end kernel path is still only partially migrated.
+The native sampler is attached via `CTDGSamplerCore.attach_native_sampler(...)` and consumed by `NativeTemporalSampler` in the online runtime.
 
 ## DTDG Library Stack
 
-DTDG components are implemented in [dtdg_kernel.py](/home/zlj/StarryUniGraph/starry_unigraph/core/dtdg_kernel.py).
+### Core kernel types (`core/dtdg_kernel.py`)
 
-### Data and state objects
+- `SnapshotRoutePlan` — route_type, cache_policy
+- `DTDGPartitionBook` — partition metadata with snapshot count
+- `DTDGWindowState` — window tracking
+- `DTDGBatch(KernelBatch)` — batch with adjacency, features, graph, and graph_meta
+- `DTDGStepResult(KernelResult)` — step output
+- `DTDGRuntimeState(KernelRuntimeState)` — snapshot cursor
 
-- `SnapshotRoutePlan`
-- `DTDGPartitionBook`
-- `DTDGWindowState`
-- `DTDGBatch`
-- `DTDGStepResult`
-- `DTDGRuntimeState`
-- `DTDGSnapshotCore`
-- `DTDGKernel`
+### Data structures (`data/partition.py`)
+
+- `TensorData` — packed variable-length tensor storage (CSR-style ptr/ind)
+- `RouteData` — per-snapshot routing descriptors (send/recv sizes, send_index)
+- `PartitionData` — complete partition container (node_data, edge_data, labels, routes, chunks). Supports `save()`/`load()`, `pin_memory()`, `to(device)`, `to_blocks()` conversion to DGL blocks.
+
+### Flare runtime (`runtime/flare/`)
+
+The DTDG execution path is fully implemented in `runtime/flare/`:
+
+**Data loading:**
+
+- `STGraphLoader` — iterates over `PartitionData` snapshots as DGL blocks. Uses `pin_memory()` + dedicated `torch.cuda.Stream` for async CPU-to-GPU data transfer. Factory: `STGraphLoader.from_partition_data(data, device)`.
+
+**State management:**
+
+- `RNNStateManager` — manages sliding window of graphs with per-snapshot RNN state. Patches each graph with `flare_fetch_state()` / `flare_store_state()` methods. Supports "pad" mode (zero-pad new state) and "mix" mode (blend with previous).
+- `STGraphBlob` — wraps a sequence of graphs + `RNNStateManager`. Iterable. Property `current_graph` returns the last graph in the window.
+- `STWindowState` — window size and snapshot tracking metadata.
+
+**Routing:**
+
+- `Route` — per-snapshot differentiable all-to-all feature exchange. Autograd-compatible via `RouteSendFunction` / `RouteRecvFunction`.
+- `RouteAgent` — executes actual `dist.all_to_all_single` communication.
+
+**Models:**
+
+- `GCNStack` — multi-layer GCN message passing on DGL blocks
+- `FlareEvolveGCN` — EvolveGCN-H (GRU-evolving GCN weights per snapshot)
+- `FlareTGCN` — Temporal GCN (GCN + GRU per snapshot)
+- `FlareMPNNLSTM` — MPNN-LSTM (GCN + two custom `_LSTMCell` layers). State is a 4-tuple `(h1,c1,h2,c2)` via Python tuple concatenation.
+- `build_flare_model(name, ...)` — factory function
+
+**Training:**
+
+- `init_flare_training(config, partition_data)` — builds model, optimizer, DDP wrapping, computes per-partition loss scale
+- `run_flare_train_step(blob, model, optimizer, ...)` — forward + backward + optimizer step
+- `run_flare_eval_step(blob, model, ...)` — forward (no grad)
+- `run_flare_predict_step(blob, model, ...)` — forward (no grad), returns predictions
+
+### Provider integration (`providers/dtdg*.py`)
+
+- `FlareDTDGPreprocessor` — generates `PartitionData` files (`part_NNN.pth`) via METIS partitioning and snapshot extraction
+- `FlareRuntimeLoader` — wraps `STGraphLoader` with train/eval/predict split management. Training yields `STGraphBlob`; eval/predict yields `DTDGBatch` (single frame).
+- `DTDGProvider` — orchestrates the Flare pipeline end-to-end: preprocessing -> runtime build -> iterator construction -> step execution
 
 ### DTDG execution pipeline
 
-The current DTDG kernel preserves the Flare-style stage order:
+The Flare-native pipeline preserves the following stage order:
 
-1. `load_snapshot`
-2. `route_apply`
-3. `state_fetch`
-4. `state_transition`
-5. `state_writeback`
-
-This is implemented by `DTDGKernel`.
-
-Main methods:
-
-- `iter_batches()`
-- `_apply_route()`
-- `_state_fetch()`
-- `_snapshot_propagation()`
-- `_state_transition()`
-- `_state_writeback()`
-- `_run_pipeline()`
-- `execute_train()`
-- `execute_eval()`
-- `execute_predict()`
+1. `load_snapshot` — `STGraphLoader` fetches and transfers snapshot to GPU via CUDA stream
+2. `route_apply` — `Route.forward()` performs differentiable all-to-all feature exchange
+3. `state_fetch` — `RNNStateManager` provides per-snapshot RNN state via `flare_fetch_state()`
+4. `state_transition` — model forward pass (GCN + RNN layers)
+5. `state_writeback` — `flare_store_state()` writes updated RNN state back to manager
 
 ### DTDG artifact model
 
@@ -392,57 +361,45 @@ The DTDG provider writes:
 - `artifacts/{dataset}/meta/artifacts.json`
 - `artifacts/{dataset}/partitions/manifest.json`
 - `artifacts/{dataset}/routes/manifest.json`
-- `artifacts/{dataset}/snapshots/index.json`
+- `artifacts/{dataset}/flare/manifest.json`, `flare/part_NNN.pth` (Flare-native)
+- `artifacts/{dataset}/snapshots/manifest.json` (chunked, if applicable)
 
-These files encode:
+### DTDG preprocessing (`preprocess/dtdg_prepare.py`)
 
-- graph mode
-- partition algorithm
-- snapshot count
-- route plan
-- window metadata
+Full DTDG data preparation pipeline:
 
-### DTDG high-performance backend status
+- `build_partition_input_from_raw_dataset()` — extracts snapshots and metadata from raw events
+- `build_dtdg_partitions()` — runs METIS or random graph partitioning
+- `build_flare_partition_data_list()` — creates per-partition `PartitionData` objects with local edge indices, node features, labels, and route descriptors
 
-Flare high-performance preprocessing and loading are not yet fully merged.
+### Data split utilities (`core/data_split.py`)
 
-Not yet migrated:
-
-- Flare `PartitionData`
-- Flare `STGraphLoader`
-- Flare `RNNStateManager`
-- route/state-aware pinned-memory loading
-- asynchronous remap and snapshot transfer path
-
-This means DTDG currently has:
-
-- unified interface
-- explicit kernel stages
-- artifact model
-
-but not the original Flare high-performance data path.
+- `normalize_split_ratio(split_ratio)` — ensures train+val+test sum to 1.0
+- `split_bounds(total, split, split_ratio)` — returns `(start, end)` index range for a given split
 
 ## Configuration System
 
-The configuration system is defined in [schema.py](/home/zlj/StarryUniGraph/starry_unigraph/config/schema.py) and defaults in [default.yaml](/home/zlj/StarryUniGraph/starry_unigraph/config/default.yaml).
+The configuration system is defined in `config/schema.py` with defaults in `config/default.yaml`.
 
 ### Main sections
 
-- `model`
-- `data`
-- `train`
-- `runtime`
-- `sampling`
-- `features`
-- `graph`
-- `dist`
+- `model` — name, family, task, hidden_dim, memory (CTDG), window (DTDG)
+- `data` — root, name, format, graph_mode, split_ratio
+- `train` — epochs, batch_size, snaps, eval_interval, lr
+- `runtime` — backend, device, cache, checkpoint
+- `dtdg` — pipeline, chunk_order, chunk_decay, num_full_snaps
+- `ctdg` — pipeline, mailbox_slots, historical_alpha, async_sync, ada_param_enabled, dropout
+- `preprocess` — cluster and chunk settings
+- `sampling` — neighbor_limit, strategy, history, neg_sampling
+- `graph` — storage, partition, route
+- `dist` — backend, world_size, rank, local_rank, master_addr, master_port
 
 ### Graph mode dispatch
 
-`model.family` is resolved through the model registry and mapped to:
+`model.family` is resolved through the model registry:
 
-- `ctdg`
-- `dtdg`
+- CTDG families: `tgn`, `dyrep`, `jodie`, `tgat`, `apan`
+- DTDG families: `evolvegcn`, `tgcn`, `mpnn_lstm`, `gcn`
 
 This drives provider resolution and kernel selection.
 
@@ -450,10 +407,10 @@ This drives provider resolution and kernel selection.
 
 The schema layer:
 
-- fills defaults
-- validates required config paths
+- fills defaults from `default.yaml`
+- validates required config paths (`model.name`, `data.root`, etc.)
 - infers graph mode when possible
-- warns about inactive fields
+- warns about inactive fields (e.g., CTDG-specific fields when running DTDG)
 - raises hard errors for missing required fields
 
 ## Registry System
@@ -462,38 +419,29 @@ The registry layer decouples names from implementations.
 
 ### ModelRegistry
 
-Defined in [model_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/model_registry.py).
-
-Purpose:
-
-- map `model.name` or `model.family` to a `ModelSpec`
-- determine `graph_mode`
+Maps `model.name` or `model.family` to `ModelSpec` (containing name, family, graph_mode).
 
 ### ProviderRegistry
 
-Defined in [provider_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/provider_registry.py).
-
-Purpose:
-
-- map `ctdg` to `CTDGProvider`
-- map `dtdg` to `DTDGProvider`
+Maps `ctdg` to `CTDGProvider`, `dtdg` to `DTDGProvider`.
 
 ### TaskRegistry
 
-Defined in [task_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/task_registry.py).
+Maps task types to task adapter classes:
 
-Purpose:
-
-- resolve task adapters
-- separate task semantics from graph-family execution
+- `"temporal_link_prediction"` -> `TemporalLinkPredictionTaskAdapter`
+- `"snapshot_node_regression"` -> `NodeRegressionTaskAdapter`
 
 ## Runtime and Checkpointing
 
-The runtime abstraction lives in [runtime/base.py](/home/zlj/StarryUniGraph/starry_unigraph/runtime/base.py).
+The runtime abstraction lives in `runtime/base.py` with the following abstract protocols:
 
-The current provider stack uses a lightweight runtime adapter from [providers/common.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/common.py).
+- `RuntimeProtocol` — `iter_batches()`, `step()`, `state_dict()`, `load_state_dict()`
+- `RuntimeAdapter` — model/optimizer init, runtime state load/dump
+- `ExecutionAdapter` — `train_step()`, `eval_step()`, `predict_step()`
+- `GraphProvider` — combines adapter + execution with `graph_mode` property
 
-Checkpoint I/O lives in [io.py](/home/zlj/StarryUniGraph/starry_unigraph/checkpoint/io.py).
+Checkpoint I/O lives in `checkpoint/io.py`.
 
 Current checkpoint payload:
 
@@ -506,45 +454,56 @@ Current checkpoint payload:
 - `epoch`
 - `global_step`
 
-Current runtime state includes provider-mapped kernel state, for example:
+Runtime state includes provider-mapped state:
 
-- CTDG
-  - `memory_state`
-  - `mailbox_state`
-  - `sampler_state`
-  - `executor_state`
-- DTDG
-  - `window_state`
-  - `snapshot_state`
-  - `route_cache`
-  - `executor_state`
+- CTDG: `memory_state`, `mailbox_state`, `sampler_state`, `executor_state`
+- DTDG: `window_state`, `snapshot_state`, `route_cache`, `executor_state`
 
 ## Preprocessing Layer
 
-The abstract preprocessing contract is defined in [base.py](/home/zlj/StarryUniGraph/starry_unigraph/preprocess/base.py).
+The abstract preprocessing contract is defined in `preprocess/base.py`:
 
-The provider-specific preprocessors currently perform:
+- `ArtifactLayout` — root directory + subdirectory mapping
+- `ArtifactOutput` — relative_path, payload, serializer (json/torch)
+- `ArtifactPayload` — provider_meta + outputs list
+- `GraphPreprocessor` (abstract) — `prepare_raw()`, `build_partitions()`, `build_runtime_artifacts()`, `run()`
 
-- artifact directory creation
-- partition/route/index manifest generation
-- artifact metadata export
+Concrete preprocessors:
 
-Current limitation:
+- `CTDGPreprocessor` — prepares raw temporal events into partition manifest + feature route plan
+- `BaseDTDGPreprocessor` / `FlareDTDGPreprocessor` — full DTDG preprocessing pipeline: raw event loading -> snapshot extraction -> METIS partitioning -> `PartitionData` generation with `part_NNN.pth` files
 
-- preprocessors do not yet perform full BTS/Flare-native preprocessing.
-- CTDG event ordering and true native sampler index generation are not fully migrated.
-- DTDG snapshot chunking and Flare-native `PartitionData` generation are not fully migrated.
+DTDG data preparation (`preprocess/dtdg_prepare.py`) provides:
+
+- snapshot dataset construction from raw events
+- lifetime graph analysis for partitioning
+- METIS/random partition algorithm
+- per-partition `PartitionData` assembly with local edges, features, labels, and routes
+
+## Distributed Support
+
+Distributed utilities live in `distributed.py`:
+
+- `apply_distributed_env()` — reads `WORLD_SIZE`/`RANK`/`LOCAL_RANK` from environment (set by `torchrun`), merges into config
+- `build_distributed_context()` — creates `DistributedContext` from config
+- `initialize_distributed()` — calls `dist.init_process_group()`, sets CUDA device
+- `finalize_distributed()` — calls `dist.destroy_process_group()`
+
+DDP training is implemented in:
+
+- Flare: `init_flare_training()` wraps model in `DistributedDataParallel`, computes per-partition loss scale via `all_reduce`
+- Online: `CTDGOnlineRuntime` handles distributed memory sync via `all_to_all_single`
 
 ## CLI
 
-CLI entrypoint is [main.py](/home/zlj/StarryUniGraph/starry_unigraph/cli/main.py).
+CLI entrypoint is `cli/main.py`.
 
 Commands:
 
-- `prepare`
-- `train`
-- `predict`
-- `resume`
+- `prepare` — run preprocessing only
+- `train` — prepare + build + train
+- `predict` — run inference
+- `resume` — restore from checkpoint and continue
 
 Examples:
 
@@ -578,6 +537,12 @@ session.build_runtime()
 summary = session.run_epoch(split="train")
 ```
 
+### Full training loop
+
+```python
+result = session.run_task()
+```
+
 ### Predict
 
 ```python
@@ -599,33 +564,19 @@ One of the central design principles is that the system should not erase the ori
 
 The library preserves:
 
-- sampling-first execution
-- route-aware feature fetch
-- memory/mailbox update after materialization
-
-Trace output contains:
-
-- `pipeline`
-- `stage_payloads`
-- `state`
+- sampling-first execution via native BTS sampler
+- route-aware feature fetch across partitions
+- memory/mailbox update with distributed async sync
+- historical cache with adaptive cosine-distance filtering
 
 ### DTDG pipeline semantics
 
 The library preserves:
 
-- snapshot loading
-- route application
-- sparse-dense operator stage
-- window aggregation
-- recurrent-like state storage
-
-Trace output contains:
-
-- `pipeline`
-- `stage_payloads`
-- `state`
-- `spmm_output`
-- `aggregated`
+- snapshot loading with CUDA stream prefetch
+- differentiable route-based all-to-all feature exchange
+- RNN state management with sliding window (pad/mix modes)
+- per-partition loss scaling for balanced DDP training
 
 ## What Is Already Merged From BTS and Flare
 
@@ -636,20 +587,25 @@ Trace output contains:
 - BTS sampler Python wrapper and loader
 - Unified kernel protocol
 - CTDG kernel with BTS-style stage structure
+- CTDG online runtime with memory bank, historical cache, sampler, and distributed sync
 - DTDG kernel with Flare-style stage structure
+- Flare `PartitionData` with CSR-style tensor storage
+- Flare `STGraphLoader` with CUDA stream prefetch
+- Flare `RNNStateManager` and `STGraphBlob`
+- Flare differentiable `Route` with autograd hooks
+- Flare DTDG models (`FlareEvolveGCN`, `FlareTGCN`, `FlareMPNNLSTM`)
+- Flare DDP training with per-partition loss scaling
+- DTDG preprocessing with METIS partitioning and `PartitionData` generation
 
 ### Not fully merged yet
 
-- full BTS native sampler-driven CTDG training path
-- BTS memory/mailbox implementation parity
-- Flare `PartitionData`
-- Flare `STGraphLoader`
-- Flare `RNNStateManager`
-- Flare high-performance preprocessing and asynchronous data movement
+- Full BTS native sampler-driven end-to-end CTDG training path (sampler is integrated but kernel auto-dispatch is partial)
+- BTS memory/mailbox full implementation parity with upstream
+- DTDG `chunked` pipeline high-performance backend (adaptive chunk prepare exists but is not yet fully integrated)
 
 ## Testing
 
-Tests are currently in [test_session.py](/home/zlj/StarryUniGraph/tests/test_session.py).
+Tests are currently in `tests/test_session.py`.
 
 Covered behaviors:
 
@@ -665,29 +621,16 @@ Covered behaviors:
 - missing route manifest failure
 - BTS native sampler module availability
 
-Current environment note:
-
-- The repository compiles with `python -m compileall`.
-- `pytest` is not installed in the current environment, so test files exist but may need local runner setup to execute through `pytest`.
-
-## Recommended Next Steps
-
-If the goal is full backend parity rather than only unified architecture, the next migrations should be:
-
-1. Connect `CTDGKernel` batch generation to the vendored BTS native sampler end-to-end.
-2. Migrate BTS memory/mailbox critical path into repository-owned native/runtime modules.
-3. Migrate Flare `PartitionData` into `starry_unigraph`.
-4. Migrate Flare `STGraphLoader` and state manager into `starry_unigraph`.
-5. Replace current DTDG synthetic batch materialization with Flare-native partition/snapshot loading.
-
 ## Summary
 
-`StarryUniGraph` is currently a unified dynamic graph library with:
+`StarryUniGraph` is a unified dynamic graph library with:
 
 - one public session API
 - one config system
 - one checkpoint format
 - one execution protocol
-- two family-specific kernels
+- two family-specific runtime backends (Flare for DTDG, Online for CTDG)
+- full Flare high-performance data path (PartitionData, STGraphLoader, RNNStateManager, differentiable routing, DDP training)
+- CTDG online runtime with memory bank, sampling, and distributed sync
 
-It already contains the structural foundation needed to converge BTS-style CTDG and Flare-style DTDG under one library, while still preserving their original pipeline semantics. The remaining work is mostly backend migration and performance-path replacement, not architecture invention.
+The library provides structural unification while preserving original pipeline semantics for both CTDG and DTDG workloads.

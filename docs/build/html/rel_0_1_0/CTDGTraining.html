@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CTDG Training Guide &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">CTDG Training Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/rel_0_1_0/CTDGTraining.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="ctdg-training-guide">
+<h1>CTDG Training Guide<a class="headerlink" href="#ctdg-training-guide" title="Link to this heading"></a></h1>
+<p>The CTDG (Continuous-Time Dynamic Graph) path models temporal graphs as event streams,
+where each edge carries a precise timestamp.  StarryUniGraph’s CTDG backend is built on
+the event-driven paradigm supporting memory-augmented temporal GNN models such as
+TGN, JODIE.</p>
+<section id="pipeline-overview">
+<h2>Pipeline Overview<a class="headerlink" href="#pipeline-overview" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Raw Data  (edge list + timestamps)
+     │
+     ▼
+CTDGPreprocessor               ← backends/ctdg/preprocess.py
+     │  prepare_raw()
+     │  build_partitions()
+     │  build_runtime_artifacts()
+     ▼
+PreparedArtifacts  (artifacts/)
+     │
+     ▼
+CTDGSession                    ← backends/ctdg/runtime/session.py
+     │  build_runtime()
+     │  iter_train / iter_eval / iter_predict
+     │  train_step / eval_step / predict_step
+     ▼
+Results  (loss, metrics, predictions)
+</pre></div>
+</div>
+</section>
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<p>Set <code class="docutils literal notranslate"><span class="pre">data.graph_mode:</span> <span class="pre">ctdg</span></code> (or use a <code class="docutils literal notranslate"><span class="pre">tgn</span></code>-family model) in the config, then:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Single-process prepare for an 8-worker job</span>
+<span class="nv">WORLD_SIZE</span><span class="o">=</span><span class="m">8</span><span class="w"> </span>/home/zlj/.miniconda3/envs/tgnn_3.10/bin/python<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span>--config<span class="w"> </span>configs/tgn_wiki.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--artifact-root<span class="w"> </span>/shared/artifacts/WIKI<span class="w"> </span>--phase<span class="w"> </span>prepare
+
+<span class="c1"># Copy /shared/artifacts/WIKI to every node if storage is not shared</span>
+
+<span class="c1"># Multi-node / multi-GPU train + validate on node 0</span>
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--nnodes<span class="o">=</span><span class="m">2</span><span class="w"> </span>--node_rank<span class="o">=</span><span class="m">0</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--master_addr<span class="o">=</span>node0<span class="w"> </span>--master_port<span class="o">=</span><span class="m">29500</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span>--config<span class="w"> </span>configs/tgn_wiki.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--artifact-root<span class="w"> </span>/shared/artifacts/WIKI<span class="w"> </span>--phase<span class="w"> </span>train
+
+<span class="c1"># Multi-node / multi-GPU train + validate on node 1</span>
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--nnodes<span class="o">=</span><span class="m">2</span><span class="w"> </span>--node_rank<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--master_addr<span class="o">=</span>node0<span class="w"> </span>--master_port<span class="o">=</span><span class="m">29500</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span>--config<span class="w"> </span>configs/tgn_wiki.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--artifact-root<span class="w"> </span>/shared/artifacts/WIKI<span class="w"> </span>--phase<span class="w"> </span>train
+
+<span class="c1"># Multi-node / multi-GPU predict on test split on node 0</span>
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--nnodes<span class="o">=</span><span class="m">2</span><span class="w"> </span>--node_rank<span class="o">=</span><span class="m">0</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--master_addr<span class="o">=</span>node0<span class="w"> </span>--master_port<span class="o">=</span><span class="m">29501</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span>--config<span class="w"> </span>configs/tgn_wiki.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--artifact-root<span class="w"> </span>/shared/artifacts/WIKI<span class="w"> </span>--phase<span class="w"> </span>predict
+
+<span class="c1"># Then rerun the same predict command on node 1 with --node_rank=1</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">prepare</span></code> step is intentionally single-process, but it must still know the final
+distributed partition count.  Set <code class="docutils literal notranslate"><span class="pre">WORLD_SIZE</span></code> to <code class="docutils literal notranslate"><span class="pre">nnodes</span> <span class="pre">*</span> <span class="pre">nproc_per_node</span></code> during
+prepare so the generated artifacts match the later <code class="docutils literal notranslate"><span class="pre">torchrun</span></code> job.</p>
+<p>In distributed CTDG mode, all ranks advance through the same global time windows.
+Each rank only trains on the local edges assigned to it by the prepared partition
+artifacts.  The current ownership rule is <code class="docutils literal notranslate"><span class="pre">edge_owner</span> <span class="pre">=</span> <span class="pre">src_node_partition</span></code>.</p>
+<p>Override hyperparameters without editing the config:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--nnodes<span class="o">=</span><span class="m">2</span><span class="w"> </span>--node_rank<span class="o">=</span><span class="m">0</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--master_addr<span class="o">=</span>node0<span class="w"> </span>--master_port<span class="o">=</span><span class="m">29500</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span>starry_unigraph<span class="w"> </span>--config<span class="w"> </span>configs/tgn_wiki.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--artifact-root<span class="w"> </span>/shared/artifacts/WIKI<span class="w"> </span>--phase<span class="w"> </span>train<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--epochs<span class="w"> </span><span class="m">50</span><span class="w"> </span>--lr<span class="w"> </span><span class="m">0</span>.0001<span class="w"> </span>--batch-size<span class="w"> </span><span class="m">200</span>
+</pre></div>
+</div>
+</section>
+<section id="config-file">
+<h2>Config File<a class="headerlink" href="#config-file" title="Link to this heading"></a></h2>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">configs/tgn_wiki.yaml</span></code></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">tgn</span>
+<span class="w">  </span><span class="nt">family</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">tgn</span>
+<span class="w">  </span><span class="nt">task</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">temporal_link_prediction</span>
+<span class="w">  </span><span class="nt">hidden_dim</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">memory_dim</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">time_dim</span><span class="p">:</span><span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">embedding_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">num_neighbors</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+
+<span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w">       </span><span class="l l-Scalar l-Scalar-Plain">WIKI</span>
+<span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w">       </span><span class="p p-Indicator">[</span><span class="nv">DATA_ROOT</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">format</span><span class="p">:</span><span class="w">     </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+<span class="w">  </span><span class="nt">graph_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ctdg</span><span class="w">          </span><span class="c1"># ← selects CTDG path</span>
+
+<span class="nt">train</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">epochs</span><span class="p">:</span><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">200</span><span class="w">        </span><span class="c1"># number of events per batch</span>
+<span class="w">  </span><span class="nt">lr</span><span class="p">:</span><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">0.0001</span>
+<span class="w">  </span><span class="nt">eval_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+
+<span class="nt">runtime</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">torch</span>
+<span class="w">  </span><span class="nt">device</span><span class="p">:</span><span class="w">     </span><span class="l l-Scalar l-Scalar-Plain">cuda</span>
+<span class="w">  </span><span class="nt">checkpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">artifacts/ctdg/checkpoints/tgn_wiki.pt</span>
+
+<span class="nt">dist</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">world_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span><span class="w">             </span><span class="c1"># target global workers for prepare/train/predict</span>
+<span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">nccl</span>
+
+<span class="nt">ctdg</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">pipeline</span><span class="p">:</span><span class="w">          </span><span class="l l-Scalar l-Scalar-Plain">online</span>
+<span class="w">  </span><span class="nt">mailbox_slots</span><span class="p">:</span><span class="w">     </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">historical_alpha</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
+<span class="w">  </span><span class="nt">async_sync</span><span class="p">:</span><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+<p>Key parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model.memory_dim</span></code> — dimension of per-node memory vectors</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model.num_neighbors</span></code> — temporal neighbors sampled per event</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train.batch_size</span></code> — number of events per training batch</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data.graph_mode</span></code> — must be <code class="docutils literal notranslate"><span class="pre">ctdg</span></code></p></li>
+</ul>
+</section>
+<section id="artifact-layout">
+<h2>Artifact Layout<a class="headerlink" href="#artifact-layout" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;artifact_root&gt;/
+├── meta/
+│   └── artifacts.json      # graph_mode, num_nodes, num_edges, feature routes
+├── partitions/
+│   ├── manifest.json
+│   ├── node_parts.pt       # node_id -&gt; partition_id
+│   └── edge_parts.pt       # edge_id -&gt; partition_id (owner by src partition)
+├── routes/
+│   └── manifest.json
+└── sampling/
+    ├── index.json
+    └── boundaries.json     # global time-window batching summary
+</pre></div>
+</div>
+</section>
+<section id="core-class-reference">
+<h2>Core Class Reference<a class="headerlink" href="#core-class-reference" title="Link to this heading"></a></h2>
+<p><strong>CTDGPreprocessor</strong> — <code class="docutils literal notranslate"><span class="pre">backends/ctdg/preprocess.py</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.backends.ctdg</span> <span class="kn">import</span> <span class="n">CTDGPreprocessor</span>
+<span class="n">preprocessor</span> <span class="o">=</span> <span class="n">CTDGPreprocessor</span><span class="p">()</span>
+<span class="n">prepared</span> <span class="o">=</span> <span class="n">preprocessor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">session_ctx</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>CTDGSession</strong> — <code class="docutils literal notranslate"><span class="pre">backends/ctdg/runtime/session.py</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.backends.ctdg</span> <span class="kn">import</span> <span class="n">CTDGSession</span>
+<span class="n">session</span> <span class="o">=</span> <span class="n">CTDGSession</span><span class="p">()</span>
+<span class="n">session</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">(</span><span class="n">session_ctx</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">iter_train</span><span class="p">(</span><span class="n">session_ctx</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">train_step</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>   <span class="c1"># {&quot;loss&quot;: float, &quot;num_events&quot;: int, ...}</span>
+
+<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">iter_eval</span><span class="p">(</span><span class="n">session_ctx</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">&quot;val&quot;</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">eval_step</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="using-schedulersession">
+<h2>Using SchedulerSession<a class="headerlink" href="#using-schedulersession" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code> is the recommended API.  When <code class="docutils literal notranslate"><span class="pre">graph_mode</span> <span class="pre">==</span> <span class="pre">&quot;ctdg&quot;</span></code> it
+creates a <code class="docutils literal notranslate"><span class="pre">CTDGSession</span></code> internally:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.session</span> <span class="kn">import</span> <span class="n">SchedulerSession</span>
+
+<span class="n">session</span> <span class="o">=</span> <span class="n">SchedulerSession</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="s2">&quot;configs/tgn_wiki.yaml&quot;</span><span class="p">)</span>
+<span class="n">session</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">()</span>      <span class="c1"># runs CTDGPreprocessor</span>
+<span class="n">session</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">()</span>     <span class="c1"># creates CTDGSession</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">run_task</span><span class="p">()</span> <span class="c1"># full training loop</span>
+<span class="n">preds</span>  <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">predict</span><span class="p">()</span>  <span class="c1"># test-split inference</span>
+</pre></div>
+</div>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">prepare</span></code> must complete before <code class="docutils literal notranslate"><span class="pre">train</span></code>, using the same <code class="docutils literal notranslate"><span class="pre">artifact_root</span></code>.</p></li>
+<li><p>For multi-node CTDG runs, <code class="docutils literal notranslate"><span class="pre">prepare</span></code> should use the same global partition count as
+the later distributed job.  Either set <code class="docutils literal notranslate"><span class="pre">dist.world_size</span></code> in config or export
+<code class="docutils literal notranslate"><span class="pre">WORLD_SIZE</span></code> before running <code class="docutils literal notranslate"><span class="pre">--phase</span> <span class="pre">prepare</span></code>.</p></li>
+<li><p>Temporal neighbor sampling requires the native C++ extension
+<code class="docutils literal notranslate"><span class="pre">libstarrygl_sampler.so</span></code>, built inside the <code class="docutils literal notranslate"><span class="pre">tgnn_3.10</span></code> conda environment.
+See <a class="reference internal" href="../guide/install_guide.html"><span class="doc">Installation &amp; Build Guide</span></a>.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

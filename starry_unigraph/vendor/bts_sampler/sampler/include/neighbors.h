@@ -66,10 +66,8 @@ class TemporalNeighborBlock
         
         std::string serialize() const {
             std::ostringstream oss;
-            // ÐòÁÐ»¯»ù±¾ÀàÐÍ³ÉÔ±
             oss << with_eid << " " << with_dist_eid<<" "<<weighted << " " << with_timestamp << " ";
 
-            // ÐòÁÐ»¯ vector<vector<T>> ÀàÐÍ³ÉÔ±
             auto serializeVecVec = [&oss](const auto& vecVec) {
                 for (const auto& vec : vecVec) {
                     oss << vec.size() << " ";
@@ -77,7 +75,7 @@ class TemporalNeighborBlock
                         oss << elem << " ";
                     }
                 }
-                oss << "|";  // Ìí¼ÓÒ»¸ö·Ö¸ô·ûÒÔÇø·Ö²»Í¬µÄ vector
+                oss << "|"; 
             };
 
             serializeVecVec(neighbors);
@@ -86,14 +84,12 @@ class TemporalNeighborBlock
             serializeVecVec(dist_eid);
             serializeVecVec(edge_weight);
 
-            // ÐòÁÐ»¯ vector<int64_t> ÀàÐÍ³ÉÔ±
             oss << deg.size() << " ";
             for (const auto& d : deg) {
                 oss << d << " ";
             }
             oss << "|";
 
-            // ÐòÁÐ»¯ inverted_index
             for (const auto& map : inverted_index) {
                 oss << map.size() << " ";
                 for (const auto& [key, value] : map) {
@@ -102,7 +98,6 @@ class TemporalNeighborBlock
             }
             oss << "|";
 
-            // ÐòÁÐ»¯ neighbors_set
             for (const auto& set : neighbors_set) {
                 oss << set.size() << " ";
                 for (const auto& elem : set) {
@@ -118,10 +113,9 @@ class TemporalNeighborBlock
             std::istringstream iss(s);
             TemporalNeighborBlock tnb;
 
-            // ·´ÐòÁÐ»¯»ù±¾ÀàÐÍ³ÉÔ±
+
             iss >> tnb.with_eid >>tnb.with_dist_eid>> tnb.weighted >> tnb.with_timestamp;
 
-            // ·´ÐòÁÐ»¯ vector<vector<T>> ÀàÐÍ³ÉÔ±
             auto deserializeVecLong = [&iss](vector<vector<int64_t>>& vecVec) {
                 std::string segment;
                 std::getline(iss, segment, '|');
@@ -129,7 +123,7 @@ class TemporalNeighborBlock
                 while (!vec_iss.eof()) {
                     size_t vec_size;
                     vec_iss >> vec_size;
-                    if (vec_iss.eof()) break;  // ·ÀÖ¹¶àÓàµÄ¿Õ°×
+                    if (vec_iss.eof()) break; 
                     vector<int64_t> vec(vec_size);
                     for (size_t i = 0; i < vec_size; ++i) {
                         vec_iss >> vec[i];
@@ -146,7 +140,7 @@ class TemporalNeighborBlock
                 while (!vec_iss.eof()) {
                     size_t vec_size;
                     vec_iss >> vec_size;
-                    if (vec_iss.eof()) break;  // ·ÀÖ¹¶àÓàµÄ¿Õ°×
+                    if (vec_iss.eof()) break;  // ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½Ä¿Õ°ï¿½
                     vector<float> vec(vec_size);
                     for (size_t i = 0; i < vec_size; ++i) {
                         vec_iss >> vec[i];
@@ -163,7 +157,7 @@ class TemporalNeighborBlock
             deserializeVecFloat(tnb.edge_weight);
 
             std::string segment;
-            // ·´ÐòÁÐ»¯ vector<int64_t> ÀàÐÍ³ÉÔ±
+            // ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ vector<int64_t> ï¿½ï¿½ï¿½Í³ï¿½Ô±
             segment="";
             std::getline(iss, segment, '|');
             std::istringstream vec_iss(segment);
@@ -174,7 +168,7 @@ class TemporalNeighborBlock
                 vec_iss >> tnb.deg[i];
             }
 
-            // ·´ÐòÁÐ»¯ inverted_index
+            // ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ inverted_index
             segment="";
             std::getline(iss, segment, '|');
             std::istringstream map_iss(segment);
@@ -192,7 +186,7 @@ class TemporalNeighborBlock
                 tnb.inverted_index.push_back(map);
             }
 
-            // ·´ÐòÁÐ»¯ neighbors_set
+            // ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ neighbors_set
             std::getline(iss, segment, '|');
             std::istringstream set_iss(segment);
             while (!set_iss.eof()) {
@@ -214,7 +208,7 @@ class TemporalNeighborBlock
 
 TemporalNeighborBlock& get_neighbors(
         string graph_name, th::Tensor row, th::Tensor col, int64_t num_nodes, int is_distinct, optional<th::Tensor> eid, optional<th::Tensor> dist_eid, optional<th::Tensor> edge_weight, optional<th::Tensor> time)
-{   //row¡¢col¡¢time°´timeÉýÐòÅÅÁÐ£¬ÓÉÊ±¼äÔçµÄµ½Ê±¼äÍíµÄ
+{   //rowï¿½ï¿½colï¿½ï¿½timeï¿½ï¿½timeï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Äµï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     auto src = get_data_ptr<NodeIDType>(row);
     auto dst = get_data_ptr<NodeIDType>(col);
     EdgeIDType* eid_ptr = eid ? get_data_ptr<EdgeIDType>(eid.value()) : nullptr;
@@ -229,10 +223,10 @@ TemporalNeighborBlock& get_neighbors(
     TemporalNeighborBlock& tnb = tnb_map[graph_name];
 
     double start_time = omp_get_wtime();
-    //³õÊ¼»¯
+    //ï¿½ï¿½Ê¼ï¿½ï¿½
     tnb.neighbors.resize(num_nodes);
     tnb.deg.resize(num_nodes, 0);
-        //³õÊ¼»¯optionalÏà¹Ø
+        //ï¿½ï¿½Ê¼ï¿½ï¿½optionalï¿½ï¿½ï¿½
     tnb.with_eid = eid.has_value();
     tnb.with_dist_eid = dist_eid.has_value();
     tnb.weighted = edge_weight.has_value();
@@ -245,12 +239,12 @@ TemporalNeighborBlock& get_neighbors(
     }
     if (tnb.with_timestamp) tnb.timestamp.resize(num_nodes);
         
-    //¼ÆËã, Ìõ¼þÅÐ¶ÏÒÆ³öÑ­»·ÓÅ»¯Ö´ÐÐÐ§ÂÊ
+    //ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½Æ³ï¿½Ñ­ï¿½ï¿½ï¿½Å»ï¿½Ö´ï¿½ï¿½Ð§ï¿½ï¿½
     for(int64_t i=0; i<edge_num; i++){
-        //¼ÆËã½ÚµãÁÚ¾Ó
+        //ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½Ú¾ï¿½
         tnb.neighbors[dst[i]].emplace_back(src[i]);
     }
-    //Èç¹ûÓÐeid£¬²åÈë
+    //ï¿½ï¿½ï¿½ï¿½ï¿½eidï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     if(tnb.with_eid)
         for(int64_t i=0; i<edge_num; i++){
             tnb.eid[dst[i]].emplace_back(eid_ptr[i]);
@@ -259,14 +253,14 @@ TemporalNeighborBlock& get_neighbors(
         for(int64_t i=0; i<edge_num;i++){
             tnb.dist_eid[dst[i]].emplace_back(dist_eid_ptr[i]);
         }
-    //Èç¹ûÓÐÈ¨ÖØÐÅÏ¢£¬²åÈë½ÚµãÓëÁÚ¾Ó±ßµÄÈ¨ÖØºÍ·´ÏòË÷Òý
+    //ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ï¿½Ú¾Ó±ßµï¿½È¨ï¿½ØºÍ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     if(tnb.weighted)
         for(int64_t i=0; i<edge_num; i++){
             tnb.edge_weight[dst[i]].emplace_back(ew[i]);
             if(tnb.with_eid) tnb.inverted_index[dst[i]][eid_ptr[i]]=tnb.neighbors[dst[i]].size()-1;
             else tnb.inverted_index[dst[i]][src[i]]=tnb.neighbors[dst[i]].size()-1;
         }
-    //Èç¹ûÓÐÊ±ÐòÐÅÏ¢£¬²åÈë½ÚµãÓëÁÚ¾Ó±ßµÄÊ±¼ä
+    //ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ï¿½Ú¾Ó±ßµï¿½Ê±ï¿½ï¿½
     if(tnb.with_timestamp)
         for(int64_t i=0; i<edge_num; i++){
             tnb.timestamp[dst[i]].emplace_back(t[i]);
@@ -274,14 +268,14 @@ TemporalNeighborBlock& get_neighbors(
         
     if(is_distinct){
         for(int64_t i=0; i<num_nodes; i++){
-            //ÊÕ¼¯È¥ÖØÁÚ¾Ó
+            //ï¿½Õ¼ï¿½È¥ï¿½ï¿½ï¿½Ú¾ï¿½
             phmap::parallel_flat_hash_set<NodeIDType> temp_s;
             temp_s.insert(tnb.neighbors[i].begin(), tnb.neighbors[i].end());
             tnb.neighbors_set.emplace_back(temp_s);
         }
     }
     for(int64_t i=0; i<num_nodes; i++){
-        //ÊÕ¼¯µ¥±ß½Úµã¶È
+        //ï¿½Õ¼ï¿½ï¿½ï¿½ï¿½ß½Úµï¿½ï¿½
         tnb.deg[i] = tnb.neighbors[i].size();
     }
     double end_time = omp_get_wtime();
@@ -302,7 +296,7 @@ void TemporalNeighborBlock::update_edge_weight(
     int64_t edge_num = col.size(0);
 
     for(int64_t i=0; i<edge_num; i++){
-        //ÐÞ¸Ä½ÚµãÓëÁÚ¾Ó±ßµÄÈ¨ÖØ
+        //ï¿½Þ¸Ä½Úµï¿½ï¿½ï¿½ï¿½Ú¾Ó±ßµï¿½È¨ï¿½ï¿½
 		int index;
         if(this->with_eid){
             AT_ASSERTM(this->inverted_index[dst[i]].count(eid_ptr[i])==1, "Unexist Eid --> Col: "+to_string(eid_ptr[i])+"-->"+to_string(dst[i]));
@@ -324,7 +318,7 @@ void TemporalNeighborBlock:: update_node_weight(th::Tensor nid, th::Tensor node_
     int64_t node_num = nid.size(0);
 
     for(int64_t i=0; i<node_num; i++){
-        //ÐÞ¸Ä½ÚµãÓëÁÚ¾Ó±ßµÄÈ¨ÖØ
+        //ï¿½Þ¸Ä½Úµï¿½ï¿½ï¿½ï¿½Ú¾Ó±ßµï¿½È¨ï¿½ï¿½
         AT_ASSERTM(dst[i]<this->deg.size(), "Unexist Node Index: "+to_string(dst[i]));
         if(this->inverted_index[dst[i]].empty())
             return;
@@ -341,7 +335,7 @@ void TemporalNeighborBlock:: update_all_node_weight(th::Tensor node_weight){
     AT_ASSERTM(node_num==this->neighbors.size(), "The tensor node_weight size is not suitable node number.");
 
     for(int64_t i=0; i<node_num; i++){
-        //ÐÞ¸Ä½ÚµãÓëÁÚ¾Ó±ßµÄÈ¨ÖØ
+        //ï¿½Þ¸Ä½Úµï¿½ï¿½ï¿½ï¿½Ú¾Ó±ßµï¿½È¨ï¿½ï¿½
         for(int j=0; j<this->neighbors[i].size();j++){
             this->edge_weight[i][j] = nw[this->neighbors[i][j]];
         }
@@ -350,7 +344,7 @@ void TemporalNeighborBlock:: update_all_node_weight(th::Tensor node_weight){
 
 int64_t TemporalNeighborBlock::update_neighbors_with_time(
         th::Tensor row, th::Tensor col, th::Tensor time,th::Tensor eid, int is_distinct, std::optional<th::Tensor> edge_weight){
-        //row¡¢col¡¢time°´timeÉýÐòÅÅÁÐ£¬ÓÉÊ±¼äÔçµÄµ½Ê±¼äÍíµÄ
+        //rowï¿½ï¿½colï¿½ï¿½timeï¿½ï¿½timeï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Äµï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     AT_ASSERTM(this->empty(), "Empty TemporalNeighborBlock, please use get_neighbors_with_time");
     AT_ASSERTM(this->with_timestamp == true, "This Graph has no time infomation!");
     auto src = get_data_ptr<NodeIDType>(row);
@@ -361,7 +355,7 @@ int64_t TemporalNeighborBlock::update_neighbors_with_time(
     int64_t edge_num = row.size(0);
     int64_t num_nodes = this->neighbors.size();
 
-    //´¦ÀíoptionalµÄÖµ
+    //ï¿½ï¿½ï¿½ï¿½optionalï¿½ï¿½Öµ
     if(edge_weight.has_value()){
         AT_ASSERTM(this->weighted == true, "This Graph has no edge weight");
     }
@@ -372,26 +366,22 @@ int64_t TemporalNeighborBlock::update_neighbors_with_time(
     // double start_time = omp_get_wtime();
     if(is_distinct){
         for(int64_t i=0; i<edge_num; i++){
-            //Èç¹ûÓÐÐÂ½Úµã
+            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â½Úµï¿½
             if(dst[i]>=num_nodes){
                 num_nodes = dst[i]+1;
                 this->neighbors.resize(num_nodes);
                 this->deg.resize(num_nodes, 0);
                 this->eid.resize(num_nodes);
                 this->timestamp.resize(num_nodes);
-                    //³õÊ¼»¯optionalÏà¹Ø
+                    //ï¿½ï¿½Ê¼ï¿½ï¿½optionalï¿½ï¿½ï¿½
                 if (this->weighted) {
                     this->edge_weight.resize(num_nodes);
                     this->inverted_index.resize(num_nodes);
                 }
             }
-            //¸üÐÂ½ÚµãÁÚ¾Ó
             this->neighbors[dst[i]].emplace_back(src[i]);
-            //²åÈëeid
             this->eid[dst[i]].emplace_back(eid_ptr[i]);
-            //²åÈë½ÚµãÓëÁÚ¾Ó±ßµÄÊ±¼ä
             this->timestamp[dst[i]].emplace_back(t[i]);
-            //Èç¹ûÓÐÈ¨ÖØÐÅÏ¢£¬²åÈë½ÚµãÓëÁÚ¾Ó±ßµÄÈ¨ÖØºÍ·´ÏòË÷Òý
             if(this->weighted){
                 this->edge_weight[dst[i]].emplace_back(ew[i]);
                 if(this->with_eid) this->inverted_index[dst[i]][eid_ptr[i]]=this->neighbors[dst[i]].size()-1;
@@ -404,13 +394,9 @@ int64_t TemporalNeighborBlock::update_neighbors_with_time(
     }
     else{
         for(int64_t i=0; i<edge_num; i++){
-            //¸üÐÂ½ÚµãÁÚ¾Ó
             this->neighbors[dst[i]].emplace_back(src[i]);
-            //²åÈëeid
             this->eid[dst[i]].emplace_back(eid_ptr[i]);
-            //²åÈë½ÚµãÓëÁÚ¾Ó±ßµÄÊ±¼ä
             this->timestamp[dst[i]].emplace_back(t[i]);
-            //Èç¹ûÓÐÈ¨ÖØÐÅÏ¢£¬²åÈë½ÚµãÓëÁÚ¾Ó±ßµÄÈ¨ÖØºÍ·´ÏòË÷Òý
             if(this->weighted){
                 this->edge_weight[dst[i]].emplace_back(ew[i]);
                 this->inverted_index[dst[i]][src[i]]=this->neighbors[dst[i]].size()-1;
@@ -419,7 +405,5 @@ int64_t TemporalNeighborBlock::update_neighbors_with_time(
             this->deg[dst[i]]=this->neighbors[dst[i]].size();
         }
     }
-    // double end_time = omp_get_wtime();
-    // cout<<"update_neighbors consume: "<<end_time-start_time<<"s"<<endl;
     return num_nodes;
 }

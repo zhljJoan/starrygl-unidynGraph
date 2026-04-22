@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture &amp; Layer Reference &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Data Layer Reference" href="data_layer.html" />
+    <link rel="prev" title="Reference and Architecture" href="../rel_0_1_1/reference.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Architecture &amp; Layer Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html">Data Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html">Route Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html">Unified Preprocessing Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html">Protocol Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html">Artifact Format Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html">Unified Training Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html">Reusable Model Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Architecture &amp; Layer Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/architecture/__init__.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="architecture-layer-reference">
+<h1>Architecture &amp; Layer Reference<a class="headerlink" href="#architecture-layer-reference" title="Link to this heading"></a></h1>
+<p>This section documents the internal architecture of StarryUniGraph: how raw
+temporal data is preprocessed, how runtime artifacts are laid out, how routing
+and data movement are represented, and which reusable model modules are shared
+across graph modes.</p>
+<p>For user-facing workflow guides, start with <a class="reference internal" href="../rel_0_1_1/intro.html"><span class="doc">Introduction</span></a> and the
+matching pages under <a class="reference internal" href="../rel_0_1_1/training/index.html"><span class="doc">Training Guides by Graph Mode</span></a>.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="data_layer.html">Data Layer Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html#core-data-structures">Core Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html#feature-access-protocols">Feature Access Protocols</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html#chunked-processing-chunkatomic-chunkbuilder">Chunked Processing: <code class="docutils literal notranslate"><span class="pre">ChunkAtomic</span></code> &amp; <code class="docutils literal notranslate"><span class="pre">ChunkBuilder</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html#raw-temporal-data-loading-and-conversion">Raw Temporal Data: Loading and Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html#data-flow-example">Data Flow Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="route_layer.html">Route Layer Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html#core-concepts">Core Concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html#routedata-unified-schema"><code class="docutils literal notranslate"><span class="pre">RouteData</span></code> — Unified Schema</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html#mode-specific-usage">Mode-Specific Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html#route-construction-pipeline">Route Construction Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html#implementation-details-all-to-all-exchange">Implementation Details: All-to-All Exchange</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html#comparing-dtdg-vs-ctdg-routing">Comparing DTDG vs CTDG Routing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="preprocess_layer.html">Unified Preprocessing Pipeline</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html#ctdg-preprocessing">CTDG Preprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html#dtdg-preprocessing">DTDG Preprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html#chunk-preprocessing">Chunk Preprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html#dispatch-in-schedulersession">Dispatch in <code class="docutils literal notranslate"><span class="pre">SchedulerSession</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html#extending-the-preprocessing-layer">Extending the Preprocessing Layer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocol Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#core-protocols">Core Protocols</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#example-using-protocols-in-custom-code">Example: Using Protocols in Custom Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#protocol-hierarchy-composition">Protocol Hierarchy &amp; Composition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="artifact_format.html">Artifact Format Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html#common-layout">Common Layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html#common-metadata-files">Common Metadata Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html#ctdg-artifacts">CTDG Artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html#dtdg-artifacts">DTDG Artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html#chunk-artifacts">Chunk Artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html#loading-artifacts">Loading Artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html#serialization-notes">Serialization Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="unified_pipeline.html">Unified Training Pipeline</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#architecture">Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#example-custom-training-loop">Example: Custom Training Loop</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#integration-with-schedulersession">Integration with SchedulerSession</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#usage-example">Usage Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#multi-mode-training-comparison">Multi-Mode Training Comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="model_modules.html">Reusable Model Modules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html#timeencode">TimeEncode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html#gcnstack">GCNStack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html#matgrucell">MatGRUCell</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html#lstmcell">_LSTMCell</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html#using-modules-in-custom-models">Using Modules in Custom Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html#stability-versioning">Stability &amp; Versioning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="key-concepts">
+<h1>Key Concepts<a class="headerlink" href="#key-concepts" title="Link to this heading"></a></h1>
+<p><strong>Current execution paths</strong></p>
+<ul class="simple">
+<li><p><strong>CTDG</strong>: event-driven processing over continuous-time interaction streams</p></li>
+<li><p><strong>DTDG</strong>: snapshot-driven processing over discrete-time graph sequences</p></li>
+<li><p><strong>Chunk</strong>: an experimental unified abstraction that maps both modes into
+schedulable spatio-temporal chunks</p></li>
+</ul>
+<p><strong>Shared architectural layers</strong></p>
+<ul class="simple">
+<li><p><strong>Data structures</strong> such as batch containers, partition metadata, and chunk
+descriptors</p></li>
+<li><p><strong>Routing and communication plans</strong> for cross-partition feature and state
+exchange</p></li>
+<li><p><strong>Preprocessing contracts</strong> that transform raw graph data into runtime-ready
+artifacts</p></li>
+<li><p><strong>Reusable modules</strong> for time encoding, graph convolution, recurrent state
+updates, and temporal attention</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The architecture pages focus on the current repository layout and the
+interfaces exposed by the active codebase. Experimental components are
+labeled explicitly where appropriate.</p>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../rel_0_1_1/reference.html" class="btn btn-neutral float-left" title="Reference and Architecture" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="data_layer.html" class="btn btn-neutral float-right" title="Data Layer Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -2,27 +2,29 @@
 
 ## 1. 项目概览
 
-`StarryUniGraph` 是一个面向动态图分布式训练与推理的统一调度库。它希望用一套统一接口同时支持两类动态图：
+`StarryUniGraph` 是一个面向动态图分布式训练与推理的统一调度库。它用一套统一接口同时支持两类动态图：
 
-- `CTDG`：连续时间动态图，当前对齐 BTS-MTGNN 风格的采样与 memory 驱动执行
-- `DTDG`：离散时间动态图，当前对齐 Flare 风格的快照与窗口驱动执行
+- `CTDG`：连续时间动态图，对齐 BTS-MTGNN 风格的采样与 memory 驱动执行
+- `DTDG`：离散时间动态图，对齐 Flare 风格的快照与窗口驱动执行
 
-用户层只需要面对一个统一入口，系统内部会根据模型家族自动调度到 CTDG 或 DTDG 对应的执行内核。
+用户层只需要面对一个统一入口，系统内部会根据模型家族自动调度到 CTDG 或 DTDG 对应的运行时后端。
 
-当前实现状态如下：
+当前实现状态：
 
 - 已完成统一的 `session / provider / config / checkpoint` 架构
 - 已完成统一的 `core/protocol.py`
 - 已完成 CTDG 与 DTDG 两类 kernel 的统一封装
 - 已将 BTS 的 C++ sampler 源码和二进制并入当前仓库，并提供 Python 加载层
-- 尚未完成 Flare `PartitionData / STGraphLoader` 高性能数据路径的迁移
+- CTDG 在线运行时（`runtime/online/`）已实现：memory bank、历史缓存、采样器、分布式同步
+- Flare 高性能组件已全部合并：`PartitionData`、`STGraphLoader`、`RNNStateManager`、route 感知的 pinned-memory 加载、基于 CUDA stream 的异步数据搬运
+- DTDG `flare_native` 管线已端到端可运行，支持 DDP 训练
 
 ## 2. 设计目标
 
-这个库目前围绕四个目标设计：
+这个库围绕四个目标设计：
 
 1. 对用户暴露唯一的顶层 API
-2. 将“调度层”和“执行层”解耦
+2. 将"调度层"和"执行层"解耦
 3. 保留 CTDG 与 DTDG 原本不同的流水线语义，而不是强行揉成一个伪统一算法
 4. 支持逐步把 BTS-MTGNN 和 FlareDTDG 的高性能核心迁移到当前仓库
 
@@ -30,492 +32,409 @@
 
 ### 3.1 顶层入口
 
-- [starry_unigraph/__init__.py](/home/zlj/StarryUniGraph/starry_unigraph/__init__.py)
-- [starry_unigraph/session.py](/home/zlj/StarryUniGraph/starry_unigraph/session.py)
-- [starry_unigraph/types.py](/home/zlj/StarryUniGraph/starry_unigraph/types.py)
+- `starry_unigraph/__init__.py` — 重导出 `SchedulerSession`
+- `starry_unigraph/session.py` — 统一会话生命周期
+- `starry_unigraph/types.py` — 共享数据类型（`DistributedContext`、`SessionContext`、`RuntimeBundle`、`PreparedArtifacts`、`PredictionResult`）
+- `starry_unigraph/distributed.py` — 分布式初始化/销毁工具
 
 ### 3.2 配置系统
 
-- [starry_unigraph/config/default.yaml](/home/zlj/StarryUniGraph/starry_unigraph/config/default.yaml)
-- [starry_unigraph/config/schema.py](/home/zlj/StarryUniGraph/starry_unigraph/config/schema.py)
+- `starry_unigraph/config/default.yaml` — 默认配置
+- `starry_unigraph/config/schema.py` — 配置加载、合并、校验、图模式检测
 
 ### 3.3 注册表
 
-- [starry_unigraph/registry/model_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/model_registry.py)
-- [starry_unigraph/registry/provider_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/provider_registry.py)
-- [starry_unigraph/registry/task_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/task_registry.py)
+- `starry_unigraph/registry/model_registry.py` — 将模型名/家族映射到 `ModelSpec` 与 `graph_mode`
+- `starry_unigraph/registry/provider_registry.py` — 将 `graph_mode` 映射到 provider 类
+- `starry_unigraph/registry/task_registry.py` — 将任务类型映射到任务适配器
 
 ### 3.4 核心执行层
 
-- [starry_unigraph/core/protocol.py](/home/zlj/StarryUniGraph/starry_unigraph/core/protocol.py)
-- [starry_unigraph/core/ctdg_kernel.py](/home/zlj/StarryUniGraph/starry_unigraph/core/ctdg_kernel.py)
-- [starry_unigraph/core/dtdg_kernel.py](/home/zlj/StarryUniGraph/starry_unigraph/core/dtdg_kernel.py)
-- [starry_unigraph/core/ctdg.py](/home/zlj/StarryUniGraph/starry_unigraph/core/ctdg.py)
-- [starry_unigraph/core/dtdg.py](/home/zlj/StarryUniGraph/starry_unigraph/core/dtdg.py)
+- `starry_unigraph/core/protocol.py` — 统一 kernel 协议（`KernelBatch`、`KernelExecutor`、`PipelineTrace` 等）
+- `starry_unigraph/core/ctdg_kernel.py` — CTDG 专属 kernel 数据类型与执行器
+- `starry_unigraph/core/dtdg_kernel.py` — DTDG 专属 kernel 数据类型与执行器
+- `starry_unigraph/core/data_split.py` — train/val/test 切分比例归一化与区间计算
 
-### 3.5 Provider 层
+### 3.5 数据模块
 
-- [starry_unigraph/providers/common.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/common.py)
-- [starry_unigraph/providers/ctdg.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/ctdg.py)
-- [starry_unigraph/providers/dtdg.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/dtdg.py)
+- `starry_unigraph/data/raw_temporal.py` — 原始事件加载（`RawTemporalEvents`、CSV/边文件/mock 加载器）
+- `starry_unigraph/data/partition.py` — 分区数据结构（`TensorData`、`RouteData`、`PartitionData`）
 
-### 3.6 原生扩展与 vendor 代码
+### 3.6 Provider 层
 
-- [starry_unigraph/native/bts_sampler.py](/home/zlj/StarryUniGraph/starry_unigraph/native/bts_sampler.py)
-- [starry_unigraph/lib/loader.py](/home/zlj/StarryUniGraph/starry_unigraph/lib/loader.py)
-- [starry_unigraph/lib/libstarrygl_sampler.so](/home/zlj/StarryUniGraph/starry_unigraph/lib/libstarrygl_sampler.so)
-- [starry_unigraph/vendor/bts_sampler/CMakeLists.txt](/home/zlj/StarryUniGraph/starry_unigraph/vendor/bts_sampler/CMakeLists.txt)
+- `starry_unigraph/providers/common.py` — 共享 artifact 工具、`BaseProvider` 抽象类
+- `starry_unigraph/providers/ctdg.py` — `CTDGPreprocessor`、`CTDGProvider`
+- `starry_unigraph/providers/dtdg.py` — `DTDGProvider`（调度 Flare 管线）
+- `starry_unigraph/providers/dtdg_loaders.py` — `FlareRuntimeLoader`（封装 `STGraphLoader` 与 split 管理）
+- `starry_unigraph/providers/dtdg_preprocess.py` — `BaseDTDGPreprocessor`、`FlareDTDGPreprocessor`
+- `starry_unigraph/providers/dtdg_train.py` — Flare 训练辅助函数（`init_flare_training`、`run_flare_train_step` 等）
 
-### 3.7 任务、运行时与持久化
+### 3.7 预处理
 
-- [starry_unigraph/tasks/base.py](/home/zlj/StarryUniGraph/starry_unigraph/tasks/base.py)
-- [starry_unigraph/tasks/temporal_link_prediction.py](/home/zlj/StarryUniGraph/starry_unigraph/tasks/temporal_link_prediction.py)
-- [starry_unigraph/tasks/node_regression.py](/home/zlj/StarryUniGraph/starry_unigraph/tasks/node_regression.py)
-- [starry_unigraph/runtime/base.py](/home/zlj/StarryUniGraph/starry_unigraph/runtime/base.py)
-- [starry_unigraph/checkpoint/io.py](/home/zlj/StarryUniGraph/starry_unigraph/checkpoint/io.py)
+- `starry_unigraph/preprocess/base.py` — 抽象 `GraphPreprocessor`、`ArtifactLayout`、`ArtifactOutput`
+- `starry_unigraph/preprocess/dtdg_prepare.py` — DTDG 数据准备（快照提取、METIS 分区、`PartitionData` 生成）
 
-### 3.8 CLI 与测试
+### 3.8 运行时
 
-- [starry_unigraph/cli/main.py](/home/zlj/StarryUniGraph/starry_unigraph/cli/main.py)
-- [tests/test_session.py](/home/zlj/StarryUniGraph/tests/test_session.py)
+- `starry_unigraph/runtime/base.py` — 抽象协议（`RuntimeProtocol`、`RuntimeAdapter`、`ExecutionAdapter`、`GraphProvider`）
+
+#### Flare 运行时（`runtime/flare/`）
+
+- `starry_unigraph/runtime/flare/loader.py` — `STGraphLoader`（快照迭代 + CUDA stream 预取）
+- `starry_unigraph/runtime/flare/state.py` — `RNNStateManager`、`STGraphBlob`、`STWindowState`
+- `starry_unigraph/runtime/flare/route.py` — `Route`、`RouteAgent`、可微分 all-to-all 交换（含 autograd 钩子）
+- `starry_unigraph/runtime/flare/models.py` — Flare DTDG 模型（`FlareEvolveGCN`、`FlareTGCN`、`FlareMPNNLSTM`、`GCNStack`）
+- `starry_unigraph/runtime/flare/training.py` — Flare 训练/评估/预测步函数（含 DDP 支持）
+
+#### 在线运行时（`runtime/online/`）
+
+- `starry_unigraph/runtime/online/data.py` — `CTDGDataBatch`、`TGTemporalDataset`
+- `starry_unigraph/runtime/online/memory.py` — `CTDGMemoryBank`（节点级 memory + K-slot mailbox + 分布式异步同步）
+- `starry_unigraph/runtime/online/cache.py` — `CTDGHistoricalCache`、`AdaParameter`（余弦距离变化检测）
+- `starry_unigraph/runtime/online/sampler.py` — `NativeTemporalSampler`、`CTDGSampleOutput`
+- `starry_unigraph/runtime/online/models.py` — `CTDGMemoryUpdater`、`CTDGLinkPredictor`、`CTDGModelOutput`
+- `starry_unigraph/runtime/online/route.py` — `CTDGFeatureRoute`、`AsyncExchangeHandle`
+- `starry_unigraph/runtime/online/runtime.py` — `CTDGOnlineRuntime`（完整 CTDG 训练/评估/预测编排）
+
+### 3.9 后端（兼容层）
+
+- `starry_unigraph/backends/__init__.py` — 重导出常用类
+- `starry_unigraph/backends/flare/__init__.py` — 从 `runtime/flare/` 重导出
+- `starry_unigraph/backends/ctdg/__init__.py` — 从 `runtime/online/` 重导出
+
+### 3.10 任务
+
+- `starry_unigraph/tasks/base.py` — `BaseTaskAdapter`
+- `starry_unigraph/tasks/temporal_link_prediction.py` — `TemporalLinkPredictionTaskAdapter`
+- `starry_unigraph/tasks/node_regression.py` — `NodeRegressionTaskAdapter`
+
+### 3.11 原生扩展与 vendor 代码
+
+- `starry_unigraph/native/bts_sampler.py` — BTS 采样器 Python 封装（`BTSNativeSampler`、`build_temporal_neighbor_block`）
+- `starry_unigraph/lib/loader.py` — `load_bts_sampler_module()`（延迟加载 `.so`）
+- `starry_unigraph/lib/libstarrygl_sampler.so` — 预编译 BTS 采样器二进制
+- `starry_unigraph/vendor/bts_sampler/` — BTS C++ 源码与 CMake 构建
+
+### 3.12 Checkpoint 与 CLI
+
+- `starry_unigraph/checkpoint/io.py` — `save_checkpoint()`、`load_checkpoint()`
+- `starry_unigraph/cli/main.py` — 命令行入口（prepare/train/predict/resume）
+- `tests/test_session.py` — session 级测试
 
 ## 4. 总体架构
 
-当前库可以理解成三层。
+当前库分为三个主层加两个运行时后端。
 
 ### 4.1 Session 层
 
-用户主要通过 [session.py](/home/zlj/StarryUniGraph/starry_unigraph/session.py) 中的 `SchedulerSession` 交互。
+用户主要通过 `session.py` 中的 `SchedulerSession` 交互。
 
 主要入口：
 
-- `SchedulerSession.from_config(...)`
-- `prepare_data()`
-- `build_runtime()`
-- `train_step()`
-- `run_epoch()`
-- `run_task()`
-- `predict()`
-- `save_checkpoint()`
-- `load_checkpoint()`
+- `SchedulerSession.from_config(...)` — 加载配置、推断图模式、构造 provider
+- `prepare_data()` — 触发预处理、写出 artifacts
+- `build_runtime()` — 初始化模型、优化器、加载器、runtime state
+- `run_epoch(split)` — 按 split 迭代一个 epoch
+- `run_task()` — 完整 train/eval 主循环
+- `evaluate(split)` — 单次评估
+- `predict(split)` — 推理并返回 `PredictionResult`
+- `save_checkpoint(path)` / `load_checkpoint(path)` — 持久化/恢复
 
 这一层负责：
 
-- 读取配置
-- 校验配置
+- 读取并校验配置
 - 推断 `graph_mode`
 - 解析 provider
 - 组织统一的 train/eval/predict/checkpoint 生命周期
 
-这一层不负责：
-
-- 具体采样
-- 具体快照加载
-- memory 更新
-- 稀疏算子执行
+不负责具体采样、快照加载、memory 更新等执行细节。
 
 ### 4.2 Provider 层
 
-Provider 负责把配置映射成具体 kernel。
+Provider 负责把配置映射到运行时后端。
 
-- [providers/ctdg.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/ctdg.py)
-- [providers/dtdg.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/dtdg.py)
+- `providers/ctdg.py` — 通过 `CTDGOnlineRuntime` 编排
+- `providers/dtdg.py` — 通过 `FlareRuntimeLoader` + Flare 训练步函数编排
 
-它们的职责是：
+职责：
 
 - 生成预处理产物目录与 metadata
 - 构造 family-specific 的 partition/route/runtime 对象
-- 根据 config 创建对应 kernel
 - 对 session 暴露 iterator
-- 将 kernel state 映射成统一 runtime state 和 checkpoint state
+- 将 step 执行委托给运行时后端
 
-它们现在已经尽量变薄，不再持有核心执行逻辑。
+不负责：
+
+- 采样实现（属于 `runtime/online/`）
+- 快照执行（属于 `runtime/flare/`）
+- memory 更新逻辑（属于 `runtime/online/`）
 
 ### 4.3 Kernel 层
 
-Kernel 层是真正的执行层。
+Kernel 层定义执行协议与 family-specific 的数据类型。
 
-- [protocol.py](/home/zlj/StarryUniGraph/starry_unigraph/core/protocol.py)
-- [ctdg_kernel.py](/home/zlj/StarryUniGraph/starry_unigraph/core/ctdg_kernel.py)
-- [dtdg_kernel.py](/home/zlj/StarryUniGraph/starry_unigraph/core/dtdg_kernel.py)
+- `core/protocol.py` 定义统一执行协议
+- `core/ctdg_kernel.py` 定义 CTDG batch/state/result 类型
+- `core/dtdg_kernel.py` 定义 DTDG batch/state/result 类型
 
-真正的流水线阶段都在这里定义与执行。
+### 4.4 运行时后端
+
+真正的执行逻辑位于两个运行时后端：
+
+- `runtime/flare/` — Flare 风格 DTDG 执行（快照加载、GCN/RNN 模型、route 交换、DDP 训练）
+- `runtime/online/` — BTS 风格 CTDG 执行（时序采样、memory bank、历史缓存、分布式同步）
+
+`backends/` 包提供向后兼容的重导出。
 
 ## 5. 统一协议层
 
-统一协议定义在 [protocol.py](/home/zlj/StarryUniGraph/starry_unigraph/core/protocol.py)。
+统一协议定义在 `core/protocol.py`。
 
-核心抽象如下：
+核心抽象：
 
-- `KernelBatch`
-- `KernelRuntimeState`
-- `KernelResult`
-- `KernelExecutor`
-- `PipelineTrace`
-- `AsyncStageHandle`
-- `StateHandle`
-- `StateDelta`
-- `StateWriteback`
+- `KernelBatch` — batch 基类（`index`、`split`、`chain`、`to_payload()`）
+- `KernelRuntimeState` — 多步执行中持续演化的状态
+- `KernelResult` — 步执行结果（`predictions`、`targets`、`loss`、`meta`）
+- `KernelExecutor` — 统一执行器接口（`iter_batches`、`execute_train/eval/predict`、`dump_state`）
+- `PipelineTrace` — 记录阶段级执行轨迹，支持异步流程管理
+- `AsyncStageHandle` — 异步阶段跟踪（`token`、`name`、`status`、`depends_on`）
+- `StateHandle` — 状态容器标识（CTDG: 节点 memory；DTDG: 窗口状态）
+- `StateDelta` — 描述当前步的状态变化
+- `StateWriteback` — 组合 `StateHandle` + `StateDelta` + 版本号
 
-### 5.1 KernelBatch
+流水线阶段记录：
 
-表示一个执行单元。
-
-共同约定：
-
-- 必须有 `index`
-- 必须有 `split`
-- 必须有 `chain`
-- 必须能通过 `to_payload()` 序列化
-
-### 5.2 KernelRuntimeState
-
-表示 kernel 在多步执行中持续演化的状态。
-
-例如：
-
-- CTDG 的 sampler cursor
-- DTDG 的 snapshot cursor
-- 上一轮 prediction
-- 当前运行 split
-
-### 5.3 KernelResult
-
-表示一步执行结果。
-
-统一结果形状通常包含：
-
-- `predictions`
-- `targets`
-- `loss`
-- `meta`
-
-### 5.4 KernelExecutor
-
-这是统一执行器接口，定义了：
-
-- `iter_batches(split, count)`
-- `execute_train(batch)`
-- `execute_eval(batch)`
-- `execute_predict(batch)`
-- `dump_state()`
-
-这就是当前内部统一的关键位置。
-
-### 5.5 PipelineTrace
-
-`PipelineTrace` 用来显式记录每个阶段的执行轨迹，保留原始 pipeline 语义。
-
-它现在不只是“记录日志”，还承担异步流程管理语义：
-
-- 记录同步阶段顺序
-- 记录异步阶段 token
-- 记录异步阶段状态：`pending` / `completed` / `failed`
-- 记录异步依赖关系
-
-它适合用来管理：
-
-- 异步 feature fetch
-- 异步 state writeback
-- 后续可能接入的异步通信、异步 route、异步参数更新
-
-当前：
-
-- CTDG 会记录 `sample`、`feature_fetch`、`state_fetch`、`memory_updater`、`neighbor_attention_aggregate`、`message_generate`、`state_transition`、`state_writeback`
-- DTDG 会记录 `load_snapshot`、`route_apply`、`state_fetch`、`state_transition`、`state_writeback`
-
-### 5.6 AsyncStageHandle
-
-`AsyncStageHandle` 用于描述一个可异步管理的阶段。
-
-当前包含：
-
-- `token`
-- `name`
-- `status`
-- `payload`
-- `depends_on`
-
-它的作用是让 `PipelineTrace` 不仅能记录“做过什么”，还能表达：
-
-- 哪些阶段是异步候选
-- 哪些阶段依赖前序阶段
-- 哪些异步任务已经完成或失败
-### 5.7 StateHandle
-
-`StateHandle` 用于描述“状态存放在哪里、属于谁、作用范围是什么”。
-
-当前典型用法：
-
-- CTDG：表示节点级 memory/mailbox 状态容器
-- DTDG：表示窗口级 temporal state 容器
-
-### 5.8 StateDelta
-
-`StateDelta` 用于描述“当前 step 对状态造成了什么变化”。
-
-当前典型用法：
-
-- CTDG：描述 memory updater、message passing、message generate 产生的状态变化
-- DTDG：描述 snapshot propagation 与 temporal fusion 产生的状态变化
-
-### 5.9 StateWriteback
-
-`StateWriteback` 用于描述“如何把状态变化写回运行时”。
-
-统一语义是：
-
-- 先定位状态容器 `StateHandle`
-- 再描述变化内容 `StateDelta`
-- 最后记录写回版本或轮次
+- CTDG：`sample`、`feature_fetch`、`state_fetch`、`memory_updater`、`neighbor_attention_aggregate`、`message_generate`、`state_transition`、`state_writeback`
+- DTDG：`load_snapshot`、`route_apply`、`state_fetch`、`state_transition`、`state_writeback`
 
 ## 6. CTDG 模块说明
 
-CTDG 执行核心位于 [ctdg_kernel.py](/home/zlj/StarryUniGraph/starry_unigraph/core/ctdg_kernel.py)。
+### 6.1 核心 kernel 类型（`core/ctdg_kernel.py`）
 
-### 6.1 主要数据结构
+- `FeatureRoutePlan` — route_type, fanout, feature_keys
+- `StateSyncPlan` — 同步模式与版本计数
+- `CTDGPartitionBook` — 分区元数据
+- `CTDGMailboxState` — memory/mailbox 版本追踪
+- `CTDGBatch(KernelBatch)` — 含采样计划的 batch
+- `CTDGPreparedBatch` — 物化后的 batch
+- `CTDGStepResult(KernelResult)` — 步输出
+- `CTDGRuntimeState(KernelRuntimeState)` — 运行时游标
 
-- `FeatureRoutePlan`
-- `StateSyncPlan`
-- `CTDGPartitionBook`
-- `CTDGMailboxState`
-- `CTDGBatch`
-- `CTDGPreparedBatch`
-- `CTDGStepResult`
-- `CTDGRuntimeState`
-- `CTDGSamplerCore`
-- `CTDGKernel`
+### 6.2 在线运行时（`runtime/online/`）
 
-### 6.2 CTDG 的执行流水线
+CTDG 执行路径在 `runtime/online/` 中实现：
 
-当前 CTDG kernel 保留 BTS 风格的阶段顺序：
+**数据管线：**
 
-1. `sample`
-2. `feature_fetch`
-3. `state_fetch`
-4. `memory_updater`
-5. `neighbor_attention_aggregate`
-6. `message_generate`
-7. `state_transition`
-8. `state_writeback`
+- `TGTemporalDataset` — 加载原始事件，提供分布式感知的 batch 迭代（含 train/val/test 切分）
+- `CTDGDataBatch` — 事件小批量（src, dst, ts, edge_feat）
 
-执行主类是 `CTDGKernel`。
+**采样：**
 
-主要方法：
+- `NativeTemporalSampler` — 封装 BTS C++ 采样器进行多跳时序邻居采样
+- `CTDGSampleOutput` — 采样得到的邻居、边、时间戳
 
-- `iter_batches()`
-- `_state_fetch()`
-- `_materialize()`
-- `_memory_updater()`
-- `_neighbor_attention_aggregate()`
-- `_message_generate()`
-- `_state_writeback()`
-- `_run_pipeline()`
-- `execute_train()`
-- `execute_eval()`
-- `execute_predict()`
+**Memory 与状态：**
 
-### 6.3 CTDG 的预处理产物
+- `CTDGMemoryBank` — 节点级隐藏 memory + K-slot mailbox + 通过 `all_to_all_single` 进行分布式异步同步
+- `CTDGHistoricalCache` — 缓存上次同步的 memory，使用余弦距离过滤（`AdaParameter`）跳过冗余同步
 
-CTDG provider 会写出以下目录：
+**模型：**
+
+- `CTDGMemoryUpdater` — 基于 GRU 的 mailbox 历史更新
+- `CTDGLinkPredictor` — 时序 transformer 注意力机制的链接预测
+
+**路由：**
+
+- `CTDGFeatureRoute` — 跨分区特征交换
+- `AsyncExchangeHandle` — 异步 send/recv 句柄
+
+**编排：**
+
+- `CTDGOnlineRuntime` — 完整 CTDG 训练/评估/预测循环（memory 更新 → 采样 → 卷积 → 评分 → 分布式同步）
+
+### 6.3 CTDG 执行流水线
+
+CTDG 运行时保留 BTS 风格的阶段顺序：
+
+1. `sample` — 通过 BTS 原生采样器进行时序邻居采样
+2. `feature_fetch` — route 感知的特征获取
+3. `state_fetch` — 收集 memory/mailbox 状态
+4. `memory_updater` — GRU 更新 mailbox
+5. `neighbor_attention_aggregate` — 对采样的时序邻居做注意力聚合
+6. `message_generate` — 生成状态更新消息
+7. `state_transition` — 更新节点 memory
+8. `state_writeback` — 写回分布式 memory bank
+
+### 6.4 CTDG 预处理产物
 
 - `artifacts/{dataset}/meta/artifacts.json`
 - `artifacts/{dataset}/partitions/manifest.json`
 - `artifacts/{dataset}/routes/manifest.json`
 - `artifacts/{dataset}/sampling/index.json`
 
-这些文件会记录：
+### 6.5 BTS 原生采样器
 
-- graph mode
-- partition algorithm
-- number of parts
-- feature route plan
-- state sync plan
-- sampling lookup metadata
+- 源码：`vendor/bts_sampler/`（C++ + CMake）
+- 预编译二进制：`lib/libstarrygl_sampler.so`
+- 加载入口：`lib/loader.py`（`load_bts_sampler_module()`）
+- Python 封装：`native/bts_sampler.py`（`BTSNativeSampler`、`build_temporal_neighbor_block`、`is_bts_sampler_available`）
 
-### 6.4 BTS 原生采样器接入状态
-
-当前仓库已经把 BTS 的 sampler 合并进来了：
-
-- 源码在 [vendor/bts_sampler](/home/zlj/StarryUniGraph/starry_unigraph/vendor/bts_sampler)
-- 预编译二进制在 [libstarrygl_sampler.so](/home/zlj/StarryUniGraph/starry_unigraph/lib/libstarrygl_sampler.so)
-- Python 加载入口在 [loader.py](/home/zlj/StarryUniGraph/starry_unigraph/lib/loader.py)
-- Python 封装在 [bts_sampler.py](/home/zlj/StarryUniGraph/starry_unigraph/native/bts_sampler.py)
-
-当前已提供：
-
-- `is_bts_sampler_available()`
-- `build_temporal_neighbor_block(...)`
-- `BTSNativeSampler`
-
-当前尚未完全打通：
-
-- `CTDGKernel` 默认执行路径还没有完全切换到 BTS 原生 sampler 输出
-- 还没有把 BTS 的 memory/mailbox 完整关键路径全部迁进仓库
-
-所以当前状态是：
-
-- “原生 sampler 资产和加载层”已经合并
-- “端到端高性能 CTDG 内核”还没有完全完成
+通过 `CTDGSamplerCore.attach_native_sampler(...)` 接入，由 `NativeTemporalSampler` 在在线运行时中消费。
 
 ## 7. DTDG 模块说明
 
-DTDG 执行核心位于 [dtdg_kernel.py](/home/zlj/StarryUniGraph/starry_unigraph/core/dtdg_kernel.py)。
+### 7.1 核心 kernel 类型（`core/dtdg_kernel.py`）
 
-### 7.1 主要数据结构
+- `SnapshotRoutePlan` — route_type, cache_policy
+- `DTDGPartitionBook` — 含 snapshot_count 的分区元数据
+- `DTDGWindowState` — 窗口追踪
+- `DTDGBatch(KernelBatch)` — 含 adjacency、features、graph、graph_meta 的 batch
+- `DTDGStepResult(KernelResult)` — 步输出
+- `DTDGRuntimeState(KernelRuntimeState)` — snapshot 游标
 
-- `SnapshotRoutePlan`
-- `DTDGPartitionBook`
-- `DTDGWindowState`
-- `DTDGBatch`
-- `DTDGStepResult`
-- `DTDGRuntimeState`
-- `DTDGSnapshotCore`
-- `DTDGKernel`
+### 7.2 数据结构（`data/partition.py`）
 
-### 7.2 DTDG 的执行流水线
+- `TensorData` — 压缩的变长张量存储（CSR 风格 ptr/ind）
+- `RouteData` — 每快照路由描述（send/recv sizes, send_index）
+- `PartitionData` — 完整分区容器（node_data, edge_data, labels, routes, chunks）。支持 `save()`/`load()`、`pin_memory()`、`to(device)`、`to_blocks()` 转 DGL block。
 
-当前 DTDG kernel 保留 Flare 风格的阶段顺序：
+### 7.3 Flare 运行时（`runtime/flare/`）
 
-1. `load_snapshot`
-2. `route_apply`
-3. `state_fetch`
-4. `state_transition`
-5. `state_writeback`
+DTDG 执行路径在 `runtime/flare/` 中完整实现：
 
-执行主类是 `DTDGKernel`。
+**数据加载：**
 
-主要方法：
+- `STGraphLoader` — 遍历 `PartitionData` 快照并转为 DGL block。使用 `pin_memory()` + 独立 `torch.cuda.Stream` 进行异步 CPU→GPU 数据搬运。工厂方法：`STGraphLoader.from_partition_data(data, device)`。
 
-- `iter_batches()`
-- `_apply_route()`
-- `_state_fetch()`
-- `_snapshot_propagation()`
-- `_state_transition()`
-- `_state_writeback()`
-- `_run_pipeline()`
-- `execute_train()`
-- `execute_eval()`
-- `execute_predict()`
+**状态管理：**
 
-### 7.3 DTDG 的预处理产物
+- `RNNStateManager` — 管理滑动窗口内的图序列与每快照 RNN 状态。为每个图 patch `flare_fetch_state()` / `flare_store_state()` 方法。支持 "pad" 模式（零填充新状态）和 "mix" 模式（与前序混合）。
+- `STGraphBlob` — 封装图序列 + `RNNStateManager`。可迭代。属性 `current_graph` 返回窗口中最后一个图。
+- `STWindowState` — 窗口大小与快照追踪元数据。
 
-DTDG provider 会写出：
+**路由：**
+
+- `Route` — 每快照可微分 all-to-all 特征交换。通过 `RouteSendFunction` / `RouteRecvFunction` 兼容 autograd。
+- `RouteAgent` — 执行实际的 `dist.all_to_all_single` 通信。
+
+**模型：**
+
+- `GCNStack` — 多层 GCN 消息传递
+- `FlareEvolveGCN` — EvolveGCN-H（GRU 演化 GCN 权重）
+- `FlareTGCN` — Temporal GCN（GCN + GRU）
+- `FlareMPNNLSTM` — MPNN-LSTM（GCN + 两个自定义 `_LSTMCell`）。状态为 4-tuple `(h1,c1,h2,c2)`，通过 Python tuple 拼接实现。
+- `build_flare_model(name, ...)` — 工厂函数
+
+**训练：**
+
+- `init_flare_training(config, partition_data)` — 构建模型、优化器、DDP 包装、计算分区 loss scale
+- `run_flare_train_step(blob, model, optimizer, ...)` — forward + backward + optimizer step
+- `run_flare_eval_step(blob, model, ...)` — forward（无梯度）
+- `run_flare_predict_step(blob, model, ...)` — forward（无梯度），返回预测结果
+
+### 7.4 Provider 集成（`providers/dtdg*.py`）
+
+- `FlareDTDGPreprocessor` — 通过 METIS 分区与快照提取生成 `PartitionData` 文件（`part_NNN.pth`）
+- `FlareRuntimeLoader` — 封装 `STGraphLoader` 与 train/eval/predict split 管理。训练时 yield `STGraphBlob`；评估/预测时 yield `DTDGBatch`（单帧）。
+- `DTDGProvider` — 端到端编排 Flare 管线：预处理 → runtime 构建 → 迭代器 → step 执行
+
+### 7.5 DTDG 执行流水线
+
+Flare-native 管线保留以下阶段顺序：
+
+1. `load_snapshot` — `STGraphLoader` 通过 CUDA stream 异步获取并传输快照到 GPU
+2. `route_apply` — `Route.forward()` 执行可微分 all-to-all 特征交换
+3. `state_fetch` — `RNNStateManager` 通过 `flare_fetch_state()` 提供每快照 RNN 状态
+4. `state_transition` — 模型前向（GCN + RNN 层）
+5. `state_writeback` — `flare_store_state()` 将更新后的 RNN 状态写回 manager
+
+### 7.6 DTDG 预处理产物
 
 - `artifacts/{dataset}/meta/artifacts.json`
 - `artifacts/{dataset}/partitions/manifest.json`
 - `artifacts/{dataset}/routes/manifest.json`
-- `artifacts/{dataset}/snapshots/index.json`
+- `artifacts/{dataset}/flare/manifest.json`、`flare/part_NNN.pth`（Flare-native）
+- `artifacts/{dataset}/snapshots/manifest.json`（chunked，如适用）
 
-这些文件记录：
+### 7.7 DTDG 数据准备（`preprocess/dtdg_prepare.py`）
 
-- graph mode
-- partition algorithm
-- snapshot count
-- route plan
-- window metadata
+完整 DTDG 数据准备管线：
 
-### 7.4 Flare 高性能链路状态
+- `build_partition_input_from_raw_dataset()` — 从原始事件中提取快照与元数据
+- `build_dtdg_partitions()` — 执行 METIS 或随机图分区
+- `build_flare_partition_data_list()` — 创建每分区的 `PartitionData` 对象（含本地边索引、节点特征、标签与路由描述）
 
-Flare 的高性能预处理和加载链路目前还没有完全迁进当前仓库。
+### 7.8 数据切分工具（`core/data_split.py`）
 
-尚未迁移的核心包括：
-
-- `PartitionData`
-- `STGraphLoader`
-- `RNNStateManager`
-- route/state 感知的 pinned-memory 加载
-- 异步 remap 和 snapshot transfer 逻辑
-
-这意味着当前 DTDG 的状态是：
-
-- 已有统一接口
-- 已有统一 kernel 协议
-- 已有 Flare 风格流水线语义
-
-但还不是 Flare 原版的高性能数据路径。
+- `normalize_split_ratio(split_ratio)` — 确保 train+val+test 之和为 1.0
+- `split_bounds(total, split, split_ratio)` — 返回指定 split 的 `(start, end)` 索引区间
 
 ## 8. 配置系统
 
-配置系统定义在：
-
-- [default.yaml](/home/zlj/StarryUniGraph/starry_unigraph/config/default.yaml)
-- [schema.py](/home/zlj/StarryUniGraph/starry_unigraph/config/schema.py)
+配置系统定义在 `config/schema.py`，默认值在 `config/default.yaml`。
 
 ### 8.1 主要配置段
 
-- `model`
-- `data`
-- `train`
-- `runtime`
-- `sampling`
-- `features`
-- `graph`
-- `dist`
+- `model` — name, family, task, hidden_dim, memory (CTDG), window (DTDG)
+- `data` — root, name, format, graph_mode, split_ratio
+- `train` — epochs, batch_size, snaps, eval_interval, lr
+- `runtime` — backend, device, cache, checkpoint
+- `dtdg` — pipeline, chunk_order, chunk_decay, num_full_snaps
+- `ctdg` — pipeline, mailbox_slots, historical_alpha, async_sync, ada_param_enabled, dropout
+- `preprocess` — cluster 与 chunk 设置
+- `sampling` — neighbor_limit, strategy, history, neg_sampling
+- `graph` — storage, partition, route
+- `dist` — backend, world_size, rank, local_rank, master_addr, master_port
 
 ### 8.2 graph mode 选择
 
-`model.family` 会通过 `ModelRegistry` 解析到：
+`model.family` 会通过 `ModelRegistry` 解析：
 
-- `ctdg`
-- `dtdg`
+- CTDG 家族：`tgn`、`dyrep`、`jodie`、`tgat`、`apan`
+- DTDG 家族：`evolvegcn`、`tgcn`、`mpnn_lstm`、`gcn`
 
-然后再驱动 provider 与 kernel 的选择。
+然后驱动 provider 与 kernel 的选择。
 
 ### 8.3 校验行为
 
-schema 层当前会：
+schema 层：
 
-- 合并默认配置
-- 校验必填路径
+- 从 `default.yaml` 合并默认配置
+- 校验必填路径（`model.name`、`data.root` 等）
 - 自动推断 graph mode
-- 对非激活字段发 warning
+- 对非激活字段发 warning（如 DTDG 模式下的 CTDG 配置项）
 - 对关键缺失项抛出异常
 
 ## 9. 注册表系统
 
-注册表的作用是把“名字”和“实现”解耦。
+注册表的作用是把"名字"和"实现"解耦。
 
 ### 9.1 ModelRegistry
 
-文件：
-
-- [model_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/model_registry.py)
-
-作用：
-
-- 把 `model.name` 或 `model.family` 映射到 `ModelSpec`
-- 确定 `graph_mode`
+将 `model.name` 或 `model.family` 映射到 `ModelSpec`（含 name, family, graph_mode）。
 
 ### 9.2 ProviderRegistry
 
-文件：
-
-- [provider_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/provider_registry.py)
-
-作用：
-
-- 将 `ctdg` 映射为 `CTDGProvider`
-- 将 `dtdg` 映射为 `DTDGProvider`
+将 `ctdg` 映射为 `CTDGProvider`，`dtdg` 映射为 `DTDGProvider`。
 
 ### 9.3 TaskRegistry
 
-文件：
+将任务类型映射到任务适配器类：
 
-- [task_registry.py](/home/zlj/StarryUniGraph/starry_unigraph/registry/task_registry.py)
-
-作用：
-
-- 解析任务适配器
-- 让任务语义与图执行语义分离
+- `"temporal_link_prediction"` → `TemporalLinkPredictionTaskAdapter`
+- `"snapshot_node_regression"` → `NodeRegressionTaskAdapter`
 
 ## 10. Runtime 与 Checkpoint
 
-运行时抽象定义在 [runtime/base.py](/home/zlj/StarryUniGraph/starry_unigraph/runtime/base.py)。
+运行时抽象定义在 `runtime/base.py`，提供以下抽象协议：
 
-当前 provider 使用的轻量 runtime adapter 位于 [common.py](/home/zlj/StarryUniGraph/starry_unigraph/providers/common.py)。
+- `RuntimeProtocol` — `iter_batches()`、`step()`、`state_dict()`、`load_state_dict()`
+- `RuntimeAdapter` — 模型/优化器初始化、runtime 状态 load/dump
+- `ExecutionAdapter` — `train_step()`、`eval_step()`、`predict_step()`
+- `GraphProvider` — 组合 adapter + execution，带 `graph_mode` 属性
 
-checkpoint 读写位于 [io.py](/home/zlj/StarryUniGraph/starry_unigraph/checkpoint/io.py)。
+checkpoint 读写位于 `checkpoint/io.py`。
 
 ### 10.1 当前 checkpoint 内容
 
@@ -530,49 +449,48 @@ checkpoint 读写位于 [io.py](/home/zlj/StarryUniGraph/starry_unigraph/checkpo
 
 ### 10.2 当前 runtime state
 
-CTDG 一般包括：
+CTDG：`memory_state`、`mailbox_state`、`sampler_state`、`executor_state`
 
-- `memory_state`
-- `mailbox_state`
-- `sampler_state`
-- `executor_state`
-
-DTDG 一般包括：
-
-- `window_state`
-- `snapshot_state`
-- `route_cache`
-- `executor_state`
+DTDG：`window_state`、`snapshot_state`、`route_cache`、`executor_state`
 
 ## 11. 预处理层
 
-预处理抽象定义在 [base.py](/home/zlj/StarryUniGraph/starry_unigraph/preprocess/base.py)。
+预处理抽象定义在 `preprocess/base.py`：
 
-当前 provider 预处理器主要负责：
+- `ArtifactLayout` — 根目录 + 子目录映射
+- `ArtifactOutput` — relative_path, payload, serializer (json/torch)
+- `ArtifactPayload` — provider_meta + outputs 列表
+- `GraphPreprocessor`（抽象）— `prepare_raw()`、`build_partitions()`、`build_runtime_artifacts()`、`run()`
 
-- 创建产物目录
-- 写 partition/route/index manifest
-- 导出 artifact metadata
+具体预处理器：
 
-### 当前限制
+- `CTDGPreprocessor` — 将原始时序事件准备为分区 manifest + feature route plan
+- `BaseDTDGPreprocessor` / `FlareDTDGPreprocessor` — 完整 DTDG 预处理管线：原始事件加载 → 快照提取 → METIS 分区 → `PartitionData` 生成（`part_NNN.pth` 文件）
 
-目前预处理器还没有完成 BTS/Flare 原生级别的高性能预处理。
+## 12. 分布式支持
 
-具体来说：
+分布式工具位于 `distributed.py`：
 
-- CTDG 还没有完全打通真实事件排序与原生 sampler 索引生成
-- DTDG 还没有完成 Flare `PartitionData` 级别的 snapshot/chunk/partition 生成
+- `apply_distributed_env()` — 从环境变量读取 `WORLD_SIZE`/`RANK`/`LOCAL_RANK`（由 `torchrun` 设置），合并到配置
+- `build_distributed_context()` — 从配置创建 `DistributedContext`
+- `initialize_distributed()` — 调用 `dist.init_process_group()`，设置 CUDA device
+- `finalize_distributed()` — 调用 `dist.destroy_process_group()`
 
-## 12. CLI
+DDP 训练：
 
-命令行入口位于 [main.py](/home/zlj/StarryUniGraph/starry_unigraph/cli/main.py)。
+- Flare：`init_flare_training()` 将模型包装为 `DistributedDataParallel`，通过 `all_reduce` 计算分区 loss scale
+- Online：`CTDGOnlineRuntime` 通过 `all_to_all_single` 处理分布式 memory 同步
+
+## 13. CLI
+
+命令行入口位于 `cli/main.py`。
 
 支持命令：
 
-- `prepare`
-- `train`
-- `predict`
-- `resume`
+- `prepare` — 仅预处理
+- `train` — 预处理 + 构建 + 训练
+- `predict` — 推理
+- `resume` — 从 checkpoint 恢复并继续
 
 示例：
 
@@ -583,9 +501,9 @@ python -m starry_unigraph.cli predict --config path/to/config.yaml --split test
 python -m starry_unigraph.cli resume --config path/to/config.yaml --checkpoint path/to/ckpt.pkl
 ```
 
-## 13. 当前运行流程
+## 14. 当前运行流程
 
-### 13.1 创建 session
+### 14.1 创建 session
 
 ```python
 from starry_unigraph import SchedulerSession
@@ -593,98 +511,89 @@ from starry_unigraph import SchedulerSession
 session = SchedulerSession.from_config("starry_unigraph/config/default.yaml")
 ```
 
-### 13.2 预处理与构建
+### 14.2 预处理与构建
 
 ```python
 session.prepare_data()
 session.build_runtime()
 ```
 
-### 13.3 训练
+### 14.3 训练
 
 ```python
 summary = session.run_epoch(split="train")
 ```
 
-### 13.4 预测
+### 14.4 完整训练循环
+
+```python
+result = session.run_task()
+```
+
+### 14.5 预测
 
 ```python
 result = session.predict(split="test")
 ```
 
-### 13.5 保存与恢复
+### 14.6 保存与恢复
 
 ```python
 session.save_checkpoint("checkpoint.pkl")
 session.load_checkpoint("checkpoint.pkl")
 ```
 
-## 14. 流水线语义
+## 15. 流水线语义
 
 当前库的核心原则之一，是统一接口但不抹平原始执行语义。
 
-### 14.1 CTDG 的语义
+### 15.1 CTDG 的语义
 
 保留：
 
-- 先采样
-- 再取特征
-- 再取状态
-- 再做 memory updater
-- 再做 sampled temporal neighborhood 上的 attention 聚合
-- 再生成 message
-- 再汇总为状态转移
-- 再写回 memory/mailbox
+- 基于 BTS 原生采样器的采样优先执行
+- route 感知的跨分区特征获取
+- 带分布式异步同步的 memory/mailbox 更新
+- 基于自适应余弦距离过滤的历史缓存
 
-trace 输出中会包含：
-
-- `pipeline`
-- `stage_payloads`
-- `state`
-
-### 14.2 DTDG 的语义
+### 15.2 DTDG 的语义
 
 保留：
 
-- 加载快照
-- 应用 route
-- 取时序状态
-- 执行 snapshot propagation 和 temporal fusion
-- 写回时序状态
+- 基于 CUDA stream 预取的快照加载
+- 可微分 route 的 all-to-all 特征交换
+- 滑动窗口 RNN 状态管理（pad/mix 模式）
+- 分区级 loss 缩放的平衡 DDP 训练
 
-trace 输出中会包含：
+## 16. 当前已从 BTS 和 Flare 合并的内容
 
-- `pipeline`
-- `stage_payloads`
-- `state`
-- `spmm_output`
-- `aggregated`
-
-## 15. 当前已经从 BTS 和 Flare 合并了什么
-
-### 已经合并的部分
+### 已合并
 
 - 统一 session/provider/config/checkpoint 架构
-- BTS sampler 的源码与二进制资产
-- BTS sampler 的 Python 包装与加载入口
-- 统一 kernel protocol
-- BTS 风格 CTDG pipeline 结构
-- Flare 风格 DTDG pipeline 结构
+- BTS sampler 源码与二进制资产
+- BTS sampler Python 封装与加载入口
+- 统一 kernel 协议
+- BTS 风格 CTDG 内核与在线运行时（memory bank、历史缓存、采样器、分布式同步）
+- Flare 风格 DTDG 内核
+- Flare `PartitionData`（CSR 风格张量存储）
+- Flare `STGraphLoader`（CUDA stream 预取）
+- Flare `RNNStateManager` 与 `STGraphBlob`
+- Flare 可微分 `Route`（含 autograd 钩子）
+- Flare DTDG 模型（`FlareEvolveGCN`、`FlareTGCN`、`FlareMPNNLSTM`）
+- Flare DDP 训练（含分区 loss 缩放）
+- DTDG 预处理（METIS 分区 + `PartitionData` 生成）
 
-### 还没有完整合并的部分
+### 尚未完全合并
 
-- BTS 原生 sampler 驱动的完整 CTDG 训练路径
-- BTS 原生 memory/mailbox 关键路径
-- Flare `PartitionData`
-- Flare `STGraphLoader`
-- Flare `RNNStateManager`
-- Flare 高性能预处理与异步数据搬运路径
+- BTS 原生采样器驱动的完整端到端 CTDG 训练路径（采样器已集成但 kernel 自动调度为部分完成）
+- BTS memory/mailbox 与上游的完整实现对齐
+- DTDG `chunked` 管线的高性能后端（自适应 chunk 准备已存在但尚未完全集成）
 
-## 16. 测试覆盖
+## 17. 测试覆盖
 
-测试位于 [test_session.py](/home/zlj/StarryUniGraph/tests/test_session.py)。
+测试位于 `tests/test_session.py`。
 
-当前覆盖内容包括：
+当前覆盖：
 
 - provider 解析
 - artifact 生成
@@ -698,21 +607,6 @@ trace 输出中会包含：
 - 缺失 route manifest 提前失败
 - BTS native sampler 模块可用性
 
-当前环境说明：
-
-- 已验证 `python -m compileall`
-- 当前环境没有安装 `pytest`，所以测试文件已经写好，但未通过 `pytest` runner 执行
-
-## 17. 推荐的后续工作
-
-如果目标是“结构统一 + 性能也接近原系统”，推荐后续按下面顺序推进：
-
-1. 让 `CTDGKernel` 的 batch 生成真正切换到 vendored BTS native sampler
-2. 把 BTS 的 memory/mailbox 路径继续迁进仓库
-3. 将 Flare `PartitionData` 合并进当前仓库
-4. 将 Flare `STGraphLoader` 与状态管理器合并进当前仓库
-5. 让 `DTDGKernel` 从当前模拟 snapshot 载入切换到 Flare 原生数据结构
-
 ## 18. 总结
 
 当前 `StarryUniGraph` 已经具备：
@@ -721,6 +615,8 @@ trace 输出中会包含：
 - 一套统一的配置系统
 - 一套统一的 checkpoint 格式
 - 一套统一的执行协议
-- 两套 family-specific kernel
+- 两套 family-specific 运行时后端（Flare 用于 DTDG，Online 用于 CTDG）
+- 完整的 Flare 高性能数据路径（PartitionData、STGraphLoader、RNNStateManager、可微分路由、DDP 训练）
+- CTDG 在线运行时（memory bank、采样、分布式同步）
 
-它已经完成了“统一架构骨架”和“保留原流水线语义”的工作。接下来的重点不再是设计架构，而是把 BTS 和 Flare 的高性能后端逐步迁移并替换当前简化执行路径。
+该库在保留 CTDG 与 DTDG 原始流水线语义的同时，提供了统一的结构化工程入口。

@@ -86,14 +86,14 @@ def fmt_metrics(metrics: dict) -> str:
 # Phases
 # ---------------------------------------------------------------------------
 
-def phase_prepare(provider, ctx):
+def phase_prepare(session, ctx):
     print("[prepare] preprocessing dataset ...")
     t0 = time.time()
-    provider.prepare_data(ctx)
+    session.prepare_data(ctx)
     print(f"[prepare] done in {time.time()-t0:.1f}s")
 
 
-def phase_train(provider, ctx):
+def phase_train(session, ctx):
     epochs = int(ctx.config["train"]["epochs"])
     eval_interval = int(ctx.config["train"].get("eval_interval", 1))
     ckpt_path = ctx.config["runtime"].get("checkpoint", "./checkpoints/latest.pt")
@@ -101,7 +101,7 @@ def phase_train(provider, ctx):
 
     print("[train] building runtime ...")
     t_build = time.time()
-    provider.build_runtime(ctx)
+    session.build_runtime(ctx)
     print(f"[train] runtime ready in {time.time()-t_build:.1f}s")
 
     best_val_ap = 0.0
@@ -111,8 +111,8 @@ def phase_train(provider, ctx):
         train_losses, train_metrics = [], []
         n_batches = 0
         t_last_log = t0
-        for batch in provider.build_train_iterator(ctx, split="train"):
-            result = provider.run_train_step(batch)
+        for batch in session.iter_train(ctx):
+            result = session.train_step(batch)
             train_losses.append(result["loss"])
             train_metrics.append(result["meta"]["metrics"])
             n_batches += 1
@@ -134,8 +134,8 @@ def phase_train(provider, ctx):
         if epoch % eval_interval == 0:
             t1 = time.time()
             val_losses, val_metrics = [], []
-            for batch in provider.build_eval_iterator(ctx, split="val"):
-                result = provider.run_eval_step(batch)
+            for batch in session.iter_eval(ctx, split="val"):
+                result = session.eval_step(batch)
                 val_losses.append(result["loss"])
                 val_metrics.append(result["meta"]["metrics"])
 
@@ -150,7 +150,7 @@ def phase_train(provider, ctx):
 
             if avg_val_ap > best_val_ap:
                 best_val_ap = avg_val_ap
-                provider.save_checkpoint(ckpt_path)
+                session.save_checkpoint(ckpt_path)
                 val_line += "  [saved]"
 
         print(
@@ -166,16 +166,16 @@ def phase_train(provider, ctx):
     print(f"\n[train] best val AP = {best_val_ap:.4f}  checkpoint: {ckpt_path}")
 
 
-def phase_test(provider, ctx):
+def phase_test(session, ctx):
     ckpt_path = ctx.config["runtime"].get("checkpoint", "./checkpoints/latest.pt")
     if Path(ckpt_path).exists():
         print(f"[test] loading checkpoint: {ckpt_path}")
-        provider.load_checkpoint(ckpt_path)
+        session.load_checkpoint(ckpt_path)
 
     t0 = time.time()
     test_losses, test_metrics = [], []
-    for batch in provider.build_predict_iterator(ctx, split="test"):
-        result = provider.run_predict_step(batch)
+    for batch in session.iter_predict(ctx, split="test"):
+        result = session.predict_step(batch)
         test_losses.append(result["loss"])
         test_metrics.append(result["meta"]["metrics"])
 
@@ -188,7 +188,6 @@ def phase_test(provider, ctx):
         f"  AP={avg_ap:.4f}  AUC={avg_auc:.4f}  MRR={avg_mrr:.4f}"
         f"  ({time.time()-t0:.1f}s)"
     )
-
 
 # ---------------------------------------------------------------------------
 # Main
@@ -237,18 +236,18 @@ def main():
           f"  hidden_dim={cfg['model']['hidden_dim']}  neighbor={cfg['sampling']['neighbor_limit']}"
           f"  mailbox_slots={cfg['ctdg']['mailbox_slots']}")
 
-    from starry_unigraph.providers.ctdg import CTDGProvider
+    from starry_unigraph.runtime.online import CTDGSession
     ctx = build_session(cfg)
-    provider = CTDGProvider(task_adapter=None)
+    session = CTDGSession()
 
     if args.mode in ("prepare", "all"):
-        phase_prepare(provider, ctx)
+        phase_prepare(session, ctx)
 
     if args.mode in ("train", "all"):
-        phase_train(provider, ctx)
+        phase_train(session, ctx)
 
     if args.mode in ("test", "all"):
-        phase_test(provider, ctx)
+        phase_test(session, ctx)
 
 
 if __name__ == "__main__":

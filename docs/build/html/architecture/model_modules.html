@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reusable Model Modules &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API Reference" href="../api/python/index.html" />
+    <link rel="prev" title="Unified Training Pipeline" href="unified_pipeline.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="__init__.html">Architecture &amp; Layer Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html">Data Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html">Route Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html">Unified Preprocessing Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html">Protocol Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html">Artifact Format Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html">Unified Training Pipeline</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Reusable Model Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="__init__.html">Architecture &amp; Layer Reference</a></li>
+      <li class="breadcrumb-item active">Reusable Model Modules</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/architecture/model_modules.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="reusable-model-modules">
+<h1>Reusable Model Modules<a class="headerlink" href="#reusable-model-modules" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">starry_unigraph.runtime.modules</span></code> package contains stable, backend-agnostic
+neural network components that can be reused across CTDG, DTDG, and Chunk backends.</p>
+<p>Modules are extracted from backend implementations to avoid duplication and
+enable composable model design.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>Reusable modules:</p>
+<ul class="simple">
+<li><p><strong>TimeEncode</strong> — Learnable time encoding (all temporal modes)</p></li>
+<li><p><strong>GCNStack</strong> — Multi-layer GCN message passing (DTDG, Chunk)</p></li>
+<li><p><strong>MatGRUCell</strong> — Weight-evolving GRU (DTDG EvolveGCN)</p></li>
+<li><p><strong>_LSTMCell</strong> — Custom LSTM cell (DTDG MPNN-LSTM)</p></li>
+</ul>
+<p>Backend-specific (CTDG):</p>
+<ul class="simple">
+<li><p><strong>TemporalTransformerConv</strong> — CTDG multi-head attention</p></li>
+<li><p><strong>CTDGMemoryUpdater</strong> — CTDG GRU memory bank</p></li>
+<li><p>CTDG runtime model families are assembled in
+<code class="docutils literal notranslate"><span class="pre">backends/ctdg/runtime/models.py</span></code></p></li>
+<li><p>DTDG runtime model families are assembled in
+<code class="docutils literal notranslate"><span class="pre">backends/dtdg/runtime/models.py</span></code></p></li>
+</ul>
+</section>
+<section id="timeencode">
+<h2>TimeEncode<a class="headerlink" href="#timeencode" title="Link to this heading"></a></h2>
+<p>Learnable time encoding using cosine basis functions.</p>
+<p><strong>Location</strong>: <code class="docutils literal notranslate"><span class="pre">starry_unigraph.runtime.modules.time_encode</span></code></p>
+<p><strong>Import</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.modules</span> <span class="kn">import</span> <span class="n">TimeEncode</span>
+</pre></div>
+</div>
+<p><strong>API</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">TimeEncode</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            dim: Output embedding dimension (64-128 typical)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            t: Time values, any shape</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Time embeddings [*original_shape, dim]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p><strong>Example</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime.modules</span> <span class="kn">import</span> <span class="n">TimeEncode</span>
+
+<span class="c1"># Create encoder</span>
+<span class="n">time_enc</span> <span class="o">=</span> <span class="n">TimeEncode</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+
+<span class="c1"># Encode scalar times</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">])</span>            <span class="c1"># [3]</span>
+<span class="n">h_t</span> <span class="o">=</span> <span class="n">time_enc</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>                             <span class="c1"># [3, 100]</span>
+
+<span class="c1"># Use in attention</span>
+<span class="n">batch_size</span> <span class="o">=</span> <span class="mi">32</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span>
+<span class="n">time_feat</span> <span class="o">=</span> <span class="n">time_enc</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>                      <span class="c1"># [32, 100]</span>
+<span class="n">query</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">node_feat</span><span class="p">,</span> <span class="n">time_feat</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Mathematical Form</strong>:</p>
+<div class="math notranslate nohighlight">
+\[\text{TimeEncode}(t) = \cos(W \cdot t)\]</div>
+<p>where <span class="math notranslate nohighlight">\(W = \text{diag}(1/10^{[0,1,...,\text{dim}-1]})\)</span>.</p>
+<p>This captures multiple frequency scales for flexible time representation.</p>
+</section>
+<section id="gcnstack">
+<h2>GCNStack<a class="headerlink" href="#gcnstack" title="Link to this heading"></a></h2>
+<p>Multi-layer GCN message passing on DGL graphs.</p>
+<p><strong>Location</strong>: <code class="docutils literal notranslate"><span class="pre">starry_unigraph.runtime.modules.gcn_layers</span></code></p>
+<p><strong>Import</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.modules</span> <span class="kn">import</span> <span class="n">GCNStack</span>
+</pre></div>
+</div>
+<p><strong>API</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">GCNStack</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            input_size: Node feature dimension</span>
+<span class="sd">            hidden_size: Hidden and output dimension for all layers</span>
+<span class="sd">            num_layers: Number of GCN layers (default 2)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">forward_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">graph</span><span class="p">:</span> <span class="n">DGLGraph</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply GCN to single graph.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Node embeddings [N, hidden_size]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">layerwise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blob_or_graph</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply GCN to sequence of async graphs (STGraphBlob).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of node embeddings, one per graph</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p><strong>Example</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">dgl</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime.modules</span> <span class="kn">import</span> <span class="n">GCNStack</span>
+
+<span class="c1"># Create GCN stack</span>
+<span class="n">gcn</span> <span class="o">=</span> <span class="n">GCNStack</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="c1"># Create sample graph</span>
+<span class="n">edges</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]])</span>
+<span class="n">graph</span> <span class="o">=</span> <span class="n">dgl</span><span class="o">.</span><span class="n">graph</span><span class="p">((</span><span class="n">edges</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">edges</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+<span class="n">graph</span><span class="o">.</span><span class="n">ndata</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+
+<span class="c1"># Forward pass</span>
+<span class="n">h</span> <span class="o">=</span> <span class="n">gcn</span><span class="o">.</span><span class="n">forward_graph</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>                  <span class="c1"># [3, 128]</span>
+
+<span class="c1"># Multi-frame (temporal sequence)</span>
+<span class="n">graphs</span> <span class="o">=</span> <span class="p">[</span><span class="n">graph</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)]</span>
+<span class="n">h_list</span> <span class="o">=</span> <span class="n">gcn</span><span class="o">.</span><span class="n">layerwise</span><span class="p">(</span><span class="n">graphs</span><span class="p">)</span>                <span class="c1"># List of 5 [3, 128] tensors</span>
+</pre></div>
+</div>
+<p><strong>Integration with Flare</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Inside FlareTGCN</span>
+<span class="k">class</span> <span class="nc">FlareTGCN</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">output_size</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gcn</span> <span class="o">=</span> <span class="n">GCNStack</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span> <span class="o">*</span> <span class="mi">3</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="c1"># ...</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blob_or_graph</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># GCN per snapshot</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gcn</span><span class="o">.</span><span class="n">layerwise</span><span class="p">(</span><span class="n">blob_or_graph</span><span class="p">)</span>
+        <span class="c1"># ... apply GRU to process outputs</span>
+</pre></div>
+</div>
+<p><strong>Message Passing Details</strong>:</p>
+<p>GCN layer applies: <span class="math notranslate nohighlight">\(h' = \sigma(W \cdot (\text{GCN\_norm} \odot h))\)</span> per message pass.</p>
+<ul class="simple">
+<li><p>Handles both full graphs and DGL bipartite blocks</p></li>
+<li><p>Supports distributed training via route() if attached to block</p></li>
+<li><p>ReLU activation between layers</p></li>
+</ul>
+</section>
+<section id="matgrucell">
+<h2>MatGRUCell<a class="headerlink" href="#matgrucell" title="Link to this heading"></a></h2>
+<p>GRU cell for evolving weight matrices (EvolveGCN).</p>
+<p><strong>Location</strong>: <code class="docutils literal notranslate"><span class="pre">starry_unigraph.runtime.modules.rnn_cells</span></code></p>
+<p><strong>Import</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.modules</span> <span class="kn">import</span> <span class="n">MatGRUCell</span>
+</pre></div>
+</div>
+<p><strong>API</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MatGRUCell</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_feats</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">out_feats</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            in_feats: Context feature dimension</span>
+<span class="sd">            out_feats: Output (matrix) dimension</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prev_w</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evolve weight matrix.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            prev_w: Previous weight [out_feats, ...]</span>
+<span class="sd">            inputs: Context input [in_feats]</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            New weight [out_feats, ...]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p><strong>Example</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime.modules</span> <span class="kn">import</span> <span class="n">MatGRUCell</span>
+
+<span class="c1"># Create cell</span>
+<span class="n">mat_gru</span> <span class="o">=</span> <span class="n">MatGRUCell</span><span class="p">(</span><span class="n">in_feats</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">out_feats</span><span class="o">=</span><span class="mi">256</span><span class="p">)</span>
+
+<span class="c1"># Initialize weight matrix</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+
+<span class="c1"># Get context (e.g., graph pooling)</span>
+<span class="n">ctx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>
+
+<span class="c1"># Evolve weight</span>
+<span class="n">w_new</span> <span class="o">=</span> <span class="n">mat_gru</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>                       <span class="c1"># [256, 256]</span>
+</pre></div>
+</div>
+<p><strong>Integration with EvolveGCN</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Inside FlareEvolveGCN</span>
+<span class="k">class</span> <span class="nc">FlareEvolveGCN</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">output_size</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mat_gru</span> <span class="o">=</span> <span class="n">MatGRUCell</span><span class="p">(</span><span class="n">in_feats</span><span class="o">=</span><span class="n">input_size</span><span class="p">,</span> <span class="n">out_feats</span><span class="o">=</span><span class="n">hidden_size</span><span class="p">)</span>
+        <span class="c1"># ...</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blob_or_graph</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_weight</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span>
+        <span class="k">for</span> <span class="n">graph</span> <span class="ow">in</span> <span class="n">_graph_sequence</span><span class="p">(</span><span class="n">blob_or_graph</span><span class="p">):</span>
+            <span class="n">ctx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pool_graph_context</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+            <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mat_gru</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
+            <span class="c1"># ... use weights in GCN</span>
+</pre></div>
+</div>
+</section>
+<section id="lstmcell">
+<h2>_LSTMCell<a class="headerlink" href="#lstmcell" title="Link to this heading"></a></h2>
+<p>Custom LSTM cell with tuple state support.</p>
+<p><strong>Location</strong>: <code class="docutils literal notranslate"><span class="pre">starry_unigraph.runtime.modules.rnn_cells</span></code></p>
+<p><strong>Import</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.modules</span> <span class="kn">import</span> <span class="n">_LSTMCell</span>
+</pre></div>
+</div>
+<p><strong>API</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">_LSTMCell</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            input_size: Input feature dimension</span>
+<span class="sd">            hidden_size: Hidden state dimension</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;LSTM cell forward.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x: Input [batch, input_size]</span>
+<span class="sd">            state: Tuple (h, c) or None</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple (h_new, c_new)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p><strong>Example</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.runtime.modules</span> <span class="kn">import</span> <span class="n">_LSTMCell</span>
+
+<span class="c1"># Create LSTM cell</span>
+<span class="n">lstm_cell</span> <span class="o">=</span> <span class="n">_LSTMCell</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
+
+<span class="c1"># Process sequence</span>
+<span class="n">seq_len</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">batch_size</span> <span class="o">=</span> <span class="mi">32</span>
+<span class="n">state</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">seq_len</span><span class="p">):</span>
+    <span class="n">x_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+    <span class="n">h_t</span><span class="p">,</span> <span class="n">c_t</span> <span class="o">=</span> <span class="n">lstm_cell</span><span class="p">(</span><span class="n">x_t</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="p">(</span><span class="n">h_t</span><span class="p">,</span> <span class="n">c_t</span><span class="p">)</span>
+
+<span class="c1"># Multi-layer stacking (tuple concatenation)</span>
+<span class="n">lstm1</span> <span class="o">=</span> <span class="n">_LSTMCell</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="n">lstm2</span> <span class="o">=</span> <span class="n">_LSTMCell</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="n">state</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">seq_len</span><span class="p">):</span>
+    <span class="n">x_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+
+    <span class="c1"># Layer 1</span>
+    <span class="n">s1</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">x_t</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">s1</span> <span class="o">=</span> <span class="n">lstm1</span><span class="p">(</span><span class="n">x_t</span><span class="p">,</span> <span class="n">s1</span><span class="p">)</span>
+
+    <span class="c1"># Layer 2</span>
+    <span class="n">s2</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>
+    <span class="n">x_t</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">s2</span> <span class="o">=</span> <span class="n">lstm2</span><span class="p">(</span><span class="n">x_t</span><span class="p">,</span> <span class="n">s2</span><span class="p">)</span>
+
+    <span class="c1"># Combine states via tuple concatenation</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">s1</span> <span class="o">+</span> <span class="n">s2</span>                           <span class="c1"># (h1, c1, h2, c2)</span>
+</pre></div>
+</div>
+<p><strong>Integration with MPNN-LSTM</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Inside FlareMPNNLSTM</span>
+<span class="k">class</span> <span class="nc">FlareMPNNLSTM</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">output_size</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gcn</span> <span class="o">=</span> <span class="n">GCNStack</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rnn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">_LSTMCell</span><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">),</span>
+            <span class="n">_LSTMCell</span><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">),</span>
+        <span class="p">])</span>
+        <span class="c1"># ...</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blob_or_graph</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="k">for</span> <span class="n">graph</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">_graph_sequence</span><span class="p">(</span><span class="n">blob_or_graph</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">gcn</span><span class="o">.</span><span class="n">layerwise</span><span class="p">(</span><span class="n">blob_or_graph</span><span class="p">)):</span>
+            <span class="n">s1</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">h</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">h</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">s2</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">h</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">h</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>
+
+            <span class="n">x</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">s1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rnn</span><span class="p">[</span><span class="mi">0</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">s1</span><span class="p">)</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">s2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rnn</span><span class="p">[</span><span class="mi">1</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">s2</span><span class="p">)</span>
+
+            <span class="n">h</span> <span class="o">=</span> <span class="n">s1</span> <span class="o">+</span> <span class="n">s2</span>                       <span class="c1"># Combined state</span>
+</pre></div>
+</div>
+</section>
+<section id="using-modules-in-custom-models">
+<h2>Using Modules in Custom Models<a class="headerlink" href="#using-modules-in-custom-models" title="Link to this heading"></a></h2>
+<p>Build task-specific heads:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.modules</span> <span class="kn">import</span> <span class="n">TimeEncode</span><span class="p">,</span> <span class="n">GCNStack</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.models</span> <span class="kn">import</span> <span class="n">EdgePredictHead</span><span class="p">,</span> <span class="n">WrappedModel</span>
+
+<span class="c1"># Backbone combining reusable modules</span>
+<span class="k">class</span> <span class="nc">MyTemporalGCN</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">time_dim</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_enc</span> <span class="o">=</span> <span class="n">TimeEncode</span><span class="p">(</span><span class="n">time_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gcn</span> <span class="o">=</span> <span class="n">GCNStack</span><span class="p">(</span><span class="n">input_size</span> <span class="o">+</span> <span class="n">time_dim</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># Encode times</span>
+        <span class="n">time_feat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_enc</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">timestamps</span><span class="p">)</span>
+
+        <span class="c1"># Augment node features</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">batch</span><span class="o">.</span><span class="n">node_feat</span><span class="p">,</span> <span class="n">time_feat</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Apply GCN</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gcn</span><span class="o">.</span><span class="n">forward_graph</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">h</span>
+
+<span class="c1"># Wrap with task head</span>
+<span class="n">backbone</span> <span class="o">=</span> <span class="n">MyTemporalGCN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">time_dim</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">head</span> <span class="o">=</span> <span class="n">EdgePredictHead</span><span class="p">(</span><span class="n">hidden_size</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">WrappedModel</span><span class="p">(</span><span class="n">backbone</span><span class="p">,</span> <span class="n">head</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="stability-versioning">
+<h2>Stability &amp; Versioning<a class="headerlink" href="#stability-versioning" title="Link to this heading"></a></h2>
+<p>The modules in <code class="docutils literal notranslate"><span class="pre">runtime.modules</span></code> are intended to be reused across backends
+and custom model implementations. When building on them externally, treat the
+documented constructor and forward signatures as the primary contract and
+verify behavior against the current release you depend on.</p>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="protocols.html"><span class="doc">Protocol Reference</span></a> — Model protocols (TemporalModel)</p></li>
+<li><p><a class="reference internal" href="data_layer.html"><span class="doc">Data Layer Reference</span></a> — Data structures (BatchData, RouteData)</p></li>
+<li><p>Source: <code class="docutils literal notranslate"><span class="pre">starry_unigraph/runtime/modules/</span></code></p></li>
+<li><p>Consumers: <code class="docutils literal notranslate"><span class="pre">backends/ctdg/runtime/models.py</span></code>, <code class="docutils literal notranslate"><span class="pre">backends/dtdg/runtime/models.py</span></code></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="unified_pipeline.html" class="btn btn-neutral float-left" title="Unified Training Pipeline" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/python/index.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

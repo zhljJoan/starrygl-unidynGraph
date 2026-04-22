@@ -88,11 +88,11 @@ def main() -> int:
         artifact_root=Path("artifacts") / cfg["data"]["name"],
     )
 
-    from starry_unigraph.providers.ctdg import CTDGProvider
-    provider = CTDGProvider(task_adapter=None)
-    provider.prepare_data(ctx)
+    from starry_unigraph.runtime.online import CTDGSession
+    session = CTDGSession()
+    session.prepare_data(ctx)
     dist.barrier()
-    provider.build_runtime(ctx)
+    session.build_runtime(ctx)
     dist.barrier()
 
     train_losses: list[float] = []
@@ -107,8 +107,8 @@ def main() -> int:
     t_train0 = time.perf_counter()
 
     for _ in range(args.epochs):
-        for batch in provider.build_train_iterator(ctx, split="train"):
-            out = provider.run_train_step(batch)
+        for batch in session.iter_train(ctx):
+            out = session.train_step(batch)
             train_batches += 1
             train_events += int(batch.size)
             train_losses.append(float(out["loss"]))
@@ -131,8 +131,8 @@ def main() -> int:
     val_auc: list[float] = []
     val_batches = 0
     t_val0 = time.perf_counter()
-    for batch in provider.build_eval_iterator(ctx, split="val"):
-        out = provider.run_eval_step(batch)
+    for batch in session.iter_eval(ctx, split="val"):
+        out = session.eval_step(batch)
         val_batches += 1
         val_losses.append(float(out["loss"]))
         m = out.get("meta", {}).get("metrics", {})

@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Protocol Reference &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Artifact Format Reference" href="artifact_format.html" />
+    <link rel="prev" title="Unified Preprocessing Pipeline" href="preprocess_layer.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="__init__.html">Architecture &amp; Layer Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data_layer.html">Data Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html">Route Layer Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html">Unified Preprocessing Pipeline</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Protocol Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_format.html">Artifact Format Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html">Unified Training Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_modules.html">Reusable Model Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/python/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="__init__.html">Architecture &amp; Layer Reference</a></li>
+      <li class="breadcrumb-item active">Protocol Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/architecture/protocols.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="protocol-reference">
+<h1>Protocol Reference<a class="headerlink" href="#protocol-reference" title="Link to this heading"></a></h1>
+<p>Protocols are abstract interfaces that enable composable training loops.
+They decouple task logic (edge prediction, node regression) from graph modes
+(CTDG, DTDG, Chunk) and model architectures.</p>
+<p>All protocols use Python’s <code class="docutils literal notranslate"><span class="pre">typing.Protocol</span></code> for structural subtyping (duck typing).</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Training Loop (PipelineEngine)
+       │
+       ├─ GraphBackend    [iter_batches] ──→ Batch data
+       ├─ TaskAdapter     [compute_loss, metrics]
+       ├─ StateManager    [prepare, update state]
+       ├─ TemporalModel   [forward, compute_state_update]
+       └─ Task Head       [score predictions]
+</pre></div>
+</div>
+<p>Each protocol is independent and can be swapped:</p>
+<ul class="simple">
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">GraphBackend</span></code> for a new graph mode</p></li>
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">TaskAdapter</span></code> for a new task type</p></li>
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">TemporalModel</span></code> for a new backbone</p></li>
+</ul>
+</section>
+<section id="core-protocols">
+<h2>Core Protocols<a class="headerlink" href="#core-protocols" title="Link to this heading"></a></h2>
+<section id="graphbackend-batch-iteration">
+<h3><code class="docutils literal notranslate"><span class="pre">GraphBackend</span></code> — Batch Iteration<a class="headerlink" href="#graphbackend-batch-iteration" title="Link to this heading"></a></h3>
+<p>Abstracts data iteration across graph modes.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">GraphBackend</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unified interface for batching across all graph modes.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">iter_batches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">BatchData</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Yield batches for a split (train/val/test).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            split: One of &quot;train&quot;, &quot;val&quot;, &quot;test&quot;</span>
+<span class="sd">            batch_size: Batch size</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            BatchData objects with node_ids, edges, labels, etc.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset internal state (e.g., current batch pointer).&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Human-readable description (mode, dataset, partitions).&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Implementations:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CTDGGraphBackend</span></code> — Wraps CTDGSession, yields event batches</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">FlareGraphBackend</span></code> — Wraps FlareRuntimeLoader, yields snapshot batches</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ChunkGraphBackend</span></code> — Wraps ChunkRuntimeLoader, yields chunk batches</p></li>
+</ul>
+</section>
+<section id="taskadapter-task-specific-logic">
+<h3><code class="docutils literal notranslate"><span class="pre">TaskAdapter</span></code> — Task-Specific Logic<a class="headerlink" href="#taskadapter-task-specific-logic" title="Link to this heading"></a></h3>
+<p>Encapsulates task-specific computations (loss, metrics, sampling).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">TaskAdapter</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Task-specific logic (loss, metrics, output formatting).&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">build_sample_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SampleConfig</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create sampling config for this task.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            SampleConfig with num_neighbors, time_window, etc.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">compute_loss</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model_output</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">BatchData</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute loss for this task.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model_output: Predictions from model</span>
+<span class="sd">            batch: Input batch with labels</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Scalar loss tensor</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">compute_metrics</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model_output</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">BatchData</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute evaluation metrics.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict of metric names to values (e.g., &quot;auc&quot;: 0.95)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">format_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_output</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format predictions for external use.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict with task-specific keys (e.g., &quot;scores&quot; for edge tasks)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Implementations:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">EdgePredictAdapter</span></code> — Link prediction (BCE loss, AUC/AP metrics)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NodeRegressAdapter</span></code> — Node regression (MSE loss, MAE/RMSE metrics)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NodeClassifyAdapter</span></code> — Node classification (cross-entropy, accuracy)</p></li>
+</ul>
+</section>
+<section id="statemanager-stateful-model-updates">
+<h3><code class="docutils literal notranslate"><span class="pre">StateManager</span></code> — Stateful Model Updates<a class="headerlink" href="#statemanager-stateful-model-updates" title="Link to this heading"></a></h3>
+<p>Manages RNN/LSTM state across time steps or snapshots.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">StateManager</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Manages node state (memory, RNN hidden, LSTM hidden+cell).&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">prepare</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize state for nodes and time point.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            node_ids: [B] node IDs</span>
+<span class="sd">            timestamps: [B] optional time values</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict mapping node_id → state tensor(s)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">chunk_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update state after model produces output.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            node_ids: [B] nodes updated</span>
+<span class="sd">            output: [B, D] model output / new state</span>
+<span class="sd">            chunk_id: Optional chunk ID for chunked processing</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clear all state (e.g., between epochs).&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Human-readable state description.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Implementations:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DummyStateManager</span></code> — No-op state (for stateless tasks)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CTDGMemoryManager</span></code> — GRU-based memory bank (CTDG)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RNNStateManager</span></code> — Per-node RNN state (DTDG/Chunk)</p></li>
+</ul>
+</section>
+<section id="temporalmodel-forward-state-update">
+<h3><code class="docutils literal notranslate"><span class="pre">TemporalModel</span></code> — Forward &amp; State Update<a class="headerlink" href="#temporalmodel-forward-state-update" title="Link to this heading"></a></h3>
+<p>Core model inference interface.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">TemporalModel</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Temporal GNN model with optional state.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">batch</span><span class="p">:</span> <span class="n">BatchData</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass on batch.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            batch: BatchData with node_ids, edges, etc.</span>
+<span class="sd">            state: Optional per-node state from StateManager</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            [B, output_dim] predictions or embeddings</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">compute_state_update</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">BatchData</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute new state from output.</span>
+
+<span class="sd">        Optional: return None if stateless.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict node_id → new state, or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Implementations:</p>
+<ul class="simple">
+<li><p>Any PyTorch <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> with compatible forward() signature</p></li>
+<li><p>Can use task heads (EdgePredictHead, NodeRegressHead, NodeClassifyHead)</p></li>
+<li><p>Can combine backbone (GCNStack, TemporalTransformerConv) + head</p></li>
+</ul>
+</section>
+<section id="featurestore-feature-access">
+<h3><code class="docutils literal notranslate"><span class="pre">FeatureStore</span></code> — Feature Access<a class="headerlink" href="#featurestore-feature-access" title="Link to this heading"></a></h3>
+<p>See <a class="reference internal" href="data_layer.html"><span class="doc">Data Layer Reference</span></a> for full reference.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">FeatureStore</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Node and edge feature storage.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">get_node_feat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;[N, F_node]&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">get_edge_feat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edge_ids</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;[E, F_edge]&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">node_feat_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">edge_feat_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="globalcsr-graph-structure">
+<h3><code class="docutils literal notranslate"><span class="pre">GlobalCSR</span></code> — Graph Structure<a class="headerlink" href="#globalcsr-graph-structure" title="Link to this heading"></a></h3>
+<p>See <a class="reference internal" href="data_layer.html"><span class="doc">Data Layer Reference</span></a> for full reference.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">GlobalCSR</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CSR adjacency access.&quot;&quot;&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">rowptr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">col</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">neighbors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">subgraph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;GlobalCSR&quot;</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="example-using-protocols-in-custom-code">
+<h2>Example: Using Protocols in Custom Code<a class="headerlink" href="#example-using-protocols-in-custom-code" title="Link to this heading"></a></h2>
+<p><strong>Implement a Custom Task</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.registry.task_adapter</span> <span class="kn">import</span> <span class="n">TaskAdapter</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.data</span> <span class="kn">import</span> <span class="n">BatchData</span><span class="p">,</span> <span class="n">SampleConfig</span>
+
+<span class="k">class</span> <span class="nc">MyCustomTask</span><span class="p">(</span><span class="n">TaskAdapter</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;My task: node multi-label classification.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">build_sample_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SampleConfig</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">SampleConfig</span><span class="p">(</span>
+            <span class="n">task_type</span><span class="o">=</span><span class="s2">&quot;custom_multilabel&quot;</span><span class="p">,</span>
+            <span class="n">num_hops</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">num_neighbors</span><span class="o">=</span><span class="mi">10</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">compute_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_output</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">BatchData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">binary_cross_entropy_with_logits</span><span class="p">(</span>
+            <span class="n">model_output</span><span class="p">,</span> <span class="n">batch</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">compute_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_output</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">BatchData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="n">pred</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">model_output</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="n">acc</span> <span class="o">=</span> <span class="p">(</span><span class="n">pred</span> <span class="o">==</span> <span class="n">batch</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="n">acc</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">format_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_output</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;logits&quot;</span><span class="p">:</span> <span class="n">model_output</span><span class="p">,</span> <span class="s2">&quot;probs&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">model_output</span><span class="p">)}</span>
+</pre></div>
+</div>
+<p>Register:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.registry</span> <span class="kn">import</span> <span class="n">task_registry</span>
+
+<span class="n">task_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;my_custom_task&quot;</span><span class="p">,</span> <span class="n">MyCustomTask</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>Use in training:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task_adapter</span> <span class="o">=</span> <span class="n">task_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;my_custom_task&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">backend</span><span class="o">.</span><span class="n">iter_batches</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">):</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">task_adapter</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+    <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><strong>Implement a Custom Backend</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.runtime.backend</span> <span class="kn">import</span> <span class="n">GraphBackend</span>
+<span class="kn">from</span> <span class="nn">starry_unigraph.data</span> <span class="kn">import</span> <span class="n">BatchData</span>
+
+<span class="k">class</span> <span class="nc">MyCustomBackend</span><span class="p">(</span><span class="n">GraphBackend</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;My graph mode: special edge streaming.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">iter_batches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">BatchData</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">batch_edges</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge_stream</span><span class="o">.</span><span class="n">iter_batches</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">BatchData</span><span class="p">(</span>
+                <span class="n">edges</span><span class="o">=</span><span class="n">batch_edges</span><span class="p">,</span>
+                <span class="n">labels</span><span class="o">=...</span><span class="p">,</span>
+                <span class="n">timestamps</span><span class="o">=...</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split</span><span class="p">}</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">edge_stream</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;MyCustomBackend(mode=streaming, edges=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">edges</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span>
+</pre></div>
+</div>
+<p>Use in training:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">backend</span> <span class="o">=</span> <span class="n">MyCustomBackend</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">engine</span> <span class="o">=</span> <span class="n">PipelineEngine</span><span class="p">(</span><span class="n">backend</span><span class="p">,</span> <span class="n">task_adapter</span><span class="p">,</span> <span class="n">state_manager</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+<span class="n">engine</span><span class="o">.</span><span class="n">run_epoch</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="protocol-hierarchy-composition">
+<h2>Protocol Hierarchy &amp; Composition<a class="headerlink" href="#protocol-hierarchy-composition" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>PipelineEngine
+    ├─ GraphBackend (iter_batches, reset, describe)
+    ├─ TaskAdapter (build_sample_config, compute_loss, etc.)
+    ├─ StateManager (prepare, update, reset)
+    ├─ TemporalModel (forward, compute_state_update)
+    │   └─ Backbone (GCNStack, TemporalTransformerConv)
+    │   └─ Task Head (EdgePredictHead, NodeRegressHead)
+    └─ Metrics (computed via TaskAdapter)
+</pre></div>
+</div>
+<p>Each layer is independent:</p>
+<ul class="simple">
+<li><p>Multiple models can use the same GraphBackend</p></li>
+<li><p>Multiple backends can use the same TaskAdapter</p></li>
+<li><p>New components only need to satisfy the protocol</p></li>
+</ul>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="unified_pipeline.html"><span class="doc">Unified Training Pipeline</span></a> — How protocols compose in PipelineEngine</p></li>
+<li><p><a class="reference internal" href="data_layer.html"><span class="doc">Data Layer Reference</span></a> — Data structures passed through protocols</p></li>
+<li><p>Source: <code class="docutils literal notranslate"><span class="pre">runtime/backend.py</span></code>, <code class="docutils literal notranslate"><span class="pre">registry/task_adapter.py</span></code>, <code class="docutils literal notranslate"><span class="pre">models/base.py</span></code></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="preprocess_layer.html" class="btn btn-neutral float-left" title="Unified Preprocessing Pipeline" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="artifact_format.html" class="btn btn-neutral float-right" title="Artifact Format Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

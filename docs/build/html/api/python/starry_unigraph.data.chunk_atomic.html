@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>starry_unigraph.data.chunk_atomic module &mdash; StarryUniGraph 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="starry_unigraph.tasks package" href="starry_unigraph.tasks.html" />
+    <link rel="prev" title="starry_unigraph.data.sample_config module" href="starry_unigraph.data.sample_config.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            StarryUniGraph
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guide/install_guide.html">Installation &amp; Build Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/training/index.html">Training Guides by Graph Mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rel_0_1_1/reference.html">Reference and Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html">Architecture &amp; Layer Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/__init__.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="modules.html">starry_unigraph</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="starry_unigraph.html">starry_unigraph package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.backends.html">starry_unigraph.backends package</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="starry_unigraph.data.html">starry_unigraph.data package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.tasks.html">starry_unigraph.tasks package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.registry.html">starry_unigraph.registry package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.preprocess.html">starry_unigraph.preprocess package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.checkpoint.html">starry_unigraph.checkpoint package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.cli.html">starry_unigraph.cli package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.native.html">starry_unigraph.native package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.distributed.html">starry_unigraph.distributed module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.session.html">starry_unigraph.session module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="starry_unigraph.types.html">starry_unigraph.types module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">StarryUniGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="modules.html">starry_unigraph</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.html">starry_unigraph package</a></li>
+          <li class="breadcrumb-item"><a href="starry_unigraph.data.html">starry_unigraph.data package</a></li>
+      <li class="breadcrumb-item active">starry_unigraph.data.chunk_atomic module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/api/python/starry_unigraph.data.chunk_atomic.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-starry_unigraph.data.chunk_atomic">
+<span id="starry-unigraph-data-chunk-atomic-module"></span><h1>starry_unigraph.data.chunk_atomic module<a class="headerlink" href="#module-starry_unigraph.data.chunk_atomic" title="Link to this heading"></a></h1>
+<p>ChunkAtomic: 统一底层数据单元，用于 DTDG/CTDG 双模共享 PipelineEngine。</p>
+<p>每个 ChunkAtomic 代表一个时间切片 × 节点簇的计算单元。
+Python 层仅作薄封装，所有密集计算委托给 C++/CUDA 扩展。</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.data.chunk_atomic.</span></span><span class="sig-name descname"><span class="pre">ChunkAtomic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_set</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tcsr_rowptr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tcsr_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tcsr_ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tcsr_edge_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cross_node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cross_node_home</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cross_edge_count</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_estimate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spatial_deps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SpatialDeps</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_deps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">StateDeps</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_neg_hook</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_neighbor_hook</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#ChunkAtomic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>时间切片 × 节点簇的原子计算单元。</p>
+<p>chunk_id = (time_slice_id, node_cluster_id)</p>
+<dl class="simple">
+<dt>数据分三层：</dt><dd><p>L1 — 图结构 (Temporal-CSR)
+L2 — 跨界邻居信息
+L3 — 调度元数据</p>
+</dd>
+</dl>
+<p>Python 层不做任何密集计算；materialize() 调用 C++/CUDA 扩展。</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.chunk_id">
+<span class="sig-name descname"><span class="pre">chunk_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.chunk_id" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.complete">
+<span class="sig-name descname"><span class="pre">complete</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">local_mfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#ChunkAtomic.complete"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.complete" title="Link to this definition"></a></dt>
+<dd><p>Phase 2: 将远程拉取的 embedding 合并入 MFG，生成最终训练 batch。</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>local_mfg:    materialize() 返回的本地 MFG
+remote_data:  CommEngine 拉取并返回的远程 embedding tensor</p>
+</dd>
+<dt>Returns:</dt><dd><p>完整的训练 batch（remote 槽位已填充）</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.cross_edge_count">
+<span class="sig-name descname"><span class="pre">cross_edge_count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.cross_edge_count" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.cross_node_home">
+<span class="sig-name descname"><span class="pre">cross_node_home</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.cross_node_home" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.cross_node_ids">
+<span class="sig-name descname"><span class="pre">cross_node_ids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.cross_node_ids" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.load_estimate">
+<span class="sig-name descname"><span class="pre">load_estimate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.load_estimate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.materialize">
+<span class="sig-name descname"><span class="pre">materialize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sampler_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#starry_unigraph.data.chunk_atomic.RemoteManifest" title="starry_unigraph.data.chunk_atomic.RemoteManifest"><span class="pre">RemoteManifest</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#ChunkAtomic.materialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.materialize" title="Link to this definition"></a></dt>
+<dd><p>Phase 1: 本地时序邻居采样 + 产出远程请求清单。</p>
+<dl class="simple">
+<dt>实现委托给 C++/CUDA 扩展：</dt><dd><ol class="arabic simple">
+<li><p>在 Temporal-CSR 上对每个事件 (src, dst, t) 做二分查找，
+采样 t 之前最近的 k 个邻居。</p></li>
+<li><p>locality_mask 标记每个采样邻居是本地还是远程。</p></li>
+<li><p>构建 local_mfg（本地可直接聚合的子图）。</p></li>
+<li><p>提取 RemoteManifest（需要跨 rank 拉取的远程节点清单）。</p></li>
+</ol>
+</dd>
+<dt>Args:</dt><dd><p>sampler_cfg: 采样配置，含 num_neighbors / num_layers / sample_type。</p>
+</dd>
+<dt>Returns:</dt><dd><dl class="simple">
+<dt>(local_mfg, remote_manifest)</dt><dd><p>local_mfg      — 本地 MFG，可直接用于前向传播（远程槽位待填充）
+remote_manifest — 需要 CommEngine 异步拉取的远程数据描述</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.node_set">
+<span class="sig-name descname"><span class="pre">node_set</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.node_set" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.register_negative_hook">
+<span class="sig-name descname"><span class="pre">register_negative_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">functional</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#ChunkAtomic.register_negative_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.register_negative_hook" title="Link to this definition"></a></dt>
+<dd><p>注册负采样函数，供 C++ 扩展回调。</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.register_neighbor_hook">
+<span class="sig-name descname"><span class="pre">register_neighbor_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">functional</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#ChunkAtomic.register_neighbor_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.register_neighbor_hook" title="Link to this definition"></a></dt>
+<dd><p>注册邻居采样函数，供 C++ 扩展回调。</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.spatial_deps">
+<span class="sig-name descname"><span class="pre">spatial_deps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SpatialDeps</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.spatial_deps" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.state_deps">
+<span class="sig-name descname"><span class="pre">state_deps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">StateDeps</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.state_deps" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_col">
+<span class="sig-name descname"><span class="pre">tcsr_col</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_col" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_edge_id">
+<span class="sig-name descname"><span class="pre">tcsr_edge_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_edge_id" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_rowptr">
+<span class="sig-name descname"><span class="pre">tcsr_rowptr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_rowptr" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_ts">
+<span class="sig-name descname"><span class="pre">tcsr_ts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.tcsr_ts" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.ChunkAtomic.time_range">
+<span class="sig-name descname"><span class="pre">time_range</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.ChunkAtomic.time_range" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.RemoteManifest">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">starry_unigraph.data.chunk_atomic.</span></span><span class="sig-name descname"><span class="pre">RemoteManifest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">remote_node_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_owners</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_slots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/starry_unigraph/data/chunk_atomic.html#RemoteManifest"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.RemoteManifest" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>本地采样阶段产出的远程数据请求清单。</p>
+<p>记录哪些远程节点的 embedding/memory 需要从其他 rank 拉取，
+以便 CommEngine 统一调度。</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.RemoteManifest.local_slots">
+<span class="sig-name descname"><span class="pre">local_slots</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.RemoteManifest.local_slots" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.RemoteManifest.remote_node_ids">
+<span class="sig-name descname"><span class="pre">remote_node_ids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.RemoteManifest.remote_node_ids" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="starry_unigraph.data.chunk_atomic.RemoteManifest.remote_owners">
+<span class="sig-name descname"><span class="pre">remote_owners</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tensor</span></em><a class="headerlink" href="#starry_unigraph.data.chunk_atomic.RemoteManifest.remote_owners" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="starry_unigraph.data.sample_config.html" class="btn btn-neutral float-left" title="starry_unigraph.data.sample_config module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="starry_unigraph.tasks.html" class="btn btn-neutral float-right" title="starry_unigraph.tasks package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, StarryUniGraph Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

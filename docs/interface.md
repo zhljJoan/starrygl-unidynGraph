@@ -6,18 +6,20 @@ This document defines the practical interfaces used by StarryUniGraph for unifie
 
 ## 1. Session-Level API
 
-Primary entry: `SchedulerSession`.
+### 1.1 DTDG: `SchedulerSession`
+
+Primary entry for Discrete-Time Dynamic Graph training.
 
 ```python
 from starry_unigraph import SchedulerSession
 
-session = SchedulerSession.from_config("configs/tgn_wiki.yaml")
+session = SchedulerSession.from_config("configs/mpnn_lstm_4gpu.yaml")
 session.prepare_data()
 session.build_runtime()
 result = session.run_task()
 ```
 
-### 1.1 Public methods
+Public methods:
 - `SchedulerSession.from_config(config_or_path, dataset_path=None, overrides=None)`
 - `prepare_data() -> PreparedArtifacts`
 - `build_runtime() -> RuntimeBundle`
@@ -28,26 +30,34 @@ result = session.run_task()
 - `save_checkpoint(path) -> Path`
 - `load_checkpoint(path) -> dict`
 
-### 1.2 `run_epoch` / `run_task` output (key fields)
+`run_epoch` / `run_task` output key fields:
 - `split`, `steps`, `loss`, `metrics`, `elapsed_s`
-- `outputs`: per-batch payloads from provider step functions
+- `outputs`: per-batch payloads from step functions
 
-## 2. Provider Lifecycle Contract
+### 1.2 CTDG: `CTDGSession`
 
-Both CTDG and DTDG providers follow the same lifecycle hooks:
+Entry for Continuous-Time Dynamic Graph training (TGN-style).
 
+```python
+from starry_unigraph.runtime.online import CTDGSession
+from starry_unigraph.types import SessionContext
+
+session = CTDGSession()
+session.prepare_data(ctx)
+session.build_runtime(ctx)
+for batch in session.iter_train(ctx):
+    result = session.train_step(batch)
+session.save_checkpoint("ckpt.pt")
+```
+
+Public methods:
 - `prepare_data(session_ctx) -> PreparedArtifacts`
-- `build_runtime(session_ctx) -> RuntimeBundle`
-- `build_train_iterator(session_ctx, split="train") -> Iterable[Any]`
-- `build_eval_iterator(session_ctx, split="val") -> Iterable[Any]`
-- `build_predict_iterator(session_ctx, split="test") -> Iterable[Any]`
-- `run_train_step(batch) -> dict`
-- `run_eval_step(batch) -> dict`
-- `run_predict_step(batch) -> dict`
-- `save_checkpoint(path)`
-- `load_checkpoint(path)`
+- `build_runtime(session_ctx)`
+- `iter_train(session_ctx)` / `iter_eval(session_ctx, split="val")` / `iter_predict(session_ctx, split="test")`
+- `train_step(batch) -> dict` / `eval_step(batch) -> dict` / `predict_step(batch) -> dict`
+- `save_checkpoint(path)` / `load_checkpoint(path)`
 
-## 3. Artifact Contract
+## 2. Artifact Contract
 
 All preprocessors follow:
 
@@ -55,7 +65,7 @@ All preprocessors follow:
 - `build_partitions(session_ctx)`
 - `build_runtime_artifacts(session_ctx) -> PreparedArtifacts`
 
-### 3.1 Common artifact layout
+### 2.1 Common artifact layout
 
 ```text
 artifacts/<data.name>/
@@ -64,42 +74,50 @@ artifacts/<data.name>/
   routes/manifest.json
 ```
 
-### 3.2 Pipeline-specific outputs
+### 2.2 Pipeline-specific outputs
 - CTDG: `sampling/index.json`
 - DTDG `flare_native`: `flare/manifest.json`, `flare/part_XXX.pth`
-- DTDG `chunked`: `snapshots/manifest.json`, `snapshots/.../chunk_XXX.pth`, `clusters/.../cluster_manifest.json`
 
-## 4. Runtime Bundle and Data Types
+## 3. Runtime Bundle and Data Types
 
-### 4.1 `RuntimeBundle`
+### 3.1 `RuntimeBundle`
 - `model`
 - `optimizer`
 - `scheduler`
 - `state: dict[str, Any]`
 
-### 4.2 `PreparedArtifacts`
+### 3.2 `PreparedArtifacts`
 - `meta_path: Path`
 - `directories: dict[str, Path]`
 - `provider_meta: dict[str, Any]`
 
-### 4.3 `DistributedContext`
+### 3.3 `DistributedContext`
 - `backend`, `world_size`, `rank`, `local_rank`, `local_world_size`
 - `master_addr`, `master_port`, `init_method`, `launcher`
 - `is_distributed` property
 
-## 5. CTDG Runtime Interface
+### 3.4 `SessionContext`
+- `config: dict`
+- `artifact_root: Path`
+- `dist: DistributedContext`
+- `provider_state: dict`
 
-CTDG is implemented around `CTDGProvider` + `CTDGOnlineRuntime`.
+### 3.5 `PredictionResult`
+- `predictions`
+- `targets`
+- `meta`
 
-### 5.1 Batch input
+## 4. CTDG Runtime Interface
+
+CTDG is implemented in `runtime/online/` and exposed via `CTDGSession`.
+
+### 4.1 Batch input
 `CTDGDataBatch` fields:
 - `index`, `split`, `event_ids`
 - `src`, `dst`, `ts`, `edge_feat`
 - property: `size`
 
-### 5.2 Step output schema (train/eval)
-Typical output:
-
+### 4.2 Step output schema (train/eval)
 ```python
 {
   "loss": float,
@@ -118,76 +136,222 @@ Typical output:
 }
 ```
 
-### 5.3 Distributed memory sync interfaces
+### 4.3 Sampling interface
+`NativeTemporalSampler` key methods:
+- `sample_from_nodes(nodes, timestamps) -> CTDGSampleOutput`
+- `reset()`
+- `describe() -> dict`
+
+### 4.4 Distributed memory sync interfaces
 `CTDGMemoryBank` key methods:
 - `gather(node_ids)`
-- `read_mailbox(node_ids)`
-- `read_mailbox_ts(node_ids)`
+- `read_mailbox(node_ids)` / `read_mailbox_ts(node_ids)`
+- `write_mailbox(node_ids, mail_slots, mail_ts)`
 - `submit_async_memory_sync(ctx, node_ids, values, timestamps)`
 - `submit_async_mail_sync(ctx, node_ids, mail_slots, mail_ts)`
-- `wait_pending_syncs()`
+- `sync_updates()`
 
-### 5.4 Historical cache interface
+### 4.5 Historical cache interface
 `CTDGHistoricalCache` key methods:
 - `historical_check(node_ids, current_memory) -> mask`
 - `update_cache(slot_indices, new_memory, new_ts)`
 - `slot_indices(node_ids) -> Tensor`
-- `bind_shared_nodes(num_nodes, shared_node_ids)`
+- `synchronize_shared_update()`
 
-## 6. DTDG Runtime Interface
+### 4.6 Feature route interface
+`CTDGFeatureRoute` key methods:
+- `exchange(features) -> routed_features`
+- `describe() -> dict`
 
-DTDG is implemented around `DTDGProvider` with two pipelines:
-- `flare_native`
-- `chunked`
+### 4.7 Factory
+`build_ctdg_runtime(session_ctx) -> (CTDGOnlineRuntime, RuntimeBundle)` — builds dataset, sampler, memory, model, optimizer, DDP wrapping in one call.
 
-### 6.1 Training/eval/predict contract
-DTDG step functions return unified payload fields:
-- `loss` (if available)
-- `predictions`
-- `targets`
-- `meta`
+## 5. DTDG Runtime Interface
 
-### 6.2 Flare-specific state handling
-For `flare_native`, stateful sequence handling is managed through RNN state manager and snapshot progression.
+DTDG is implemented in `runtime/flare/` and orchestrated directly by `SchedulerSession`.
 
-## 7. Configuration Interface
+### 5.1 Data structures
 
-Common sections used by both paradigms:
-- `model.*`
-- `data.*`
-- `train.*`
-- `runtime.*`
-- `graph.*`
-- `dist.*`
+`PartitionData` key interface:
+- `__len__()` — number of snapshots
+- `__getitem__(idx)` — slice snapshots
+- `to(device) -> PartitionData` / `pin_memory() -> PartitionData`
+- `to_blocks() -> list[DGLBlock]`
+- `save(path)` / `load(path)`
+- `num_snaps` / `num_dst_nodes` properties
 
-CTDG-specific section:
-- `ctdg.pipeline`
-- `ctdg.mailbox_slots`
-- `ctdg.historical_alpha`
-- `ctdg.async_sync`
-- `ctdg.ada_param_enabled`
+`TensorData` / `RouteData` — packed tensor storage and per-snapshot routing descriptors.
+
+### 5.2 FlareRuntimeLoader interface
+`FlareRuntimeLoader` (in `runtime/flare/session_loader.py`) key methods:
+- `from_partition_data(data, device, rank, world_size, config) -> FlareRuntimeLoader` (classmethod)
+- `iter_train(split="train") -> Iterator[STGraphBlob]`
+- `iter_eval(split="val") -> Iterator[DTDGBatch]`
+- `iter_predict(split="test") -> Iterator[DTDGBatch]`
+- `dump_state() -> dict`
+- `describe_window_state() -> dict` / `describe_route_cache() -> dict`
+
+### 5.3 STGraphLoader interface
+`STGraphLoader` key methods:
+- `from_partition_data(data, device, chunk_index, rank, size) -> STGraphLoader` (classmethod)
+- `fetch_graph(idx) -> DGLBlock` — async fetch via CUDA stream
+- `build_snapshot_index() -> dict`
+
+### 5.4 RNN state management interface
+`RNNStateManager` key methods:
+- `add(graph)` — adds graph to sliding window; patches with `flare_fetch_state()` / `flare_store_state()`
+- `state_detach()` — detaches all stored states
+
+`STGraphBlob` key interface:
+- `current_graph` property — last graph in window
+- `snapshot_index` property
+- `__iter__()` — iterate over graphs in window
+
+### 5.5 Route interface (Flare)
+`Route` key interface:
+- `forward(features) -> Tensor` — differentiable all-to-all exchange
+- `send_len` / `recv_len` properties
+
+### 5.6 Training/eval/predict contract
+
+Training step input: `STGraphBlob` (multi-frame)
+Eval/predict step input: `DTDGBatch` (single frame)
+
+Key training functions (from `runtime/flare/training.py`):
+- `init_flare_training(runtime, session_ctx, partition_data, device)` — builds model + optimizer + DDP
+- `run_flare_train_step(runtime, batch, kernel_output) -> dict`
+- `run_flare_eval_step(runtime, batch, kernel_output) -> dict`
+- `run_flare_predict_step(runtime, batch, kernel_output) -> dict`
+
+### 5.7 DTDG data types (in `runtime/flare/session_loader.py`)
+- `DTDGBatch` — single-frame eval/predict batch (index, split, window_size, route_plan, graph, graph_meta)
+- `DTDGWindowState` — window tracking (window_size, last_snapshot, stored_windows)
+- `SnapshotRoutePlan` — route_type, cache_policy
+
+### 5.8 Model interface (Flare)
+
+All Flare models implement `forward(graphs) -> Tensor`:
+
+- `FlareEvolveGCN(in_dim, hidden_dim, out_dim)` — EvolveGCN-H
+- `FlareTGCN(in_dim, hidden_dim, out_dim)` — Temporal GCN
+- `FlareMPNNLSTM(in_dim, hidden_dim, out_dim)` — MPNN-LSTM
+- `GCNStack(in_dim, hidden_dim, out_dim, num_layers)` — multi-layer GCN
+
+Factory: `build_flare_model(name, in_dim, hidden_dim, out_dim)`
+
+## 6. Preprocessing Interface
+
+### 6.1 DTDG preprocessing
+`FlareDTDGPreprocessor` (in `preprocess/dtdg.py`):
+- Inherits `GraphPreprocessor`: `prepare_raw()` → `build_partitions()` → `build_runtime_artifacts()`
+- Writes `flare/part_NNN.pth` files via METIS partitioning
+
+Artifact validation utilities (also in `preprocess/dtdg.py`):
+- `validate_artifacts(prepared, expected_graph_mode, expected_num_parts)`
+- `load_prepared_from_disk(artifact_root) -> PreparedArtifacts`
+
+### 6.2 CTDG preprocessing
+`CTDGPreprocessor` (in `preprocess/ctdg.py`):
+- Inherits `GraphPreprocessor`: `prepare_raw()` → `build_partitions()` → `build_runtime_artifacts()`
+- Writes partition manifest + feature route plan
+
+## 7. Data Split Utilities
+
+`runtime/_split.py` provides shared split logic used by both flare and online runtimes:
+- `normalize_split_ratio(split_ratio) -> dict` — ensures train+val+test sum to 1.0
+- `split_bounds(total, split, split_ratio) -> (int, int)` — returns `(start, end)` index range
+
+## 8. Configuration Interface
+
+Common sections:
+- `model.*`, `data.*`, `train.*`, `runtime.*`, `graph.*`, `dist.*`
+
+CTDG-specific:
+- `ctdg.mailbox_slots`, `ctdg.historical_alpha`, `ctdg.async_sync`, `ctdg.ada_param_enabled`
 - `ctdg.dim_time`, `ctdg.num_head`, `ctdg.dropout`, `ctdg.att_dropout`
 
-DTDG-specific section:
-- `dtdg.pipeline`
-- `dtdg.chunk_order`
-- `dtdg.chunk_decay`
-- `dtdg.num_full_snaps`
+DTDG-specific:
+- `dtdg.chunk_order`, `dtdg.chunk_decay`, `dtdg.num_full_snaps`
 
-## 8. Minimal End-to-End Examples
+## 9. End-to-End Examples
 
-### 8.1 CTDG distributed
+### 9.1 CTDG distributed (Flare-style)
 ```bash
-torchrun --nproc_per_node=4 train_tgn_dist.py --dataset WIKI --epochs 2
+# Single-process prepare with the target global worker count
+WORLD_SIZE=8 /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase prepare
+
+# Copy /shared/artifacts/WIKI to every node if storage is not shared
+
+# Multi-node / multi-GPU train: run this on node 0
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=0 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29500 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase train
+
+# Multi-node / multi-GPU train: run this on node 1
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=1 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29500 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase train
+
+# Multi-node / multi-GPU predict: run this on node 0, and rerun with
+# --node_rank=1 on node 1
+/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun \
+    --nnodes=2 --node_rank=0 --nproc_per_node=4 \
+    --master_addr=node0 --master_port=29501 \
+    -m starry_unigraph --config configs/tgn_wiki.yaml \
+    --artifact-root /shared/artifacts/WIKI --phase predict
 ```
 
-### 8.2 DTDG distributed
+The single-process ``prepare`` step still needs the final distributed partition count.
+Set ``WORLD_SIZE`` to ``nnodes * nproc_per_node`` so the generated CTDG artifacts match
+the later ``torchrun`` job.
+
+The distributed CTDG loader keeps all ranks on the same global time-window
+boundaries, then filters each window to the local edge set for that rank.
+Current edge ownership is ``src_node_partition``.
+
+### 9.2 DTDG distributed
 ```bash
-bash run_mpnn_lstm_4gpu.sh all
+python train_mpnn_lstm_4gpu.py --mode prepare
+torchrun --nproc_per_node=4 train_mpnn_lstm_4gpu.py --mode train
 ```
 
-## 9. Compatibility and Extension Notes
+### 9.3 DTDG step-by-step (Python)
+```python
+from starry_unigraph import SchedulerSession
+from starry_unigraph.types import SessionContext
 
-- CTDG and DTDG share orchestration contracts but keep kernel-specific internals.
-- New model families should register into model/provider/task registries and follow the same provider lifecycle.
+# Use SchedulerSession directly — no provider layer
+session = SchedulerSession(session_ctx=ctx, model_spec=model_spec, task_adapter=task)
+session.prepare_data()
+session.build_runtime()
+
+for epoch in range(epochs):
+    train_result = session.run_epoch(split="train")
+    eval_result  = session.run_epoch(split="val")
+
+session.save_checkpoint("checkpoint.pkl")
+```
+
+### 9.4 CTDG step-by-step (Python)
+```python
+from starry_unigraph.runtime.online import CTDGSession
+
+session = CTDGSession()
+session.prepare_data(ctx)
+session.build_runtime(ctx)
+for batch in session.iter_train(ctx):
+    result = session.train_step(batch)
+```
+
+## 10. Extension Notes
+
+- CTDG and DTDG share artifact layout and checkpoint conventions but keep independent runtime internals.
+- New DTDG models register into `ModelRegistry` and are built via `build_flare_model`.
 - New distributed optimization modules should emit metrics through `meta` to keep session-level observability consistent.
+- `backends/` package provides backward-compatible re-exports from `runtime/` subpackages.
