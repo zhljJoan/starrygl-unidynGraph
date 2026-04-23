@@ -24,7 +24,7 @@ from starry_unigraph.data.batch_data import BatchData
 from starry_unigraph.data.sample_config import SampleConfig
 from starry_unigraph.data.partition import PartitionData, RouteData, TensorData
 from starry_unigraph.data.chunk_atomic import ChunkAtomic
-from starry_unigraph.data.raw_temporal import RawTemporalEvents
+from starry_unigraph.data.raw_temporal import NodeTemporalFeatureTable, RawTemporalEvents
 
 # === Protocols (Abstractions) ===
 from starry_unigraph.runtime.backend import GraphBackend, StateManager
@@ -68,6 +68,7 @@ __all__ = [
     "RouteData",
     "TensorData",
     "ChunkAtomic",
+    "NodeTemporalFeatureTable",
     "RawTemporalEvents",
     # Protocols
     "GraphBackend",

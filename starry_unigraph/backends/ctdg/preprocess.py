@@ -102,6 +102,7 @@ class CTDGPreprocessor(GraphPreprocessor):
             "num_nodes": stats["num_nodes"],
             "num_edges": stats["num_edges"],
             "feature_dim": stats["edge_feat_dim"],
+            "node_feat_dim": stats.get("node_feat_dim", 0),
             "task_type": session_ctx.config["model"]["task"],
             "feature_route_plan": feature_route.describe(),
             "partition_algo": str(session_ctx.config["graph"]["partition"]),
