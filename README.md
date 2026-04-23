@@ -1,6 +1,6 @@
 # StarryGL 0.1.1
 
-[中文 README](./README.zh-CN.md)
+[DOCUMENT](https://shadow-greasily-unretired.ngrok-free.dev/)
 
 StarryGL is a unified distributed training stack for large-scale dynamic graphs.
 It supports both:
@@ -86,6 +86,40 @@ At the Python level, the unified lifecycle is exposed through
 `starry_unigraph.session.SchedulerSession`.
 
 ## Quick Start
+
+Before running the examples, install the package and build the native
+extensions in a Python 3.10+ environment. StarryGL expects **PyTorch** and
+**DGL** to be installed first in the same environment, with CUDA-compatible
+versions if you plan to train on GPUs.
+
+### Installation
+
+```bash
+# 1. Activate your Python environment first.
+conda activate starrygl_graph
+
+# 2. Make sure PyTorch and DGL are already installed in this environment.
+python - <<'PY'
+import torch
+import dgl
+print("torch:", torch.__version__)
+print("dgl:", dgl.__version__)
+PY
+
+# 3. Build native extensions with the active interpreter.
+cmake -S . -B build -DPython3_EXECUTABLE=$(which python)
+cmake --build build -j
+
+# 4. Install the package in editable mode.
+python -m pip install -e .
+
+# 5. Verify the CLI entry point.
+python -m starry_unigraph -h
+```
+
+Before launching any config, update machine-specific dataset or checkpoint
+paths in `configs/*.yaml` if they still point to local absolute directories such
+as `/mnt/...`.
 
 ### DTDG example
 
