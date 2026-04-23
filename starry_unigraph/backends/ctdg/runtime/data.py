@@ -39,6 +39,8 @@ class CTDGDataBatch:
     dst: torch.Tensor
     ts: torch.Tensor
     edge_feat: torch.Tensor
+    src_node_feat: torch.Tensor | None = None
+    dst_node_feat: torch.Tensor | None = None
 
     @property
     def size(self) -> int:
@@ -90,6 +92,8 @@ class TGTemporalDataset:
         self.num_edges = int(raw.num_edges)
         self.edge_feat = raw.edge_feat.float()
         self.edge_feat_dim = int(self.edge_feat.size(-1))
+        self.node_temporal_features = raw.node_temporal_features
+        self.node_feat_dim = 0 if raw.node_temporal_features is None else raw.node_temporal_features.dim
         self._split_cache: dict[str, torch.Tensor] = {}
         self._sampler_cache: dict[str, dict[str, torch.Tensor]] = {}
         self.split_ratio = normalize_split_ratio(merged_config["data"].get("split_ratio"))
@@ -97,6 +101,7 @@ class TGTemporalDataset:
         self.edge_parts: torch.Tensor | None = None
         self.partition_rank: int = 0
         self.partition_world_size: int = 1
+        self._node_feat_history = self._build_node_feat_history()
 
     def configure_partition(
         self,
@@ -120,6 +125,39 @@ class TGTemporalDataset:
         self._split_cache[split] = event_ids
         return event_ids
 
+    def _build_node_feat_history(self) -> dict[int, tuple[torch.Tensor, torch.Tensor]]:
+        table = self.node_temporal_features
+        if table is None or table.size == 0 or table.dim == 0:
+            return {}
+        history: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
+        unique_nodes = torch.unique(table.node_ids, sorted=True)
+        for node_id in unique_nodes.tolist():
+            mask = table.node_ids == int(node_id)
+            ts = table.ts[mask].float()
+            vals = table.values[mask].float()
+            order = torch.argsort(ts, stable=True)
+            history[int(node_id)] = (ts[order], vals[order])
+        return history
+
+    def lookup_node_features(self, node_ids: torch.Tensor, ts: torch.Tensor) -> torch.Tensor | None:
+        if self.node_feat_dim <= 0 or not self._node_feat_history:
+            return None
+        out = torch.zeros(node_ids.numel(), self.node_feat_dim, dtype=torch.float32)
+        unique_nodes = torch.unique(node_ids.long(), sorted=True)
+        for node_id in unique_nodes.tolist():
+            history = self._node_feat_history.get(int(node_id))
+            if history is None:
+                continue
+            hist_ts, hist_vals = history
+            node_mask = node_ids.long() == int(node_id)
+            row_ids = torch.nonzero(node_mask, as_tuple=False).view(-1)
+            query_ts = ts[row_ids].float()
+            idx = torch.searchsorted(hist_ts, query_ts, right=True) - 1
+            valid = idx >= 0
+            if valid.any():
+                out[row_ids[valid]] = hist_vals[idx[valid]]
+        return out
+
     def iter_batches(self, split: str, batch_size: int) -> Iterator[CTDGDataBatch]:
         """Iterate over mini-batches for the given split.
 
@@ -140,14 +178,19 @@ class TGTemporalDataset:
             if self.partition_world_size > 1 and self.edge_parts is not None:
                 local_mask = self.edge_parts[event_ids] == self.partition_rank
                 event_ids = event_ids[local_mask]
+            batch_src = self.src[event_ids]
+            batch_dst = self.dst[event_ids]
+            batch_ts = self.ts[event_ids]
             yield CTDGDataBatch(
                 index=batch_index,
                 split=split,
                 event_ids=event_ids,
-                src=self.src[event_ids],
-                dst=self.dst[event_ids],
-                ts=self.ts[event_ids],
+                src=batch_src,
+                dst=batch_dst,
+                ts=batch_ts,
                 edge_feat=self.edge_feat[event_ids],
+                src_node_feat=self.lookup_node_features(batch_src, batch_ts),
+                dst_node_feat=self.lookup_node_features(batch_dst, batch_ts),
             )
 
     def sampler_graph(self, split: str) -> dict[str, torch.Tensor]:
@@ -192,4 +235,5 @@ class TGTemporalDataset:
             "num_nodes": self.num_nodes,
             "num_edges": self.num_edges,
             "edge_feat_dim": self.edge_feat_dim,
+            "node_feat_dim": self.node_feat_dim,
         }

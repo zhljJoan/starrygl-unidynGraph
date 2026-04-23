@@ -87,6 +87,8 @@ class BaseDTDGPreprocessor(GraphPreprocessor):
             "num_nodes": raw_dataset["num_nodes"],
             "num_edges": raw_dataset["num_edges"],
             "num_snapshots": raw_dataset["num_snapshots"],
+            "node_feat_dim": raw_dataset.get("node_feat_dim", 0),
+            "node_feature_source": raw_dataset.get("node_feature_source", "unknown"),
         }
 
     def build_partitions(self, session_ctx: SessionContext) -> None:
@@ -126,13 +128,14 @@ class BaseDTDGPreprocessor(GraphPreprocessor):
         return {
             "graph_mode": self.graph_mode,
             **partition_book.describe(),
-            "feature_dim": session_ctx.config["model"]["hidden_dim"],
+            "feature_dim": session_ctx.provider_state["raw_stats"].get("node_feat_dim", 0),
             "edge_feat_dim": 0,
             "label_dim": 1,
             "task_type": session_ctx.config["model"]["task"],
             "artifact_version": ARTIFACT_VERSION,
             "snapshot_route_plan": route_plan.describe(),
             "pipeline": "flare_native",
+            "node_feature_source": session_ctx.provider_state["raw_stats"].get("node_feature_source", "unknown"),
         }
 
 

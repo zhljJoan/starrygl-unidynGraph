@@ -96,6 +96,32 @@
 <span class="kn">import</span> <span class="nn">torch</span>
 
 
+<span class="n">NODE_FEATURE_FILE_CANDIDATES</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;node_temporal_features.csv&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;node_features.csv&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="NodeTemporalFeatureTable">
+<a class="viewcode-back" href="../../../api/python/starry_unigraph.data.raw_temporal.html#starry_unigraph.data.NodeTemporalFeatureTable">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">NodeTemporalFeatureTable</span><span class="p">:</span>
+    <span class="n">node_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">ts</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">values</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="n">feature_names</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="mi">0</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span></div>
+
+
+
 <div class="viewcode-block" id="RawTemporalEvents">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.data.raw_temporal.html#starry_unigraph.data.RawTemporalEvents">[docs]</a>
 <span class="nd">@dataclass</span>
@@ -107,7 +133,8 @@
     <span class="n">edge_feat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
     <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">num_edges</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span></div>
+    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">node_temporal_features</span><span class="p">:</span> <span class="n">NodeTemporalFeatureTable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
 
@@ -131,7 +158,114 @@
         <span class="k">return</span> <span class="kc">None</span>
     <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">u</span><span class="p">)),</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)),</span> <span class="nb">float</span><span class="p">(</span><span class="n">ts</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
 
-<span class="c1">#仅接口测试</span>
+
+<span class="k">def</span> <span class="nf">_node_feature_path</span><span class="p">(</span><span class="n">dataset_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">NODE_FEATURE_FILE_CANDIDATES</span><span class="p">:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">dataset_dir</span> <span class="o">/</span> <span class="n">name</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">path</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span> <span class="nf">_feature_columns</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">reserved</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="n">cols</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">reserved</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">is_numeric_dtype</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="n">col</span><span class="p">]):</span>
+            <span class="n">cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cols</span>
+
+
+<span class="k">def</span> <span class="nf">_load_node_temporal_features</span><span class="p">(</span><span class="n">dataset_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NodeTemporalFeatureTable</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">feat_path</span> <span class="o">=</span> <span class="n">_node_feature_path</span><span class="p">(</span><span class="n">dataset_dir</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">feat_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">feat_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">NodeTemporalFeatureTable</span><span class="p">(</span>
+            <span class="n">node_ids</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">),</span>
+            <span class="n">ts</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+            <span class="n">values</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+            <span class="n">feature_names</span><span class="o">=</span><span class="p">(),</span>
+            <span class="n">source</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">feat_path</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="n">node_col</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;node_id&quot;</span><span class="p">,</span> <span class="s2">&quot;node&quot;</span><span class="p">,</span> <span class="s2">&quot;id&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">node_col</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Node feature file </span><span class="si">{</span><span class="n">feat_path</span><span class="si">}</span><span class="s2"> must contain one of: node_id, node, id&quot;</span><span class="p">)</span>
+
+    <span class="n">ts_col</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;ts&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">feature_cols</span> <span class="o">=</span> <span class="n">_feature_columns</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">reserved</span><span class="o">=</span><span class="p">{</span><span class="n">node_col</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span> <span class="p">[</span><span class="n">ts_col</span><span class="p">]</span> <span class="k">if</span> <span class="n">ts_col</span> <span class="k">else</span> <span class="p">[]</span> <span class="p">)})</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">feature_cols</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Node feature file </span><span class="si">{</span><span class="n">feat_path</span><span class="si">}</span><span class="s2"> must contain at least one numeric feature column&quot;</span><span class="p">)</span>
+
+    <span class="n">node_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="n">node_col</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int64&quot;</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ts_col</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">node_ids</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="n">ts_col</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float32&quot;</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="n">feature_cols</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float32&quot;</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="n">order</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">stable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">node_ids</span> <span class="o">=</span> <span class="n">node_ids</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+    <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">NodeTemporalFeatureTable</span><span class="p">(</span>
+        <span class="n">node_ids</span><span class="o">=</span><span class="n">node_ids</span><span class="p">,</span>
+        <span class="n">ts</span><span class="o">=</span><span class="n">ts</span><span class="p">,</span>
+        <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+        <span class="n">feature_names</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">feature_cols</span><span class="p">),</span>
+        <span class="n">source</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">feat_path</span><span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_remap_node_temporal_features</span><span class="p">(</span>
+    <span class="n">table</span><span class="p">:</span> <span class="n">NodeTemporalFeatureTable</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">mapping</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NodeTemporalFeatureTable</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">table</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">table</span>
+
+    <span class="n">keep</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">remapped_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">node_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">node_ids</span><span class="o">.</span><span class="n">tolist</span><span class="p">()):</span>
+        <span class="n">mapped</span> <span class="o">=</span> <span class="n">mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">node_id</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">mapped</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">keep</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+        <span class="n">remapped_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mapped</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">keep</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">NodeTemporalFeatureTable</span><span class="p">(</span>
+            <span class="n">node_ids</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">),</span>
+            <span class="n">ts</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+            <span class="n">values</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">table</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+            <span class="n">feature_names</span><span class="o">=</span><span class="n">table</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="n">table</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">keep_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">keep</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">NodeTemporalFeatureTable</span><span class="p">(</span>
+        <span class="n">node_ids</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">remapped_ids</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">),</span>
+        <span class="n">ts</span><span class="o">=</span><span class="n">table</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="n">keep_t</span><span class="p">]</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+        <span class="n">values</span><span class="o">=</span><span class="n">table</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">keep_t</span><span class="p">]</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+        <span class="n">feature_names</span><span class="o">=</span><span class="n">table</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">table</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_node_feature_dim</span><span class="p">(</span><span class="n">table</span><span class="p">:</span> <span class="n">NodeTemporalFeatureTable</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">table</span><span class="o">.</span><span class="n">dim</span>
+
+
+<span class="k">def</span> <span class="nf">_node_feature_size</span><span class="p">(</span><span class="n">table</span><span class="p">:</span> <span class="n">NodeTemporalFeatureTable</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">table</span><span class="o">.</span><span class="n">size</span>
+
+
 <span class="k">def</span> <span class="nf">_mock_events</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">RawTemporalEvents</span><span class="p">:</span>
     <span class="n">snaps</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">_as_int</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;snaps&quot;</span><span class="p">),</span> <span class="mi">8</span><span class="p">))</span>
     <span class="n">event_count</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="n">snaps</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span>
@@ -161,6 +295,8 @@
     <span class="n">edges_path</span> <span class="o">=</span> <span class="n">dataset_dir</span> <span class="o">/</span> <span class="s2">&quot;edges.csv&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">edges_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
         <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">node_temporal_features</span> <span class="o">=</span> <span class="n">_load_node_temporal_features</span><span class="p">(</span><span class="n">dataset_dir</span><span class="p">)</span>
     <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">edges_path</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RawTemporalEvents</span><span class="p">(</span>
@@ -169,10 +305,12 @@
             <span class="n">ts</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
             <span class="n">weight</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
             <span class="n">edge_feat</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
-            <span class="n">num_nodes</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">num_nodes</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">_node_feature_size</span><span class="p">(</span><span class="n">node_temporal_features</span><span class="p">),</span> <span class="mi">0</span><span class="p">),</span>
             <span class="n">num_edges</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
             <span class="n">source</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">edges_path</span><span class="p">),</span>
+            <span class="n">node_temporal_features</span><span class="o">=</span><span class="n">node_temporal_features</span><span class="p">,</span>
         <span class="p">)</span>
+
     <span class="n">src</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="s2">&quot;src&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int64&quot;</span><span class="p">))</span>
     <span class="n">dst</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="s2">&quot;dst&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int64&quot;</span><span class="p">))</span>
     <span class="n">ts_col</span> <span class="o">=</span> <span class="s2">&quot;time&quot;</span> <span class="k">if</span> <span class="s2">&quot;time&quot;</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="p">(</span><span class="s2">&quot;ts&quot;</span> <span class="k">if</span> <span class="s2">&quot;ts&quot;</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
@@ -182,7 +320,11 @@
         <span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="n">weight_col</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float32&quot;</span><span class="p">))</span>
+
     <span class="n">num_nodes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()),</span> <span class="nb">int</span><span class="p">(</span><span class="n">dst</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">src</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">node_temporal_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">node_temporal_features</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">num_nodes</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">num_nodes</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">node_temporal_features</span><span class="o">.</span><span class="n">node_ids</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
     <span class="n">feat_path</span> <span class="o">=</span> <span class="n">dataset_dir</span> <span class="o">/</span> <span class="s2">&quot;edge_features.pt&quot;</span>
     <span class="k">if</span> <span class="n">feat_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
         <span class="n">edge_feat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">feat_path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
@@ -190,6 +332,7 @@
             <span class="n">edge_feat</span> <span class="o">=</span> <span class="n">edge_feat</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">edge_feat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">RawTemporalEvents</span><span class="p">(</span>
         <span class="n">src</span><span class="o">=</span><span class="n">src</span><span class="o">.</span><span class="n">long</span><span class="p">(),</span>
         <span class="n">dst</span><span class="o">=</span><span class="n">dst</span><span class="o">.</span><span class="n">long</span><span class="p">(),</span>
@@ -199,6 +342,7 @@
         <span class="n">num_nodes</span><span class="o">=</span><span class="n">num_nodes</span><span class="p">,</span>
         <span class="n">num_edges</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span>
         <span class="n">source</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">edges_path</span><span class="p">),</span>
+        <span class="n">node_temporal_features</span><span class="o">=</span><span class="n">node_temporal_features</span><span class="p">,</span>
     <span class="p">)</span>
 
 
@@ -211,6 +355,8 @@
     <span class="n">edge_path</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">candidates</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">exists</span><span class="p">()),</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">edge_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">node_temporal_features</span> <span class="o">=</span> <span class="n">_load_node_temporal_features</span><span class="p">(</span><span class="n">dataset_dir</span><span class="p">)</span>
     <span class="n">src</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">dst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">ts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -231,6 +377,7 @@
             <span class="n">weights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">src</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
+
     <span class="n">src_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
     <span class="n">dst_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">dst</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
     <span class="n">ts_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -240,10 +387,15 @@
     <span class="n">dst_t</span> <span class="o">=</span> <span class="n">dst_t</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
     <span class="n">ts_t</span> <span class="o">=</span> <span class="n">ts_t</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
     <span class="n">weight_t</span> <span class="o">=</span> <span class="n">weight_t</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
-    <span class="n">unique</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">src_t</span><span class="p">,</span> <span class="n">dst_t</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="nb">sorted</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">node_temporal_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">node_temporal_features</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">unique</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">src_t</span><span class="p">,</span> <span class="n">dst_t</span><span class="p">,</span> <span class="n">node_temporal_features</span><span class="o">.</span><span class="n">node_ids</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="nb">sorted</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">unique</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">src_t</span><span class="p">,</span> <span class="n">dst_t</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="nb">sorted</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">item</span><span class="p">()):</span> <span class="n">idx</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unique</span><span class="p">)}</span>
     <span class="n">src_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">item</span><span class="p">())]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">src_t</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
     <span class="n">dst_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">item</span><span class="p">())]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">dst_t</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+    <span class="n">node_temporal_features</span> <span class="o">=</span> <span class="n">_remap_node_temporal_features</span><span class="p">(</span><span class="n">node_temporal_features</span><span class="p">,</span> <span class="n">mapping</span><span class="p">)</span>
     <span class="n">edge_feat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">src_t</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">RawTemporalEvents</span><span class="p">(</span>
         <span class="n">src</span><span class="o">=</span><span class="n">src_t</span><span class="p">,</span>
@@ -254,6 +406,7 @@
         <span class="n">num_nodes</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">unique</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span>
         <span class="n">num_edges</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">src_t</span><span class="o">.</span><span class="n">numel</span><span class="p">()),</span>
         <span class="n">source</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">edge_path</span><span class="p">),</span>
+        <span class="n">node_temporal_features</span><span class="o">=</span><span class="n">node_temporal_features</span><span class="p">,</span>
     <span class="p">)</span>
 
 
@@ -285,11 +438,63 @@
     <span class="k">return</span> <span class="n">in_deg</span><span class="p">,</span> <span class="n">out_deg</span>
 
 
+<span class="k">def</span> <span class="nf">_snapshot_ranges</span><span class="p">(</span><span class="n">num_edges</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">snaps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+    <span class="n">per_snap</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">num_edges</span> <span class="o">+</span> <span class="n">snaps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">snaps</span><span class="p">)</span> <span class="k">if</span> <span class="n">num_edges</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">1</span>
+    <span class="n">ranges</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">snap_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">snaps</span><span class="p">):</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">snap_idx</span> <span class="o">*</span> <span class="n">per_snap</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">num_edges</span><span class="p">,</span> <span class="n">start</span> <span class="o">+</span> <span class="n">per_snap</span><span class="p">)</span>
+        <span class="n">ranges</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">ranges</span>
+
+
+<span class="k">def</span> <span class="nf">_snapshot_end_timestamps</span><span class="p">(</span><span class="n">events</span><span class="p">:</span> <span class="n">RawTemporalEvents</span><span class="p">,</span> <span class="n">snaps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="n">events</span><span class="o">.</span><span class="n">num_edges</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="mf">0.0</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">snaps</span><span class="p">)]</span>
+    <span class="n">ranges</span> <span class="o">=</span> <span class="n">_snapshot_ranges</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">num_edges</span><span class="p">),</span> <span class="n">snaps</span><span class="p">)</span>
+    <span class="n">end_ts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">last_ts</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="k">if</span> <span class="n">events</span><span class="o">.</span><span class="n">ts</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="n">prev_ts</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="k">if</span> <span class="n">events</span><span class="o">.</span><span class="n">ts</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="ow">in</span> <span class="n">ranges</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">:</span>
+            <span class="n">prev_ts</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="n">end</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+            <span class="n">end_ts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">prev_ts</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">end_ts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">prev_ts</span> <span class="k">if</span> <span class="n">end_ts</span> <span class="k">else</span> <span class="n">last_ts</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">end_ts</span>
+
+
+<span class="k">def</span> <span class="nf">_build_snapshot_node_features</span><span class="p">(</span>
+    <span class="n">events</span><span class="p">:</span> <span class="n">RawTemporalEvents</span><span class="p">,</span>
+    <span class="n">snaps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">events</span><span class="o">.</span><span class="n">node_temporal_features</span>
+    <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">table</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">table</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">end_ts</span> <span class="o">=</span> <span class="n">_snapshot_end_timestamps</span><span class="p">(</span><span class="n">events</span><span class="p">,</span> <span class="n">snaps</span><span class="p">)</span>
+    <span class="n">order</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">ts</span><span class="p">,</span> <span class="n">stable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">feat_node_ids</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">node_ids</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+    <span class="n">feat_ts</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+    <span class="n">feat_values</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+
+    <span class="n">current</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">table</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">snapshot_x</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">snapshot_end_ts</span> <span class="ow">in</span> <span class="n">end_ts</span><span class="p">:</span>
+        <span class="k">while</span> <span class="n">cursor</span> <span class="o">&lt;</span> <span class="n">feat_ts</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">float</span><span class="p">(</span><span class="n">feat_ts</span><span class="p">[</span><span class="n">cursor</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="n">snapshot_end_ts</span><span class="p">:</span>
+            <span class="n">current</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">feat_node_ids</span><span class="p">[</span><span class="n">cursor</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())]</span> <span class="o">=</span> <span class="n">feat_values</span><span class="p">[</span><span class="n">cursor</span><span class="p">]</span>
+            <span class="n">cursor</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">snapshot_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">clone</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">snapshot_x</span>
+
+
 <div class="viewcode-block" id="build_snapshot_dataset_from_events">
 <a class="viewcode-back" href="../../../api/python/starry_unigraph.data.raw_temporal.html#starry_unigraph.data.build_snapshot_dataset_from_events">[docs]</a>
 <span class="k">def</span> <span class="nf">build_snapshot_dataset_from_events</span><span class="p">(</span><span class="n">events</span><span class="p">:</span> <span class="n">RawTemporalEvents</span><span class="p">,</span> <span class="n">snaps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">input_x</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">input_y</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="n">snaps</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">snaps</span><span class="p">))</span>
     <span class="n">num_edges</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">num_edges</span><span class="p">)</span>
+    <span class="n">snapshot_features</span> <span class="o">=</span> <span class="n">input_x</span> <span class="k">if</span> <span class="n">input_x</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_build_snapshot_node_features</span><span class="p">(</span><span class="n">events</span><span class="p">,</span> <span class="n">snaps</span><span class="p">)</span>
     <span class="n">per_snap</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">num_edges</span> <span class="o">+</span> <span class="n">snaps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">snaps</span><span class="p">)</span> <span class="k">if</span> <span class="n">num_edges</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">1</span>
     <span class="n">dataset</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">snap_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">snaps</span><span class="p">):</span>
@@ -305,11 +510,15 @@
         <span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">in_deg</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">snap_idx</span> <span class="o">==</span> <span class="n">snaps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">labels</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">snapshot_features</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">node_x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">in_deg</span><span class="p">,</span> <span class="n">out_deg</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">node_x</span> <span class="o">=</span> <span class="n">snapshot_features</span><span class="p">[</span><span class="n">snap_idx</span><span class="p">]</span>
         <span class="n">dataset</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="p">{</span>
                 <span class="s2">&quot;edge_index&quot;</span><span class="p">:</span> <span class="n">edge_index</span><span class="p">,</span>
                 <span class="s2">&quot;edge_weight&quot;</span><span class="p">:</span> <span class="n">edge_weight</span><span class="p">,</span>
-                <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">in_deg</span><span class="p">,</span> <span class="n">out_deg</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">input_x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">input_x</span><span class="p">[</span><span class="n">snap_idx</span><span class="p">],</span>
+                <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">node_x</span><span class="p">,</span>
                 <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">labels</span> <span class="k">if</span> <span class="n">input_y</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">input_y</span><span class="p">[</span><span class="n">snap_idx</span><span class="p">],</span>
             <span class="p">}</span>
         <span class="p">)</span>
@@ -320,6 +529,12 @@
         <span class="s2">&quot;num_life_edges&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;edge_weight&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">numel</span><span class="p">())</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">dataset</span><span class="p">)),</span>
         <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="n">dataset</span><span class="p">,</span>
         <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">events</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
+        <span class="s2">&quot;node_feat_dim&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">dataset</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span> <span class="k">if</span> <span class="n">dataset</span> <span class="k">else</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;node_feature_source&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="s2">&quot;temporal_node_features&quot;</span>
+            <span class="k">if</span> <span class="n">events</span><span class="o">.</span><span class="n">node_temporal_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">events</span><span class="o">.</span><span class="n">node_temporal_features</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">snapshot_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="s2">&quot;degree_fallback&quot;</span>
+        <span class="p">),</span>
     <span class="p">}</span></div>
 
 </pre></div>
