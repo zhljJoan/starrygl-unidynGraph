@@ -96,17 +96,26 @@ StarryGL is built on research and system optimizations developed at Zhejiang
 University. If you use StarryGL or its methodologies in your research, please
 consider citing the core papers:
 
-**For DTDG and sliding-window optimizations (Flare backend):**
-
    Wenjie Huang, Rui Wang, Jing Cao, Tongya Zheng, Xinyu Wang, Mingli Song,
    Sai Wu, and Chun Chen. "FlareDTDG: Harnessing Temporal Recency for Scalable
    Discrete-Time Dynamic Graph Training." *Proceedings of the VLDB Endowment
-   (PVLDB)*, 2025.
+   (PVLDB)*, 2026.
 
-**For CTDG and event-driven optimizations (MemShare backend):**
 
    Longjiao Zhang, Rui Wang, Tongya Zheng, Ziqi Huang, Wenjie Huang, Xinyu
    Wang, Can Wang, Mingli Song, Sai Wu, and Shuibing He. "Effective and
    Efficient Distributed Temporal Graph Learning through Hotspot Memory
    Sharing." *Proceedings of the VLDB Endowment (PVLDB)*, 18(9): 3093-3105,
    2025. doi:10.14778/3746405.3746430.
+
+  Zhengzhao Feng, Rui Wang, Longjiao Zhang, Tongya Zheng, Ziqi Huang and Mingli Song.
+   "Efficient Dynamic Graphs Learning with Refined Batch Parallel Training." *Proceedings of the Thirty-Fourth International Joint Conference on Artificial Intelligence
+  Main Track*. Pages 2802-2810. https://doi.org/10.24963/ijcai.2025/312
+
+  Wenjie Huang, Tongya Zheng, Rui Wang, Tongtian Zhu, Bingde Hu and Shuibing He.
+  "Efficient Distributed Graph Neural Network Training With Source Chunking and Moving Aggregation." IEEE Transactions on Knowledge and Data Engineering. Pages 7090-7104.
+
+  Ziqi Huang, Tongya Zheng, Rui Wang, Longjiao Zhang, Wenjie Huang and Xinyu Wang.
+  "Quick Sense Temporal Graph Transformer with Effective Representation Augmentation." 2025 International Joint Conference on Neural Networks (IJCNN). https://doi.org/10.1109/IJCNN64981.2025.11227707
+
+

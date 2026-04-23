@@ -1,4 +1,4 @@
-StarryUniGraph Documentation
+StarryGL Documentation
 ============================
 
 This documentation set tracks the current StarryGL workflow for distributed
