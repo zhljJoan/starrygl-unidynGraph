@@ -1,371 +1,228 @@
 Protocol Reference
 ==================
 
-Protocols are abstract interfaces that enable composable training loops.
-They decouple task logic (edge prediction, node regression) from graph modes
-(CTDG, DTDG, Chunk) and model architectures.
-
-All protocols use Python's ``typing.Protocol`` for structural subtyping (duck typing).
+StarryGL currently exposes a small set of protocol-style interfaces used by the
+unified pipeline and by shared runtime components. These interfaces define the
+coordination boundaries between backend adapters, task logic, state handling,
+and model execution.
 
 Overview
 --------
 
-.. code-block:: text
+The main protocol definitions live in:
 
-    Training Loop (PipelineEngine)
-           │
-           ├─ GraphBackend    [iter_batches] ──→ Batch data
-           ├─ TaskAdapter     [compute_loss, metrics]
-           ├─ StateManager    [prepare, update state]
-           ├─ TemporalModel   [forward, compute_state_update]
-           └─ Task Head       [score predictions]
+- ``starry_unigraph.runtime.backend`` for ``GraphBackend`` and
+  ``StateManager``
+- ``starry_unigraph.registry.task_adapter`` for ``TaskAdapter``
+- ``starry_unigraph.models.base`` for ``TemporalModel``
+- ``starry_unigraph.data.feature_store`` for ``FeatureStore``
+- ``starry_unigraph.data.global_csr`` for ``GlobalCSR``
 
-Each protocol is independent and can be swapped:
-
-- Implement ``GraphBackend`` for a new graph mode
-- Implement ``TaskAdapter`` for a new task type
-- Implement ``TemporalModel`` for a new backbone
+In the current codebase, these protocols are primarily composed by
+``PipelineEngine`` in ``starry_unigraph.runtime.engine``.
 
 Core Protocols
 --------------
 
-``GraphBackend`` — Batch Iteration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``GraphBackend`` — Chunk Provider
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Abstracts data iteration across graph modes.
+``GraphBackend`` abstracts how an execution backend yields work items to the
+unified pipeline.
 
 .. code-block:: python
 
     class GraphBackend(Protocol):
-        """Unified interface for batching across all graph modes."""
-
-        def iter_batches(self, split: str, batch_size: int) -> Iterator[BatchData]:
-            """Yield batches for a split (train/val/test).
-
-            Args:
-                split: One of "train", "val", "test"
-                batch_size: Batch size
-
-            Yields:
-                BatchData objects with node_ids, edges, labels, etc.
-            """
+        def iter_batches(self, split: str, batch_size: int) -> Iterator[ChunkAtomic]:
             ...
 
         def reset(self) -> None:
-            """Reset internal state (e.g., current batch pointer)."""
             ...
 
-        def describe(self) -> str:
-            """Human-readable description (mode, dataset, partitions)."""
+        def describe(self) -> Dict[str, Any]:
             ...
 
-Implementations:
+Important detail: the current protocol yields ``ChunkAtomic`` objects, not
+fully materialized ``BatchData``. Task-specific sampling and batch
+materialization happen later inside ``PipelineEngine``.
 
-- ``CTDGGraphBackend`` — Wraps CTDGSession, yields event batches
-- ``FlareGraphBackend`` — Wraps FlareRuntimeLoader, yields snapshot batches
-- ``ChunkGraphBackend`` — Wraps ChunkRuntimeLoader, yields chunk batches
+Current adapters:
 
-``TaskAdapter`` — Task-Specific Logic
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- ``CTDGGraphBackend`` in ``runtime/backend_adapters.py``
+- ``FlareGraphBackend`` in ``runtime/backend_adapters.py``
+- ``ChunkGraphBackend`` in ``runtime/backend_adapters.py``
 
-Encapsulates task-specific computations (loss, metrics, sampling).
+These adapters wrap existing runtimes and convert their outputs into
+``ChunkAtomic`` work units for the unified path.
+
+``TaskAdapter`` — Task Logic + Sampling Request
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``TaskAdapter`` encapsulates task-specific sampling intent, loss computation,
+metric computation, and output formatting.
 
 .. code-block:: python
 
     class TaskAdapter(Protocol):
-        """Task-specific logic (loss, metrics, output formatting)."""
-
-        def build_sample_config(self) -> SampleConfig:
-            """Create sampling config for this task.
-
-            Returns:
-                SampleConfig with num_neighbors, time_window, etc.
-            """
+        def build_sample_config(
+            self,
+            chunk: Any,
+            model: Any,
+            split: str,
+        ) -> SampleConfig:
             ...
 
         def compute_loss(
-            self, model_output: Tensor, batch: BatchData
+            self,
+            model_output: Dict[str, Tensor],
+            batch: BatchData,
         ) -> Tensor:
-            """Compute loss for this task.
-
-            Args:
-                model_output: Predictions from model
-                batch: Input batch with labels
-
-            Returns:
-                Scalar loss tensor
-            """
             ...
 
         def compute_metrics(
-            self, model_output: Tensor, batch: BatchData
+            self,
+            model_output: Dict[str, Tensor],
+            batch: BatchData,
         ) -> Dict[str, float]:
-            """Compute evaluation metrics.
-
-            Returns:
-                Dict of metric names to values (e.g., "auc": 0.95)
-            """
             ...
 
-        def format_output(self, model_output: Tensor) -> Dict[str, Tensor]:
-            """Format predictions for external use.
-
-            Returns:
-                Dict with task-specific keys (e.g., "scores" for edge tasks)
-            """
+        def format_output(
+            self,
+            model_output: Dict[str, Tensor],
+            batch: BatchData,
+        ) -> Dict[str, Any]:
             ...
 
-Implementations:
+The current protocol is defined in ``registry/task_adapter.py`` together with
+``SampleConfig`` and companion task-facing batch definitions. The unified
+engine imports the matching concrete batch container from ``data/batch_data.py``.
 
-- ``EdgePredictAdapter`` — Link prediction (BCE loss, AUC/AP metrics)
-- ``NodeRegressAdapter`` — Node regression (MSE loss, MAE/RMSE metrics)
-- ``NodeClassifyAdapter`` — Node classification (cross-entropy, accuracy)
+``StateManager`` — Iteration State Hook
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``StateManager`` — Stateful Model Updates
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Manages RNN/LSTM state across time steps or snapshots.
+``StateManager`` handles state preparation before model execution and state
+update after model execution.
 
 .. code-block:: python
 
     class StateManager(Protocol):
-        """Manages node state (memory, RNN hidden, LSTM hidden+cell)."""
-
         def prepare(
-            self, node_ids: Tensor, timestamps: Tensor | None = None
-        ) -> Dict[int, Tensor]:
-            """Initialize state for nodes and time point.
-
-            Args:
-                node_ids: [B] node IDs
-                timestamps: [B] optional time values
-
-            Returns:
-                Dict mapping node_id → state tensor(s)
-            """
+            self,
+            node_ids: Tensor,
+            timestamps: Optional[Tensor] = None,
+        ) -> Dict[str, Any]:
             ...
 
         def update(
-            self, node_ids: Tensor, output: Tensor, chunk_id: int | None = None
+            self,
+            model_output: Dict[str, Tensor],
+            chunk: ChunkAtomic,
         ) -> None:
-            """Update state after model produces output.
-
-            Args:
-                node_ids: [B] nodes updated
-                output: [B, D] model output / new state
-                chunk_id: Optional chunk ID for chunked processing
-            """
             ...
 
         def reset(self) -> None:
-            """Clear all state (e.g., between epochs)."""
             ...
 
-        def describe(self) -> str:
-            """Human-readable state description."""
+        def describe(self) -> Dict[str, Any]:
             ...
 
-Implementations:
+The default unified-pipeline integration currently uses
+``DummyStateManager`` from ``runtime/backend_adapters.py``. Backend-specific
+state systems continue to exist alongside this shared abstraction.
 
-- ``DummyStateManager`` — No-op state (for stateless tasks)
-- ``CTDGMemoryManager`` — GRU-based memory bank (CTDG)
-- ``RNNStateManager`` — Per-node RNN state (DTDG/Chunk)
+``TemporalModel`` — Embedding/State Core
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``TemporalModel`` — Forward & State Update
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Core model inference interface.
+The model-side protocol is narrower than the task-facing model wrapper. It
+describes the temporal backbone that consumes a message-flow graph plus state.
 
 .. code-block:: python
 
     class TemporalModel(Protocol):
-        """Temporal GNN model with optional state."""
-
         def forward(
             self,
-            batch: BatchData,
-            state: Dict[int, Tensor] | None = None,
+            mfg: Any,
+            state: Dict[str, Tensor],
         ) -> Tensor:
-            """Forward pass on batch.
-
-            Args:
-                batch: BatchData with node_ids, edges, etc.
-                state: Optional per-node state from StateManager
-
-            Returns:
-                [B, output_dim] predictions or embeddings
-            """
             ...
 
         def compute_state_update(
-            self, batch: BatchData, output: Tensor
-        ) -> Dict[int, Tensor] | None:
-            """Compute new state from output.
-
-            Optional: return None if stateless.
-
-            Returns:
-                Dict node_id → new state, or None
-            """
+            self,
+            embeddings: Tensor,
+            batch: BatchData,
+        ) -> Dict[str, Tensor]:
             ...
 
-Implementations:
+In contrast, ``PipelineEngine`` currently calls ``model.predict(state, batch)``
+on the concrete wrapped model object it is given. So the ``TemporalModel``
+protocol should be read as the backbone-level contract, not as a literal
+description of the engine's current top-level call site.
 
-- Any PyTorch ``nn.Module`` with compatible forward() signature
-- Can use task heads (EdgePredictHead, NodeRegressHead, NodeClassifyHead)
-- Can combine backbone (GCNStack, TemporalTransformerConv) + head
+Shared Data Access Protocols
+----------------------------
 
 ``FeatureStore`` — Feature Access
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-See :doc:`data_layer` for full reference.
+``FeatureStore`` lives in ``starry_unigraph.data.feature_store``:
 
 .. code-block:: python
 
     class FeatureStore(Protocol):
-        """Node and edge feature storage."""
-
         def get_node_feat(self, node_ids: Tensor) -> Tensor:
-            """[N, F_node]"""
             ...
 
         def get_edge_feat(self, edge_ids: Tensor) -> Tensor:
-            """[E, F_edge]"""
             ...
 
         @property
-        def node_feat_dim(self) -> int: ...
+        def node_feat_dim(self) -> int:
+            ...
 
         @property
-        def edge_feat_dim(self) -> int: ...
+        def edge_feat_dim(self) -> int:
+            ...
 
-``GlobalCSR`` — Graph Structure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``GlobalCSR`` — Graph Structure Access
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-See :doc:`data_layer` for full reference.
+``GlobalCSR`` lives in ``starry_unigraph.data.global_csr``:
 
 .. code-block:: python
 
     class GlobalCSR(Protocol):
-        """CSR adjacency access."""
+        @property
+        def rowptr(self) -> Tensor:
+            ...
 
         @property
-        def rowptr(self) -> Tensor: ...
+        def col(self) -> Tensor:
+            ...
 
-        @property
-        def col(self) -> Tensor: ...
+        def neighbors(self, node_id: int) -> Tensor:
+            ...
 
-        def neighbors(self, node_id: int) -> Tensor: ...
+        def subgraph(self, node_ids: Tensor) -> "GlobalCSR":
+            ...
 
-        def subgraph(self, node_ids: Tensor) -> "GlobalCSR": ...
+Current Status
+--------------
 
-Example: Using Protocols in Custom Code
-----------------------------------------
+The protocol layer is useful for understanding the current architecture. In
+practice:
 
-**Implement a Custom Task**:
-
-.. code-block:: python
-
-    from starry_unigraph.registry.task_adapter import TaskAdapter
-    from starry_unigraph.data import BatchData, SampleConfig
-
-    class MyCustomTask(TaskAdapter):
-        """My task: node multi-label classification."""
-
-        def build_sample_config(self) -> SampleConfig:
-            return SampleConfig(
-                task_type="custom_multilabel",
-                num_hops=2,
-                num_neighbors=10
-            )
-
-        def compute_loss(self, model_output: Tensor, batch: BatchData) -> Tensor:
-            return F.binary_cross_entropy_with_logits(
-                model_output, batch.labels.float()
-            )
-
-        def compute_metrics(self, model_output: Tensor, batch: BatchData) -> Dict[str, float]:
-            pred = (torch.sigmoid(model_output) > 0.5).float()
-            acc = (pred == batch.labels).float().mean().item()
-            return {"accuracy": acc}
-
-        def format_output(self, model_output: Tensor) -> Dict[str, Tensor]:
-            return {"logits": model_output, "probs": torch.sigmoid(model_output)}
-
-Register:
-
-.. code-block:: python
-
-    from starry_unigraph.registry import task_registry
-
-    task_registry.register("my_custom_task", MyCustomTask())
-
-Use in training:
-
-.. code-block:: python
-
-    task_adapter = task_registry.get("my_custom_task")
-    for batch in backend.iter_batches("train", batch_size=32):
-        output = model(batch)
-        loss = task_adapter.compute_loss(output, batch)
-        loss.backward()
-
-**Implement a Custom Backend**:
-
-.. code-block:: python
-
-    from starry_unigraph.runtime.backend import GraphBackend
-    from starry_unigraph.data import BatchData
-
-    class MyCustomBackend(GraphBackend):
-        """My graph mode: special edge streaming."""
-
-        def iter_batches(self, split: str, batch_size: int) -> Iterator[BatchData]:
-            for batch_edges in self.edge_stream.iter_batches(split, batch_size):
-                yield BatchData(
-                    edges=batch_edges,
-                    labels=...,
-                    timestamps=...,
-                    metadata={"split": split}
-                )
-
-        def reset(self) -> None:
-            self.edge_stream.reset()
-
-        def describe(self) -> str:
-            return f"MyCustomBackend(mode=streaming, edges={len(self.edges)})"
-
-Use in training:
-
-.. code-block:: python
-
-    backend = MyCustomBackend(config)
-    engine = PipelineEngine(backend, task_adapter, state_manager, model)
-    engine.run_epoch("train", batch_size=32)
-
-Protocol Hierarchy & Composition
----------------------------------
-
-.. code-block:: text
-
-    PipelineEngine
-        ├─ GraphBackend (iter_batches, reset, describe)
-        ├─ TaskAdapter (build_sample_config, compute_loss, etc.)
-        ├─ StateManager (prepare, update, reset)
-        ├─ TemporalModel (forward, compute_state_update)
-        │   └─ Backbone (GCNStack, TemporalTransformerConv)
-        │   └─ Task Head (EdgePredictHead, NodeRegressHead)
-        └─ Metrics (computed via TaskAdapter)
-
-Each layer is independent:
-
-- Multiple models can use the same GraphBackend
-- Multiple backends can use the same TaskAdapter
-- New components only need to satisfy the protocol
+- ``GraphBackend`` / ``StateManager`` / ``TaskAdapter`` are real protocol
+  surfaces used by ``PipelineEngine``.
+- ``PipelineEngine`` is the shared orchestration entry for this interface set.
+- The stable DTDG and CTDG training flows still rely heavily on their
+  backend-specific runtime stacks.
+- Some dataclasses exist in both ``data/`` and ``registry/task_adapter.py`` to
+  bridge the task-adapter layer and the runtime-facing batch containers.
 
 See Also
 --------
 
-- :doc:`unified_pipeline` — How protocols compose in PipelineEngine
-- :doc:`data_layer` — Data structures passed through protocols
-- Source: ``runtime/backend.py``, ``registry/task_adapter.py``, ``models/base.py``
+- :doc:`unified_pipeline` — How these interfaces are composed today
+- :doc:`data_layer` — Concrete containers referenced by the protocols
+- Source: ``runtime/backend.py``, ``runtime/backend_adapters.py``,
+  ``registry/task_adapter.py``, ``models/base.py``

@@ -17,7 +17,6 @@ matching pages under :doc:`../rel_0_1_1/training/index`.
    preprocess_layer
    protocols
    artifact_format
-   unified_pipeline
    model_modules
 
 Key Concepts

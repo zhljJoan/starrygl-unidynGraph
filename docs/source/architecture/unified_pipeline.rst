@@ -1,288 +1,177 @@
 Unified Training Pipeline
-==========================
+=========================
 
-The ``PipelineEngine`` orchestrates training by composing protocols:
-GraphBackend (data), TaskAdapter (loss), StateManager (state), and TemporalModel (forward).
+The unified pipeline is an experimental refactoring path that tries to express
+CTDG, DTDG, and Chunk execution through the same high-level loop. The core
+entry points are:
 
-This enables all 9 combinations of graph mode × task type without mode-specific branching.
+- ``starry_unigraph.runtime.engine.PipelineEngine``
+- ``starry_unigraph.runtime.backend`` protocol definitions
+- ``starry_unigraph.runtime.backend_adapters`` runtime adapters
+- ``starry_unigraph.session.SchedulerSession.build_pipeline_engine()``
 
-Architecture
+This path exists in the current codebase and is usable, but it is still more
+prototype-like than the backend-native runtime flows.
+
+Current Flow
 ------------
+
+At a high level, the current engine composes the following pieces:
 
 .. code-block:: text
 
-    PipelineEngine
-    ├─ GraphBackend.iter_batches()  ──→ BatchData
-    │  └─ (CTDG/DTDG/Chunk-specific)
-    │
-    ├─ BatchData ──→ materialize()
-    │  └─ task_adapter.build_sample_config()
-    │
-    ├─ TemporalModel.forward(batch)  ──→ output
-    │  └─ (any PyTorch model)
-    │
-    ├─ TaskAdapter.compute_loss()  ──→ loss
-    │  └─ (task-specific)
-    │
-    ├─ TaskAdapter.compute_metrics()  ──→ metrics
-    │  └─ (AUC, RMSE, accuracy, etc.)
-    │
-    ├─ StateManager.prepare()  ──→ state
-    │
-    └─ StateManager.update()  ──→ state
+    GraphBackend.iter_batches()
+        -> ChunkAtomic
+        -> TaskAdapter.build_sample_config()
+        -> PipelineEngine._materialize_batch()
+        -> BatchData
+        -> StateManager.prepare()
+        -> model.predict(state, batch)
+        -> TaskAdapter.compute_loss() / compute_metrics()
+        -> StateManager.update(model_output, chunk)
 
-Complete Training Loop
-~~~~~~~~~~~~~~~~~~~~~~
+Two details matter for understanding the real implementation:
 
-.. code-block:: python
+- ``GraphBackend`` currently yields ``ChunkAtomic`` objects, not final
+  ``BatchData``.
+- ``PipelineEngine._materialize_batch()`` is currently a placeholder that builds
+  a minimal ``BatchData`` from the chunk and sample config.
 
-    engine = PipelineEngine(
-        backend=backend,           # GraphBackend implementation
-        task_adapter=adapter,      # TaskAdapter implementation
-        state_manager=state_mgr,   # StateManager implementation
-        model=model,               # TemporalModel (nn.Module)
-    )
+``PipelineEngine`` in ``runtime/engine.py``
+-------------------------------------------
 
-    # Full epoch
-    losses, metrics = engine.run_epoch("train", batch_size=32)
-
-    # Per-batch control
-    for batch_idx, batch in enumerate(engine.iter_batches_with_step("train", batch_size=32)):
-        loss = batch["loss"]
-        metrics = batch["metrics"]
-        # Custom processing...
-
-Implementation: ``runtime/engine.py``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The current class signature is:
 
 .. code-block:: python
 
     class PipelineEngine:
-        """Unified training loop across all graph modes and tasks."""
-
         def __init__(
             self,
             backend: GraphBackend,
-            task_adapter: TaskAdapter,
             state_manager: StateManager,
             model: nn.Module,
+            task_adapter: TaskAdapter,
+            device: str = "cpu",
         ):
-            self.backend = backend
-            self.task_adapter = task_adapter
-            self.state_manager = state_manager
-            self.model = model
+            ...
 
-        def run_epoch(self, split: str, batch_size: int) -> tuple[List[float], Dict[str, float]]:
-            """Run full epoch and return (losses, avg_metrics)."""
-            losses = []
-            metrics_accum = defaultdict(list)
-
-            for batch_idx, result in enumerate(self.iter_batches_with_step(split, batch_size)):
-                losses.append(result["loss"].item())
-                for metric_name, metric_val in result["metrics"].items():
-                    metrics_accum[metric_name].append(metric_val)
-
-            avg_metrics = {k: mean(v) for k, v in metrics_accum.items()}
-            return losses, avg_metrics
-
-        def iter_batches_with_step(self, split: str, batch_size: int):
-            """Yield per-batch results (loss, metrics)."""
-            for batch in self.backend.iter_batches(split, batch_size):
-                # Prepare state
-                state = self.state_manager.prepare(batch.node_ids, batch.timestamps)
-
-                # Forward pass
-                with torch.no_grad():
-                    output = self.model(batch, state=state)
-
-                # Loss and metrics
-                loss = self.task_adapter.compute_loss(output, batch)
-                metrics = self.task_adapter.compute_metrics(output, batch)
-
-                # Update state
-                state_update = getattr(self.model, 'compute_state_update', lambda *a: None)(batch, output)
-                if state_update:
-                    self.state_manager.update(batch.node_ids, state_update)
-
-                yield {
-                    "batch": batch,
-                    "output": output,
-                    "loss": loss,
-                    "metrics": metrics,
-                }
-
-Dispatch Flow
-~~~~~~~~~~~~~
-
-The dispatch happens **once** at initialization:
+Its main public methods are:
 
 .. code-block:: python
 
-    # Determine graph mode from config
-    graph_mode = config.data.get('graph_mode') or infer_from_model(config)
+    def run_epoch(
+        self,
+        split: str = "train",
+        batch_size: int = 64,
+    ) -> Dict[str, Any]:
+        ...
 
-    # Build backend
-    if graph_mode == "ctdg":
-        backend = CTDGGraphBackend(ctdg_session)
-    elif graph_mode == "dtdg":
-        backend = FlareGraphBackend(flare_loader)
-    elif graph_mode == "chunk":
-        backend = ChunkGraphBackend(chunk_loader)
+    def iter_batches_with_step(
+        self,
+        split: str = "train",
+        batch_size: int = 64,
+    ) -> Iterator[Dict[str, Any]]:
+        ...
 
-    # Get task adapter
-    task_adapter = task_registry.get(config.task.task_type)
-
-    # Build state manager
-    state_manager = RNNStateManager() or DummyStateManager()
-
-    # Create engine (no more mode-specific branching!)
-    engine = PipelineEngine(backend, task_adapter, state_manager, model)
-    engine.run_epoch("train", batch_size=32)
-
-Design Benefits
-~~~~~~~~~~~~~~~
-
-1. **No Mode-Specific Code in Training Loop**
-
-   - Before: If/else branches for CTDG/DTDG/Chunk in train_epoch()
-   - After: Single generic run_epoch() works for all modes
-
-2. **Composable Components**
-
-   - Swap backends: CTDG → DTDG without changing loop
-   - Swap tasks: EdgePredict → NodeRegress without changing loop
-   - Swap models: TGN → MPNN without changing loop
-
-3. **Extensibility**
-
-   - New graph mode? Implement GraphBackend protocol
-   - New task? Implement TaskAdapter protocol
-   - New state manager? Implement StateManager protocol
-   - No changes to PipelineEngine
-
-4. **Testability**
-
-   - Use DummyGraphBackend, DummyStateManager for unit tests
-   - Mock any protocol for isolation testing
-
-Example: Custom Training Loop
------------------------------
-
-For research, you can extend PipelineEngine or use iter_batches_with_step():
+``run_epoch()`` currently returns a dictionary with epoch-level summary data:
 
 .. code-block:: python
 
-    engine = PipelineEngine(backend, task_adapter, state_manager, model)
+    {
+        "split": split,
+        "loss": avg_loss,
+        "num_batches": len(outputs),
+        "metrics": avg_metrics,
+        "outputs": outputs,
+    }
 
-    for batch_idx, result in enumerate(engine.iter_batches_with_step("train", batch_size=32)):
-        loss = result["loss"]
-        output = result["output"]
-        batch = result["batch"]
-        metrics = result["metrics"]
-
-        # Custom gradient accumulation
-        loss.backward()
-        if (batch_idx + 1) % accumulation_steps == 0:
-            optimizer.step()
-            optimizer.zero_grad()
-
-        # Custom logging
-        if batch_idx % 100 == 0:
-            print(f"Batch {batch_idx}: loss={loss:.4f}, {metrics}")
-
-Integration with SchedulerSession
-----------------------------------
-
-The unified entry point (SchedulerSession) builds PipelineEngine:
+``iter_batches_with_step()`` yields per-step dictionaries:
 
 .. code-block:: python
 
-    class SchedulerSession:
-        """Unified training orchestrator."""
+    {
+        "loss": float | None,
+        "metrics": Dict[str, float],
+        "batch_idx": int,
+        "output": Dict[str, Any],
+    }
 
-        def build_pipeline_engine(self, model: nn.Module) -> PipelineEngine:
-            """Build PipelineEngine from prepared artifacts.
+Mode Adapters
+-------------
 
-            Args:
-                model: TemporalModel instance
+The current unified path adapts existing runtimes rather than replacing them.
 
-            Returns:
-                PipelineEngine ready for run_epoch()
-            """
-            # Dispatch based on graph_mode
-            backend = self._build_backend()  # Returns GraphBackend
-            adapter = task_registry.get(self.config.task.task_type)
-            state_mgr = self._build_state_manager()
+``CTDGGraphBackend``
+~~~~~~~~~~~~~~~~~~~~
 
-            return PipelineEngine(backend, adapter, state_mgr, model)
+- wraps ``CTDGSession``
+- uses ``iter_train()`` / ``iter_eval()``
+- converts runtime batches into placeholder ``ChunkAtomic`` objects
 
-        def run_epoch(self, split, batch_size, model):
-            """High-level epoch runner."""
-            engine = self.build_pipeline_engine(model)
-            losses, metrics = engine.run_epoch(split, batch_size)
-            return losses, metrics
+``FlareGraphBackend``
+~~~~~~~~~~~~~~~~~~~~~
+
+- wraps ``FlareRuntimeLoader``
+- uses ``iter_train()`` / ``iter_eval()``
+- converts ``STGraphBlob`` windows into placeholder ``ChunkAtomic`` objects
+
+``ChunkGraphBackend``
+~~~~~~~~~~~~~~~~~~~~~
+
+- wraps ``ChunkRuntimeLoader``
+- forwards chunk iterators directly
+
+This means the unified pipeline currently sits on top of the existing backend
+implementations instead of replacing their internal loaders and samplers.
+
+Integration with ``SchedulerSession``
+-------------------------------------
+
+``SchedulerSession.build_pipeline_engine()`` is the session-level hook that
+builds the optional unified engine after artifact loading.
+
+At a high level, it:
+
+1. loads prepared artifacts if needed
+2. detects ``graph_mode`` from the prepared metadata
+3. constructs the matching backend adapter
+4. creates a placeholder ``DummyStateManager``
+5. returns ``PipelineEngine(...)``
+
+This is separate from the stable backend-native train/eval/predict paths in
+``SchedulerSession.build_runtime()`` and the mode-specific helper functions.
 
 Usage Example
 -------------
 
-Complete training loop:
-
 .. code-block:: python
 
-    from starry_unigraph import SchedulerSession
-    from starry_unigraph.models import WrappedModel
+    from starry_unigraph.session import SchedulerSession
 
-    # Initialize
     session = SchedulerSession.from_config("config.yaml")
     session.prepare_data()
+    session.build_runtime()
 
-    # Build model
-    model = WrappedModel(
-        backbone=GCNStack(input_size=64, hidden_size=128),
-        head=EdgePredictHead(hidden_size=128, output_dim=1)
-    )
-    model = model.to("cuda:0")
+    engine = session.build_pipeline_engine(model=my_model)
+    epoch_result = engine.run_epoch(split="train", batch_size=32)
+    print(epoch_result["loss"], epoch_result["metrics"])
 
-    # Build engine
-    engine = session.build_pipeline_engine(model)
+Current Limitations
+-------------------
 
-    # Training loop
-    for epoch in range(num_epochs):
-        train_losses, train_metrics = engine.run_epoch("train", batch_size=32)
-        val_losses, val_metrics = engine.run_epoch("val", batch_size=128)
+- Batch materialization is still a placeholder in ``PipelineEngine``.
+- The default state manager is ``DummyStateManager``.
+- Backend adapters use minimal chunk conversion shims.
+- The production CTDG and DTDG runtimes remain the more complete execution
+  paths for real training.
 
-        print(f"Epoch {epoch}: train_loss={mean(train_losses):.4f}, "
-              f"val_metrics={val_metrics}")
-
-Multi-Mode Training Comparison
--------------------------------
-
-The same code works for all modes:
-
-.. code-block:: python
-
-    # CTDG (online)
-    config_ctdg = load_config("configs/ctdg.yaml")
-    session_ctdg = SchedulerSession.from_config(config_ctdg)
-    engine_ctdg = session_ctdg.build_pipeline_engine(model)
-
-    # DTDG (snapshot pipeline)
-    config_dtdg = load_config("configs/dtdg.yaml")
-    session_dtdg = SchedulerSession.from_config(config_dtdg)
-    engine_dtdg = session_dtdg.build_pipeline_engine(model)
-
-    # Chunk (experimental)
-    config_chunk = load_config("configs/chunk.yaml")
-    session_chunk = SchedulerSession.from_config(config_chunk)
-    engine_chunk = session_chunk.build_pipeline_engine(model)
-
-    # All three use identical training code!
-    for engine in [engine_ctdg, engine_dtdg, engine_chunk]:
-        losses, metrics = engine.run_epoch("train", batch_size=32)
+So this layer is best read as the current unification direction, not as the
+only stable runtime contract.
 
 See Also
 --------
 
-- :doc:`data_layer` — BatchData structure
-- :doc:`protocols` — All protocol interfaces
-- Source: ``runtime/engine.py``, ``session.py``, ``runtime/backend_adapters.py``
+- :doc:`protocols` — The interfaces composed by this engine
+- :doc:`data_layer` — ``ChunkAtomic``, ``BatchData``, and related containers
+- Source: ``runtime/engine.py``, ``runtime/backend.py``,
+  ``runtime/backend_adapters.py``, ``session.py``

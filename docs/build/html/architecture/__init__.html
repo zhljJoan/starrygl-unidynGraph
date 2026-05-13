@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Architecture &amp; Layer Reference &mdash; StarryUniGraph 0.1.0 documentation</title>
+  <title>Architecture &amp; Layer Reference &mdash; Starrygl 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -34,7 +34,7 @@
           
           
           <a href="../index.html" class="icon icon-home">
-            StarryUniGraph
+            Starrygl
           </a>
               <div class="version">
                 0.1.0
@@ -65,7 +65,6 @@
 <li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html">Unified Preprocessing Pipeline</a></li>
 <li class="toctree-l2"><a class="reference internal" href="protocols.html">Protocol Reference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="artifact_format.html">Artifact Format Reference</a></li>
-<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html">Unified Training Pipeline</a></li>
 <li class="toctree-l2"><a class="reference internal" href="model_modules.html">Reusable Model Modules</a></li>
 </ul>
 </li>
@@ -79,7 +78,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">StarryUniGraph</a>
+          <a href="../index.html">Starrygl</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -119,12 +118,9 @@ matching pages under <a class="reference internal" href="../rel_0_1_1/training/i
 </li>
 <li class="toctree-l1"><a class="reference internal" href="route_layer.html">Route Layer Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="route_layer.html#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="route_layer.html#core-concepts">Core Concepts</a></li>
-<li class="toctree-l2"><a class="reference internal" href="route_layer.html#routedata-unified-schema"><code class="docutils literal notranslate"><span class="pre">RouteData</span></code> — Unified Schema</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html#two-level-route-abstraction">Two-Level Route Abstraction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="route_layer.html#routedata-execution-exchange-metadata"><code class="docutils literal notranslate"><span class="pre">RouteData</span></code> — Execution Exchange Metadata</a></li>
 <li class="toctree-l2"><a class="reference internal" href="route_layer.html#mode-specific-usage">Mode-Specific Usage</a></li>
-<li class="toctree-l2"><a class="reference internal" href="route_layer.html#route-construction-pipeline">Route Construction Pipeline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="route_layer.html#implementation-details-all-to-all-exchange">Implementation Details: All-to-All Exchange</a></li>
-<li class="toctree-l2"><a class="reference internal" href="route_layer.html#comparing-dtdg-vs-ctdg-routing">Comparing DTDG vs CTDG Routing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="route_layer.html#see-also">See Also</a></li>
 </ul>
 </li>
@@ -141,8 +137,8 @@ matching pages under <a class="reference internal" href="../rel_0_1_1/training/i
 <li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocol Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="protocols.html#overview">Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="protocols.html#core-protocols">Core Protocols</a></li>
-<li class="toctree-l2"><a class="reference internal" href="protocols.html#example-using-protocols-in-custom-code">Example: Using Protocols in Custom Code</a></li>
-<li class="toctree-l2"><a class="reference internal" href="protocols.html#protocol-hierarchy-composition">Protocol Hierarchy &amp; Composition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#shared-data-access-protocols">Shared Data Access Protocols</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#current-status">Current Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="protocols.html#see-also">See Also</a></li>
 </ul>
 </li>
@@ -155,15 +151,6 @@ matching pages under <a class="reference internal" href="../rel_0_1_1/training/i
 <li class="toctree-l2"><a class="reference internal" href="artifact_format.html#loading-artifacts">Loading Artifacts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="artifact_format.html#serialization-notes">Serialization Notes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="artifact_format.html#see-also">See Also</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="unified_pipeline.html">Unified Training Pipeline</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#architecture">Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#example-custom-training-loop">Example: Custom Training Loop</a></li>
-<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#integration-with-schedulersession">Integration with SchedulerSession</a></li>
-<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#usage-example">Usage Example</a></li>
-<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#multi-mode-training-comparison">Multi-Mode Training Comparison</a></li>
-<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="model_modules.html">Reusable Model Modules</a><ul>

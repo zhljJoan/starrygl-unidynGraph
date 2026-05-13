@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, os.path.abspath("../.."))
 import starry_unigraph
 
-project = 'StarryUniGraph'
+project = 'Starrygl'
 copyright = '2023, StarryUniGraph Team'
 author = 'StarryUniGraph Team'
 

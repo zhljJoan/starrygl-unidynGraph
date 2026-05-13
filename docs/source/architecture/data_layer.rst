@@ -1,9 +1,9 @@
 Data Layer Reference
 ====================
 
-The data layer defines unified data structures that represent graph data uniformly
-across all three backends (CTDG, DTDG, Chunk). These structures form the contract
-between preprocessors and runtime modules.
+The data layer defines the main data structures exchanged between preprocessors
+and runtime modules. Some structures are shared across backends, while others
+are backend-specific artifacts such as DTDG ``PartitionData`` and ``RouteData``.
 
 Overview
 --------
@@ -11,21 +11,21 @@ Overview
 The data layer consists of:
 
 1. **Temporal Data Types** (raw, unpartitioned)
-   - ``RawTemporalEvents`` — event stream (timestamp, src, dst, features)
+   - ``RawTemporalEvents`` — event stream (src, dst, ts, weight, edge features)
    - Event loading and conversion utilities
 
 2. **Partitioned Data Types** (after graph partitioning)
    - ``PartitionData`` — per-partition snapshot dataset
    - ``RouteData`` — routing metadata for feature exchange
-   - ``TensorData`` — CSR-packed tensor lists for efficient storage
+   - ``TensorData`` — packed variable-length tensor lists
 
 3. **Unified Batch Types** (used by training loop)
-   - ``BatchData`` — unified batch container (all modes + tasks)
-   - ``SampleConfig`` — task-specific sampling parameters
+   - ``BatchData`` — batch structure used across unified-pipeline components
+   - ``SampleConfig`` — task-specific sampling request for batch materialization
 
 4. **Atomic/Chunked Units** (for chunk-based processing)
    - ``ChunkAtomic`` — time-slice × node-cluster atomic unit
-   - ``ChunkBuilder`` — time + node partitioning pipeline
+   - ``ChunkBuilder`` — experimental time + node partitioning pipeline
 
 5. **Feature Access Protocols**
    - ``FeatureStore`` — node/edge feature shard storage
@@ -38,31 +38,39 @@ Core Data Structures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Used by all training loops (PipelineEngine) to represent a single batch.
-Works identically for CTDG, DTDG, and Chunk modes.
+It is the intended shared batch container for the unified pipeline.
 
 .. code-block:: python
 
     @dataclass
     class BatchData:
         """Unified batch across all graph modes and tasks."""
-        node_ids: Tensor          # [B] node IDs (for supervised tasks)
-        edges: Tensor | None      # [2, E] edge pairs (for link prediction)
-        labels: Tensor | None     # [B, K] or [B] labels
-        timestamps: Tensor | None # [E] edge timestamps or [B] node times
-        metadata: Dict[str, Any]  # Mode/task-specific fields
+        mfg: Any
+        node_ids: Tensor
+        pos_src: Tensor | None = None
+        pos_dst: Tensor | None = None
+        neg_src: Tensor | None = None
+        neg_dst: Tensor | None = None
+        target_nodes: Tensor | None = None
+        labels: Tensor | None = None
+        timestamps: Tensor | None = None
+        chunk_id: tuple | None = None
+        local_node_mask: Tensor | None = None
+        remote_manifest: Dict[str, Any] | None = None
 
 Usage in training:
 
 .. code-block:: python
 
     batch = BatchData(
+        mfg=local_mfg,
         node_ids=torch.tensor([1, 5, 12]),
-        edges=torch.tensor([[1, 5], [2, 3]]),
-        labels=torch.tensor([[1], [0], [1]]),
+        pos_src=torch.tensor([1, 5]),
+        pos_dst=torch.tensor([2, 3]),
         timestamps=torch.tensor([100.5, 102.3]),
-        metadata={"split": "train"}
+        chunk_id=(0, 0),
     )
-    # Pass to model forward(), task adapter computes loss/metrics
+    # Pass to model.predict(), task adapter computes loss/metrics
 
 ``SampleConfig`` — Task-Specific Sampling Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -74,27 +82,35 @@ Encapsulates how a task samples neighbors/time windows before materialization.
     @dataclass
     class SampleConfig:
         """Task-specific sampling configuration."""
-        task_type: str            # "edge_predict", "node_regress", "node_classify"
-        num_hops: int | None      # Multi-hop neighborhoods
-        num_neighbors: int | None # Neighbor sampling limit
-        time_window: int | None   # Temporal lookback window (seconds)
-        neg_sample_ratio: float   # Negative sampling ratio (edge tasks)
+        pos_src: Tensor | None = None
+        pos_dst: Tensor | None = None
+        neg_strategy: str = "none"
+        neg_ratio: int = 1
+        target_nodes: Tensor | None = None
+        target_labels: Tensor | None = None
+        num_neighbors: List[int] = field(default_factory=lambda: [20, 10])
+        num_layers: int = 2
+        sample_type: str = "temporal"
+        extra: Dict[str, Any] = field(default_factory=dict)
 
-``TensorData`` — CSR-Packed Tensor Lists
+``TensorData`` — Packed Tensor Lists
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Efficient storage of sparse graph data:
+Efficient storage of per-snapshot variable-length tensors:
 
 .. code-block:: python
 
     @dataclass
     class TensorData:
-        """CSR-packed tensor list (efficient sparse representation)."""
-        rowptr: Tensor     # [N+1] row pointers
-        col: Tensor        # [E] column indices
-        weights: Tensor    # [E] edge weights (optional)
+        """Packed variable-length tensor list."""
+        ptr: List[int]     # [N+1] offsets into data
+        data: Tensor       # concatenated tensor payload
 
-Used for both node-to-neighbor CSR and time-series CSR (TCSR) in Chunk mode.
+Element ``i`` is stored as ``data[ptr[i]:ptr[i+1]]``. This is used by the
+current DTDG partition artifacts to pack per-snapshot node IDs, edge IDs,
+topology arrays, and feature tensors into a compact contiguous layout while
+still supporting cheap slicing and reconstruction via ``item()`` or
+``to_tensors()``.
 
 ``PartitionData`` — Per-Partition Snapshot Dataset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -105,26 +121,43 @@ Represents all snapshots for a single partition (DTDG):
 
     @dataclass
     class PartitionData:
-        """All snapshots for one partition of the graph."""
-        partition_id: int
-        node_map: Dict[int, int]        # Global → local node ID
-        snapshots: List[Dict[str, Tensor]] # Per-snapshot graph + features
-        routes: RouteData                  # Routing for cross-partition edges
+        """Packed DTDG partition artifact for one partition."""
+        src_ids: TensorData                # remote source node IDs per snapshot
+        dst_ids: TensorData                # local destination node IDs per snapshot
+        edge_ids: TensorData               # global edge IDs per snapshot
+        edge_src: TensorData               # source indices into [dst_ids, src_ids]
+        edge_dst: TensorData               # destination indices into dst_ids
+        node_data: Dict[str, TensorData]   # per-snapshot node features
+        edge_data: Dict[str, TensorData]   # per-snapshot edge features
+        routes: RouteData | None           # optional communication metadata
+
+The implementation in
+``starry_unigraph.data.partition.PartitionData`` stores one partition across
+all snapshots in packed ``TensorData`` fields instead of a
+``List[Dict[str, Tensor]]`` snapshot structure. It supports slicing by snapshot,
+device transfer, pinning, serialization, and round-tripping to DGL blocks via
+``to_blocks()`` and ``from_blocks()``.
 
 ``RouteData`` — Routing Metadata for Feature Exchange
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Describes how features are routed between partitions in distributed training:
+Describes the execution-facing route metadata stored for distributed training:
 
 .. code-block:: python
 
     @dataclass
     class RouteData:
         """Routing for distributed feature exchange."""
-        send_index: Tensor | None  # [dst_count] local → global ranks
-        recv_index: Tensor | None  # [src_count] which nodes to fetch from remote
-        send_count: List[int]      # How many nodes sent to each rank
-        recv_count: List[int]      # How many nodes received from each rank
+        send_sizes: List[List[int]]         # per-snapshot sends to each rank
+        recv_sizes: List[List[int]]         # per-snapshot recvs from each rank
+        send_index_ind: Tensor | None       # packed local indices gathered before send
+        send_index_ptr: List[int] | None    # per-snapshot pointers into send_index_ind
+
+This container matches the current DTDG partition artifacts. In the route-layer
+terminology, it stores the execution-side route metadata used for distributed
+feature exchange. It stores per-snapshot communication sizes together with a
+packed send-index array used to gather local GNN outputs before ``all_to_all``.
+There is no documented ``recv_index`` field in the current implementation.
 
 Feature Access Protocols
 ------------------------
@@ -162,7 +195,7 @@ Usage:
 .. code-block:: python
 
     node_feats = feature_store.get_node_feat(batch.node_ids)
-    edge_feats = feature_store.get_edge_feat(batch.edges.flatten())
+    edge_feats = feature_store.get_edge_feat(edge_ids)
 
 ``GlobalCSR`` — Full-Graph CSR Adjacency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -209,20 +242,17 @@ For Chunk mode (time + node partitioning):
 
     @dataclass
     class ChunkAtomic:
-        """Atomic unit: time-slice × node-cluster.
-
-        Three-level structure:
-        - L1: Local TCSR (time-compressed CSR for one cluster)
-        - L2: Cross-partition neighbors + edges to other clusters
-        - L3: Scheduling metadata (which GPUs, sync dependencies)
-        """
-        chunk_id: int
-        start_time: float
-        end_time: float
-        node_ids: Tensor
-        local_tcsr: TensorData
-        remote_edges: List[Tensor]
-        metadata: Dict[str, Any]
+        """Atomic unit: time-slice × node-cluster."""
+        chunk_id: Tuple[int, int]
+        time_range: Tuple[float, float]
+        node_set: Tensor
+        tcsr_rowptr: Tensor
+        tcsr_col: Tensor
+        tcsr_ts: Tensor
+        tcsr_edge_id: Tensor
+        cross_node_ids: Tensor
+        cross_node_home: Tensor
+        cross_edge_count: Tensor
 
 Raw Temporal Data: Loading and Conversion
 ------------------------------------------
@@ -235,22 +265,27 @@ Raw Temporal Data: Loading and Conversion
     @dataclass
     class RawTemporalEvents:
         """Immutable container for raw temporal events."""
-        timestamps: Tensor    # [E]
-        sources: Tensor       # [E]
-        destinations: Tensor  # [E]
-        features: Tensor      # [E, F]
+        src: Tensor
+        dst: Tensor
+        ts: Tensor
+        weight: Tensor
+        edge_feat: Tensor
+        num_nodes: int
+        num_edges: int
+        source: str
 
-Load from CSV:
+Load from dataset root:
 
 .. code-block:: python
 
     from starry_unigraph.data import load_raw_temporal_events
 
     events = load_raw_temporal_events(
-        csv_path="events.csv",
-        time_col=0, src_col=1, dst_col=2, feat_col=3
+        root="data",
+        dataset_name="wikitalk",
+        config=config,
     )
-    # events.timestamps [E], events.sources [E], etc.
+    # events.ts [E], events.src [E], events.dst [E]
 
 Snapshot Conversion:
 
@@ -260,10 +295,9 @@ Snapshot Conversion:
 
     snapshots = build_snapshot_dataset_from_events(
         events,
-        time_window=3600,  # 1-hour snapshots
-        max_nodes=10000
+        snaps=24,
     )
-    # List[Dict[str, Tensor]] — one dict per snapshot
+    # dict containing per-snapshot graph payloads and metadata
 
 Data Flow Example
 -----------------
@@ -274,32 +308,38 @@ Here's how data flows from raw → partitioned → training:
 
    .. code-block:: python
 
-       events = load_raw_temporal_events("data/events.csv")
+       events = load_raw_temporal_events(
+           root="data",
+           dataset_name="wikitalk",
+           config=config,
+       )
 
 2. **Preprocess & Partition** (via preprocessor):
 
    .. code-block:: python
 
-       preprocessor = CTDGPreprocessor(config)
-       artifacts = preprocessor.prepare_data(raw_events)
-       # artifacts contains: PartitionData list, RouteData, feature stores
+       session = SchedulerSession.from_config(config, dataset_path="data")
+       artifacts = session.prepare_data()
+       # artifacts is a PreparedArtifacts manifest with backend-specific payload dirs
 
-3. **Runtime Materializes Batches**:
-
-   .. code-block:: python
-
-       backend = CTDGGraphBackend(artifacts.partitions)
-       for batch in backend.iter_batches(split="train", batch_size=32):
-           # batch is BatchData
-           forward_out = model(batch)
-
-4. **Task Adapter Computes Loss**:
+3. **Runtime or Unified Pipeline Consumes Artifacts**:
 
    .. code-block:: python
 
-       adapter = task_registry.get("edge_predict")
-       loss = adapter.compute_loss(forward_out, batch)
-           metrics = adapter.compute_metrics(forward_out, batch)
+       runtime = session.build_runtime()              # stable backend-native path
+       engine = session.build_pipeline_engine(model)  # optional unified path
+
+4. **Unified Pipeline Materializes Batches**:
+
+   .. code-block:: python
+
+       for chunk in engine.backend.iter_batches(split="train", batch_size=32):
+           sample_config = engine.task_adapter.build_sample_config(
+               chunk=chunk,
+               model=engine.model,
+               split="train",
+           )
+           batch = engine._materialize_batch(chunk, sample_config)
 
 See Also
 --------

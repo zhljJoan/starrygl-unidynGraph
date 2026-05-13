@@ -132,9 +132,12 @@ class SchedulerSession:
                 world_size=self.ctx.dist.world_size,
                 config=self.ctx.config,
             )
-            partition_data = None  # TODO: get from chunk manifest for model init
             self.runtime = RuntimeBundle(state={"graph_mode": "chunk"})
-            init_flare_training(runtime=self.runtime, session_ctx=self.ctx, partition_data=partition_data, device=device)
+            self.runtime.model = self.snapshot_core.build_default_model(self.ctx.config)
+            self.runtime.optimizer = torch.optim.Adam(
+                self.runtime.model.parameters(),
+                lr=float(self.ctx.config.get("train", {}).get("lr", 1e-3)),
+            )
             self.runtime.state.update(
                 {
                     "chunk_manifest": self.snapshot_core.chunk_manifest,
@@ -293,7 +296,7 @@ class SchedulerSession:
             if split == "train":
                 self.current_epoch += 1
 
-            losses = [self.task_adapter.compute_loss(item) for item in outputs if "loss" in item]
+            losses = [float(item["loss"]) for item in outputs if "loss" in item]
             metric_accumulator: dict[str, list[float]] = {}
             for item in outputs:
                 metrics = item.get("meta", {}).get("metrics", {})

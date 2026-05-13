@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Layer Reference &mdash; StarryUniGraph 0.1.0 documentation</title>
+  <title>Data Layer Reference &mdash; Starrygl 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -34,7 +34,7 @@
           
           
           <a href="../index.html" class="icon icon-home">
-            StarryUniGraph
+            Starrygl
           </a>
               <div class="version">
                 0.1.0
@@ -65,7 +65,6 @@
 <li class="toctree-l2"><a class="reference internal" href="preprocess_layer.html">Unified Preprocessing Pipeline</a></li>
 <li class="toctree-l2"><a class="reference internal" href="protocols.html">Protocol Reference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="artifact_format.html">Artifact Format Reference</a></li>
-<li class="toctree-l2"><a class="reference internal" href="unified_pipeline.html">Unified Training Pipeline</a></li>
 <li class="toctree-l2"><a class="reference internal" href="model_modules.html">Reusable Model Modules</a></li>
 </ul>
 </li>
@@ -79,7 +78,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">StarryUniGraph</a>
+          <a href="../index.html">Starrygl</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -100,26 +99,26 @@
              
   <section id="data-layer-reference">
 <h1>Data Layer Reference<a class="headerlink" href="#data-layer-reference" title="Link to this heading"></a></h1>
-<p>The data layer defines unified data structures that represent graph data uniformly
-across all three backends (CTDG, DTDG, Chunk). These structures form the contract
-between preprocessors and runtime modules.</p>
+<p>The data layer defines the main data structures exchanged between preprocessors
+and runtime modules. Some structures are shared across backends, while others
+are backend-specific artifacts such as DTDG <code class="docutils literal notranslate"><span class="pre">PartitionData</span></code> and <code class="docutils literal notranslate"><span class="pre">RouteData</span></code>.</p>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
 <p>The data layer consists of:</p>
 <ol class="arabic simple">
 <li><p><strong>Temporal Data Types</strong> (raw, unpartitioned)
-- <code class="docutils literal notranslate"><span class="pre">RawTemporalEvents</span></code> — event stream (timestamp, src, dst, features)
+- <code class="docutils literal notranslate"><span class="pre">RawTemporalEvents</span></code> — event stream (src, dst, ts, weight, edge features)
 - Event loading and conversion utilities</p></li>
 <li><p><strong>Partitioned Data Types</strong> (after graph partitioning)
 - <code class="docutils literal notranslate"><span class="pre">PartitionData</span></code> — per-partition snapshot dataset
 - <code class="docutils literal notranslate"><span class="pre">RouteData</span></code> — routing metadata for feature exchange
-- <code class="docutils literal notranslate"><span class="pre">TensorData</span></code> — CSR-packed tensor lists for efficient storage</p></li>
+- <code class="docutils literal notranslate"><span class="pre">TensorData</span></code> — packed variable-length tensor lists</p></li>
 <li><p><strong>Unified Batch Types</strong> (used by training loop)
-- <code class="docutils literal notranslate"><span class="pre">BatchData</span></code> — unified batch container (all modes + tasks)
-- <code class="docutils literal notranslate"><span class="pre">SampleConfig</span></code> — task-specific sampling parameters</p></li>
+- <code class="docutils literal notranslate"><span class="pre">BatchData</span></code> — batch structure used across unified-pipeline components
+- <code class="docutils literal notranslate"><span class="pre">SampleConfig</span></code> — task-specific sampling request for batch materialization</p></li>
 <li><p><strong>Atomic/Chunked Units</strong> (for chunk-based processing)
 - <code class="docutils literal notranslate"><span class="pre">ChunkAtomic</span></code> — time-slice × node-cluster atomic unit
-- <code class="docutils literal notranslate"><span class="pre">ChunkBuilder</span></code> — time + node partitioning pipeline</p></li>
+- <code class="docutils literal notranslate"><span class="pre">ChunkBuilder</span></code> — experimental time + node partitioning pipeline</p></li>
 <li><p><strong>Feature Access Protocols</strong>
 - <code class="docutils literal notranslate"><span class="pre">FeatureStore</span></code> — node/edge feature shard storage
 - <code class="docutils literal notranslate"><span class="pre">GlobalCSR</span></code> — full-graph CSR adjacency access</p></li>
@@ -130,26 +129,34 @@ between preprocessors and runtime modules.</p>
 <section id="batchdata-unified-batch-container">
 <h3><code class="docutils literal notranslate"><span class="pre">BatchData</span></code> — Unified Batch Container<a class="headerlink" href="#batchdata-unified-batch-container" title="Link to this heading"></a></h3>
 <p>Used by all training loops (PipelineEngine) to represent a single batch.
-Works identically for CTDG, DTDG, and Chunk modes.</p>
+It is the intended shared batch container for the unified pipeline.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">BatchData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Unified batch across all graph modes and tasks.&quot;&quot;&quot;</span>
-    <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span>          <span class="c1"># [B] node IDs (for supervised tasks)</span>
-    <span class="n">edges</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span>      <span class="c1"># [2, E] edge pairs (for link prediction)</span>
-    <span class="n">labels</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span>     <span class="c1"># [B, K] or [B] labels</span>
-    <span class="n">timestamps</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="c1"># [E] edge timestamps or [B] node times</span>
-    <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>  <span class="c1"># Mode/task-specific fields</span>
+    <span class="n">mfg</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">pos_src</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">pos_dst</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">neg_src</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">neg_dst</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">target_nodes</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">labels</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">timestamps</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">chunk_id</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">local_node_mask</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">remote_manifest</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 </pre></div>
 </div>
 <p>Usage in training:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">batch</span> <span class="o">=</span> <span class="n">BatchData</span><span class="p">(</span>
+    <span class="n">mfg</span><span class="o">=</span><span class="n">local_mfg</span><span class="p">,</span>
     <span class="n">node_ids</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">12</span><span class="p">]),</span>
-    <span class="n">edges</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]]),</span>
-    <span class="n">labels</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">]]),</span>
+    <span class="n">pos_src</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">]),</span>
+    <span class="n">pos_dst</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]),</span>
     <span class="n">timestamps</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">100.5</span><span class="p">,</span> <span class="mf">102.3</span><span class="p">]),</span>
-    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="s2">&quot;train&quot;</span><span class="p">}</span>
+    <span class="n">chunk_id</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
 <span class="p">)</span>
-<span class="c1"># Pass to model forward(), task adapter computes loss/metrics</span>
+<span class="c1"># Pass to model.predict(), task adapter computes loss/metrics</span>
 </pre></div>
 </div>
 </section>
@@ -159,52 +166,75 @@ Works identically for CTDG, DTDG, and Chunk modes.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">SampleConfig</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Task-specific sampling configuration.&quot;&quot;&quot;</span>
-    <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># &quot;edge_predict&quot;, &quot;node_regress&quot;, &quot;node_classify&quot;</span>
-    <span class="n">num_hops</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>      <span class="c1"># Multi-hop neighborhoods</span>
-    <span class="n">num_neighbors</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="c1"># Neighbor sampling limit</span>
-    <span class="n">time_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>   <span class="c1"># Temporal lookback window (seconds)</span>
-    <span class="n">neg_sample_ratio</span><span class="p">:</span> <span class="nb">float</span>   <span class="c1"># Negative sampling ratio (edge tasks)</span>
+    <span class="n">pos_src</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">pos_dst</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">neg_strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+    <span class="n">neg_ratio</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">target_nodes</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">target_labels</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">num_neighbors</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">])</span>
+    <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">sample_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;temporal&quot;</span>
+    <span class="n">extra</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="tensordata-csr-packed-tensor-lists">
-<h3><code class="docutils literal notranslate"><span class="pre">TensorData</span></code> — CSR-Packed Tensor Lists<a class="headerlink" href="#tensordata-csr-packed-tensor-lists" title="Link to this heading"></a></h3>
-<p>Efficient storage of sparse graph data:</p>
+<section id="tensordata-packed-tensor-lists">
+<h3><code class="docutils literal notranslate"><span class="pre">TensorData</span></code> — Packed Tensor Lists<a class="headerlink" href="#tensordata-packed-tensor-lists" title="Link to this heading"></a></h3>
+<p>Efficient storage of per-snapshot variable-length tensors:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">TensorData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;CSR-packed tensor list (efficient sparse representation).&quot;&quot;&quot;</span>
-    <span class="n">rowptr</span><span class="p">:</span> <span class="n">Tensor</span>     <span class="c1"># [N+1] row pointers</span>
-    <span class="n">col</span><span class="p">:</span> <span class="n">Tensor</span>        <span class="c1"># [E] column indices</span>
-    <span class="n">weights</span><span class="p">:</span> <span class="n">Tensor</span>    <span class="c1"># [E] edge weights (optional)</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Packed variable-length tensor list.&quot;&quot;&quot;</span>
+    <span class="n">ptr</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>     <span class="c1"># [N+1] offsets into data</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">Tensor</span>       <span class="c1"># concatenated tensor payload</span>
 </pre></div>
 </div>
-<p>Used for both node-to-neighbor CSR and time-series CSR (TCSR) in Chunk mode.</p>
+<p>Element <code class="docutils literal notranslate"><span class="pre">i</span></code> is stored as <code class="docutils literal notranslate"><span class="pre">data[ptr[i]:ptr[i+1]]</span></code>. This is used by the
+current DTDG partition artifacts to pack per-snapshot node IDs, edge IDs,
+topology arrays, and feature tensors into a compact contiguous layout while
+still supporting cheap slicing and reconstruction via <code class="docutils literal notranslate"><span class="pre">item()</span></code> or
+<code class="docutils literal notranslate"><span class="pre">to_tensors()</span></code>.</p>
 </section>
 <section id="partitiondata-per-partition-snapshot-dataset">
 <h3><code class="docutils literal notranslate"><span class="pre">PartitionData</span></code> — Per-Partition Snapshot Dataset<a class="headerlink" href="#partitiondata-per-partition-snapshot-dataset" title="Link to this heading"></a></h3>
 <p>Represents all snapshots for a single partition (DTDG):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">PartitionData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;All snapshots for one partition of the graph.&quot;&quot;&quot;</span>
-    <span class="n">partition_id</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">node_map</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>        <span class="c1"># Global → local node ID</span>
-    <span class="n">snapshots</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="c1"># Per-snapshot graph + features</span>
-    <span class="n">routes</span><span class="p">:</span> <span class="n">RouteData</span>                  <span class="c1"># Routing for cross-partition edges</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Packed DTDG partition artifact for one partition.&quot;&quot;&quot;</span>
+    <span class="n">src_ids</span><span class="p">:</span> <span class="n">TensorData</span>                <span class="c1"># remote source node IDs per snapshot</span>
+    <span class="n">dst_ids</span><span class="p">:</span> <span class="n">TensorData</span>                <span class="c1"># local destination node IDs per snapshot</span>
+    <span class="n">edge_ids</span><span class="p">:</span> <span class="n">TensorData</span>               <span class="c1"># global edge IDs per snapshot</span>
+    <span class="n">edge_src</span><span class="p">:</span> <span class="n">TensorData</span>               <span class="c1"># source indices into [dst_ids, src_ids]</span>
+    <span class="n">edge_dst</span><span class="p">:</span> <span class="n">TensorData</span>               <span class="c1"># destination indices into dst_ids</span>
+    <span class="n">node_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TensorData</span><span class="p">]</span>   <span class="c1"># per-snapshot node features</span>
+    <span class="n">edge_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TensorData</span><span class="p">]</span>   <span class="c1"># per-snapshot edge features</span>
+    <span class="n">routes</span><span class="p">:</span> <span class="n">RouteData</span> <span class="o">|</span> <span class="kc">None</span>           <span class="c1"># optional communication metadata</span>
 </pre></div>
 </div>
+<p>The implementation in
+<code class="docutils literal notranslate"><span class="pre">starry_unigraph.data.partition.PartitionData</span></code> stores one partition across
+all snapshots in packed <code class="docutils literal notranslate"><span class="pre">TensorData</span></code> fields instead of a
+<code class="docutils literal notranslate"><span class="pre">List[Dict[str,</span> <span class="pre">Tensor]]</span></code> snapshot structure. It supports slicing by snapshot,
+device transfer, pinning, serialization, and round-tripping to DGL blocks via
+<code class="docutils literal notranslate"><span class="pre">to_blocks()</span></code> and <code class="docutils literal notranslate"><span class="pre">from_blocks()</span></code>.</p>
 </section>
 <section id="routedata-routing-metadata-for-feature-exchange">
 <h3><code class="docutils literal notranslate"><span class="pre">RouteData</span></code> — Routing Metadata for Feature Exchange<a class="headerlink" href="#routedata-routing-metadata-for-feature-exchange" title="Link to this heading"></a></h3>
-<p>Describes how features are routed between partitions in distributed training:</p>
+<p>Describes the execution-facing route metadata stored for distributed training:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">RouteData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Routing for distributed feature exchange.&quot;&quot;&quot;</span>
-    <span class="n">send_index</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span>  <span class="c1"># [dst_count] local → global ranks</span>
-    <span class="n">recv_index</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span>  <span class="c1"># [src_count] which nodes to fetch from remote</span>
-    <span class="n">send_count</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>      <span class="c1"># How many nodes sent to each rank</span>
-    <span class="n">recv_count</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>      <span class="c1"># How many nodes received from each rank</span>
+    <span class="n">send_sizes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>         <span class="c1"># per-snapshot sends to each rank</span>
+    <span class="n">recv_sizes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>         <span class="c1"># per-snapshot recvs from each rank</span>
+    <span class="n">send_index_ind</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span>       <span class="c1"># packed local indices gathered before send</span>
+    <span class="n">send_index_ptr</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>    <span class="c1"># per-snapshot pointers into send_index_ind</span>
 </pre></div>
 </div>
+<p>This container matches the current DTDG partition artifacts. In the route-layer
+terminology, it stores the execution-side route metadata used for distributed
+feature exchange. It stores per-snapshot communication sizes together with a
+packed send-index array used to gather local GNN outputs before <code class="docutils literal notranslate"><span class="pre">all_to_all</span></code>.
+There is no documented <code class="docutils literal notranslate"><span class="pre">recv_index</span></code> field in the current implementation.</p>
 </section>
 </section>
 <section id="feature-access-protocols">
@@ -236,7 +266,7 @@ Works identically for CTDG, DTDG, and Chunk modes.</p>
 </div>
 <p>Usage:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">node_feats</span> <span class="o">=</span> <span class="n">feature_store</span><span class="o">.</span><span class="n">get_node_feat</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">node_ids</span><span class="p">)</span>
-<span class="n">edge_feats</span> <span class="o">=</span> <span class="n">feature_store</span><span class="o">.</span><span class="n">get_edge_feat</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">edges</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="n">edge_feats</span> <span class="o">=</span> <span class="n">feature_store</span><span class="o">.</span><span class="n">get_edge_feat</span><span class="p">(</span><span class="n">edge_ids</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -278,20 +308,17 @@ Works identically for CTDG, DTDG, and Chunk modes.</p>
 <p>For Chunk mode (time + node partitioning):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ChunkAtomic</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Atomic unit: time-slice × node-cluster.</span>
-
-<span class="sd">    Three-level structure:</span>
-<span class="sd">    - L1: Local TCSR (time-compressed CSR for one cluster)</span>
-<span class="sd">    - L2: Cross-partition neighbors + edges to other clusters</span>
-<span class="sd">    - L3: Scheduling metadata (which GPUs, sync dependencies)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">chunk_id</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">start_time</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">end_time</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">node_ids</span><span class="p">:</span> <span class="n">Tensor</span>
-    <span class="n">local_tcsr</span><span class="p">:</span> <span class="n">TensorData</span>
-    <span class="n">remote_edges</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span>
-    <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Atomic unit: time-slice × node-cluster.&quot;&quot;&quot;</span>
+    <span class="n">chunk_id</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+    <span class="n">time_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+    <span class="n">node_set</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">tcsr_rowptr</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">tcsr_col</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">tcsr_ts</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">tcsr_edge_id</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">cross_node_ids</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">cross_node_home</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">cross_edge_count</span><span class="p">:</span> <span class="n">Tensor</span>
 </pre></div>
 </div>
 </section>
@@ -302,20 +329,25 @@ Works identically for CTDG, DTDG, and Chunk modes.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">RawTemporalEvents</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Immutable container for raw temporal events.&quot;&quot;&quot;</span>
-    <span class="n">timestamps</span><span class="p">:</span> <span class="n">Tensor</span>    <span class="c1"># [E]</span>
-    <span class="n">sources</span><span class="p">:</span> <span class="n">Tensor</span>       <span class="c1"># [E]</span>
-    <span class="n">destinations</span><span class="p">:</span> <span class="n">Tensor</span>  <span class="c1"># [E]</span>
-    <span class="n">features</span><span class="p">:</span> <span class="n">Tensor</span>      <span class="c1"># [E, F]</span>
+    <span class="n">src</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">dst</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">ts</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">weight</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">edge_feat</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">num_edges</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span>
 </pre></div>
 </div>
-<p>Load from CSV:</p>
+<p>Load from dataset root:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">starry_unigraph.data</span> <span class="kn">import</span> <span class="n">load_raw_temporal_events</span>
 
 <span class="n">events</span> <span class="o">=</span> <span class="n">load_raw_temporal_events</span><span class="p">(</span>
-    <span class="n">csv_path</span><span class="o">=</span><span class="s2">&quot;events.csv&quot;</span><span class="p">,</span>
-    <span class="n">time_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">src_col</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dst_col</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">feat_col</span><span class="o">=</span><span class="mi">3</span>
+    <span class="n">root</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+    <span class="n">dataset_name</span><span class="o">=</span><span class="s2">&quot;wikitalk&quot;</span><span class="p">,</span>
+    <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="c1"># events.timestamps [E], events.sources [E], etc.</span>
+<span class="c1"># events.ts [E], events.src [E], events.dst [E]</span>
 </pre></div>
 </div>
 <p>Snapshot Conversion:</p>
@@ -323,10 +355,9 @@ Works identically for CTDG, DTDG, and Chunk modes.</p>
 
 <span class="n">snapshots</span> <span class="o">=</span> <span class="n">build_snapshot_dataset_from_events</span><span class="p">(</span>
     <span class="n">events</span><span class="p">,</span>
-    <span class="n">time_window</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># 1-hour snapshots</span>
-    <span class="n">max_nodes</span><span class="o">=</span><span class="mi">10000</span>
+    <span class="n">snaps</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="c1"># List[Dict[str, Tensor]] — one dict per snapshot</span>
+<span class="c1"># dict containing per-snapshot graph payloads and metadata</span>
 </pre></div>
 </div>
 </section>
@@ -336,29 +367,35 @@ Works identically for CTDG, DTDG, and Chunk modes.</p>
 <p>Here’s how data flows from raw → partitioned → training:</p>
 <ol class="arabic">
 <li><p><strong>Load Raw Events</strong>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">events</span> <span class="o">=</span> <span class="n">load_raw_temporal_events</span><span class="p">(</span><span class="s2">&quot;data/events.csv&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">events</span> <span class="o">=</span> <span class="n">load_raw_temporal_events</span><span class="p">(</span>
+    <span class="n">root</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+    <span class="n">dataset_name</span><span class="o">=</span><span class="s2">&quot;wikitalk&quot;</span><span class="p">,</span>
+    <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </li>
 <li><p><strong>Preprocess &amp; Partition</strong> (via preprocessor):</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">preprocessor</span> <span class="o">=</span> <span class="n">CTDGPreprocessor</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<span class="n">artifacts</span> <span class="o">=</span> <span class="n">preprocessor</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">(</span><span class="n">raw_events</span><span class="p">)</span>
-<span class="c1"># artifacts contains: PartitionData list, RouteData, feature stores</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">session</span> <span class="o">=</span> <span class="n">SchedulerSession</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">dataset_path</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">)</span>
+<span class="n">artifacts</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">()</span>
+<span class="c1"># artifacts is a PreparedArtifacts manifest with backend-specific payload dirs</span>
 </pre></div>
 </div>
 </li>
-<li><p><strong>Runtime Materializes Batches</strong>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">backend</span> <span class="o">=</span> <span class="n">CTDGGraphBackend</span><span class="p">(</span><span class="n">artifacts</span><span class="o">.</span><span class="n">partitions</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">backend</span><span class="o">.</span><span class="n">iter_batches</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">):</span>
-    <span class="c1"># batch is BatchData</span>
-    <span class="n">forward_out</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+<li><p><strong>Runtime or Unified Pipeline Consumes Artifacts</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runtime</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">build_runtime</span><span class="p">()</span>              <span class="c1"># stable backend-native path</span>
+<span class="n">engine</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">build_pipeline_engine</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>  <span class="c1"># optional unified path</span>
 </pre></div>
 </div>
 </li>
-<li><p><strong>Task Adapter Computes Loss</strong>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">adapter</span> <span class="o">=</span> <span class="n">task_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;edge_predict&quot;</span><span class="p">)</span>
-<span class="n">loss</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span><span class="n">forward_out</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
-    <span class="n">metrics</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">compute_metrics</span><span class="p">(</span><span class="n">forward_out</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+<li><p><strong>Unified Pipeline Materializes Batches</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">engine</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">iter_batches</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">):</span>
+    <span class="n">sample_config</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">task_adapter</span><span class="o">.</span><span class="n">build_sample_config</span><span class="p">(</span>
+        <span class="n">chunk</span><span class="o">=</span><span class="n">chunk</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">engine</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">split</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">batch</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">_materialize_batch</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">sample_config</span><span class="p">)</span>
 </pre></div>
 </div>
 </li>

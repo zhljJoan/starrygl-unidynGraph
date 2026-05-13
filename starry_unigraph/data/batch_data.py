@@ -26,7 +26,8 @@ class BatchData:
     pos_dst: Optional[Tensor] = None    # [M_pos] Destination of positive edges
     neg_src: Optional[Tensor] = None    # [M_neg] Source of negative edges
     neg_dst: Optional[Tensor] = None    # [M_neg] Destination of negative edges
-
+    labels: Optional[Tensor] = None        # [M] Edge labels (for classification/regression)
+    
     # NodeRegress/Classify fields
     target_nodes: Optional[Tensor] = None  # [M] Node IDs with labels
     labels: Optional[Tensor] = None        # [M] Labels or regression values
@@ -35,7 +36,7 @@ class BatchData:
     timestamps: Optional[Tensor] = None    # [E] Edge timestamps in this batch
 
     # Metadata
-    chunk_id: Optional[tuple] = None       # (time_slice_id, node_cluster_id)
+    chunk_index: Optional[tuple] = None       # (time_slice_id, node_cluster_id)
     local_node_mask: Optional[Tensor] = None  # [N] Which nodes are local vs remote
 
     # For distributed sampling (optional)
