@@ -48,6 +48,7 @@ set(BTS_OUTPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/starry_unigraph/lib")
 
 add_library(libstarrygl_sampler MODULE
   "${BTS_SAMPLER_ROOT}/sampler/export.cpp"
+  "${BTS_SAMPLER_ROOT}/sampler/speed_partition.cpp"
 )
 
 target_include_directories(libstarrygl_sampler PRIVATE

@@ -4,12 +4,24 @@
 #include <output.h>
 #include <neighbors.h>
 #include <temporal_utils.h>
+#include <speed_partition.h>
 
 
 /*------------Python Bind--------------------------------------------------------------*/
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 {
     m
+    .def("speed_partition",
+        &speed_partition,
+        py::arg("src"),
+        py::arg("dst"),
+        py::arg("ts"),
+        py::arg("num_nodes"),
+        py::arg("num_parts"),
+        py::arg("beta") = 1.0,
+        py::arg("topk_ratio") = 0.01,
+        py::arg("topk_type") = "decay",
+        py::return_value_policy::move)
     .def("get_neighbors", 
         &get_neighbors, 
         py::return_value_policy::reference)    

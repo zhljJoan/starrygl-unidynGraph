@@ -11,6 +11,12 @@ data:
   name: rec-amazon-ratings
   format: auto
   graph_mode: dtdg
+  slice_config:
+    use_batch_split: false
+    num_windows: 200
+    window_size: 0
+    lags: 0
+    skip_time: 0
   split_ratio:
     train: 0.4
     val: 0.3

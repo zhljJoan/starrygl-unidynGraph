@@ -201,6 +201,104 @@ def greedy_rebalance(
     return assignment, manifest
 
 
+def _matrix_imbalance(partition_load: Tensor) -> float:
+    """Return the worst per-slice max/min ratio for a [P, T] load matrix."""
+
+    if partition_load.numel() == 0:
+        return 1.0
+    ratios: list[float] = []
+    for t in range(int(partition_load.size(1))):
+        loads = partition_load[:, t]
+        positive = loads[loads > 0]
+        if int(positive.numel()) < 2:
+            continue
+        ratios.append(float(positive.max().item() / max(float(positive.min().item()), 1e-9)))
+    return max(ratios) if ratios else 1.0
+
+
+def greedy_rebalance_by_slice(
+    assignment: ChunkAssignment,
+    chunk_load_by_slice: Tensor,
+    num_partitions: int,
+    max_imbalance_ratio: float = 1.2,
+    max_migrations: Optional[int] = None,
+) -> Tuple[ChunkAssignment, ChunkReassignmentManifest]:
+    """Greedy chunk reassignment using per-slice load vectors.
+
+    ``chunk_load_by_slice`` has shape [num_slices, num_chunks].  The algorithm
+    keeps a [num_partitions, num_slices] running load matrix and moves heavy
+    chunks to the partition that minimizes the worst per-slice peak load.
+    """
+
+    loads_tc = chunk_load_by_slice.float().cpu()
+    if loads_tc.dim() != 2:
+        raise ValueError("chunk_load_by_slice must have shape [num_slices, num_chunks]")
+    num_slices, num_chunks = int(loads_tc.size(0)), int(loads_tc.size(1))
+    if num_chunks != assignment.total_chunks:
+        raise ValueError("chunk_load_by_slice second dimension must equal assignment.total_chunks")
+
+    manifest = ChunkReassignmentManifest(
+        num_partitions=num_partitions,
+        num_chunks=assignment.total_chunks,
+    )
+    chunk_vectors = loads_tc.t().contiguous()  # [C, T]
+    partition_load = torch.zeros(num_partitions, num_slices, dtype=torch.float32)
+    for cid in range(assignment.total_chunks):
+        owner = int(assignment.chunk_to_owner_partition[cid])
+        partition_load[owner] += chunk_vectors[cid]
+
+    before_total = partition_load.sum(dim=1)
+    manifest.partition_loads_before = {p: float(before_total[p].item()) for p in range(num_partitions)}
+    manifest.imbalance_before = _matrix_imbalance(partition_load)
+
+    sorted_chunks = torch.argsort(chunk_vectors.sum(dim=1), descending=True).tolist()
+    migration_count = 0
+    for cid in sorted_chunks:
+        if max_migrations is not None and migration_count >= max_migrations:
+            break
+        if _matrix_imbalance(partition_load) <= max_imbalance_ratio:
+            break
+
+        chunk_vec = chunk_vectors[cid]
+        if float(chunk_vec.sum().item()) == 0.0:
+            continue
+        current_owner = int(assignment.chunk_to_owner_partition[cid])
+
+        current_score = float(partition_load.max(dim=0).values.max().item())
+        best_owner = current_owner
+        best_score = current_score
+        best_load = partition_load
+        for candidate in range(num_partitions):
+            if candidate == current_owner:
+                continue
+            trial = partition_load.clone()
+            trial[current_owner] -= chunk_vec
+            trial[candidate] += chunk_vec
+            score = float(trial.max(dim=0).values.max().item())
+            if score < best_score:
+                best_owner = candidate
+                best_score = score
+                best_load = trial
+
+        if best_owner != current_owner:
+            assignment.chunk_to_owner_partition[cid] = best_owner
+            partition_load = best_load
+            manifest.migrations.append(
+                ChunkMigration(
+                    chunk_id=int(cid),
+                    from_partition=current_owner,
+                    to_partition=best_owner,
+                    load=float(chunk_vec.sum().item()),
+                )
+            )
+            migration_count += 1
+
+    after_total = partition_load.sum(dim=1)
+    manifest.partition_loads_after = {p: float(after_total[p].item()) for p in range(num_partitions)}
+    manifest.imbalance_after = _matrix_imbalance(partition_load)
+    return assignment, manifest
+
+
 # ---------------------------------------------------------------------------
 # Final node_owner derivation
 # ---------------------------------------------------------------------------
@@ -229,6 +327,7 @@ def rebalance_chunks(
     num_partitions: int,
     max_imbalance_ratio: float = 1.2,
     max_migrations: Optional[int] = None,
+    chunk_load_by_slice: Optional[Tensor] = None,
 ) -> Tuple[ChunkAssignment, Tensor, ChunkReassignmentManifest]:
     """Full rebalancing pipeline: reassign chunks and derive node_owner.
 
@@ -248,12 +347,21 @@ def rebalance_chunks(
         - node_owner: [num_nodes] LongTensor, final partition per node
         - manifest: ChunkReassignmentManifest with migration log
     """
-    updated, manifest = greedy_rebalance(
-        assignment=assignment,
-        load_stats=load_stats,
-        num_partitions=num_partitions,
-        max_imbalance_ratio=max_imbalance_ratio,
-        max_migrations=max_migrations,
-    )
+    if chunk_load_by_slice is not None:
+        updated, manifest = greedy_rebalance_by_slice(
+            assignment=assignment,
+            chunk_load_by_slice=chunk_load_by_slice,
+            num_partitions=num_partitions,
+            max_imbalance_ratio=max_imbalance_ratio,
+            max_migrations=max_migrations,
+        )
+    else:
+        updated, manifest = greedy_rebalance(
+            assignment=assignment,
+            load_stats=load_stats,
+            num_partitions=num_partitions,
+            max_imbalance_ratio=max_imbalance_ratio,
+            max_migrations=max_migrations,
+        )
     node_owner = derive_node_owner(updated)
     return updated, node_owner, manifest

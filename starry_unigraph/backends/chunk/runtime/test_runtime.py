@@ -271,6 +271,42 @@ def test_chunk_loader_iter():
           f"desc={desc}")
 
 
+def test_chunk_loader_units():
+    """MemShare event unit path keeps native EventView payloads contiguous."""
+    part     = _make_part(num_snaps=4)
+    adapter  = get_task_adapter("edge_predict")
+    neg      = NegativeSamplerHook.from_config({})
+
+    loader = ChunkRuntimeLoader(
+        part_data      = part,
+        mem_routes     = [],
+        spatial_routes = [],
+        task_adapter   = adapter,
+        neg_sampler    = neg,
+        mfg_builder    = __import__(
+            "starry_unigraph.backends.chunk.runtime.sampler",
+            fromlist=["MFGBuilderHook"]
+        ).MFGBuilderHook.default(),
+        pipeline       = __import__(
+            "starry_unigraph.backends.chunk.data.comm",
+            fromlist=["CommPipeline"]
+        ).CommPipeline(device=torch.device("cpu")),
+        split_slices   = {"train": [0, 1], "val": [2], "test": [3]},
+        num_nodes      = 20,
+        rank           = 0,
+        world_size     = 1,
+        device         = torch.device("cpu"),
+    )
+
+    units = list(loader.iter_train_units())
+    assert len(units) == 2
+    assert units[0].mode == "ctdg"
+    assert units[0].payload.root_nodes.is_contiguous()
+    assert units[0].payload.temporal_index.indices.is_contiguous()
+    print(f"✓ ChunkRuntimeLoader units: train={len(units)}, "
+          f"payload={type(units[0].payload).__name__}")
+
+
 if __name__ == "__main__":
     test_prepare_pipeline()
     test_edge_predict_adapter()
@@ -279,4 +315,5 @@ if __name__ == "__main__":
     test_node_regress_adapter()
     test_prediction_head_and_run_batch()
     test_chunk_loader_iter()
+    test_chunk_loader_units()
     print("\n✅ 阶段8 全部测试通过!")

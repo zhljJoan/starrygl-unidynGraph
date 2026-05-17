@@ -201,3 +201,30 @@ def compute_chunk_load_stats_from_windows(
         aggregated[cid].compute_total_load()
 
     return aggregated
+
+
+def compute_chunk_load_by_slice(
+    window_edge_srcs: List[Tensor],
+    window_edge_dsts: List[Tensor],
+    node_to_chunk: Tensor,
+    chunk_to_owner_partition: Tensor,
+    node_to_partition: Tensor,
+) -> Tensor:
+    """Compute a dense [num_slices, num_chunks] chunk load matrix.
+
+    Each row is the composite load for one time slice, using the same scalar
+    load formula as :class:`ChunkLoadStats`.  The matrix is intended for
+    vector-aware chunk ownership assignment, where a chunk's load shape across
+    time matters instead of only its aggregate sum.
+    """
+
+    num_slices = len(window_edge_srcs)
+    num_chunks = int(chunk_to_owner_partition.numel())
+    load = torch.zeros(num_slices, num_chunks, dtype=torch.float32)
+    for t, (w_src, w_dst) in enumerate(zip(window_edge_srcs, window_edge_dsts)):
+        window_stats = compute_chunk_load_stats(
+            w_src, w_dst, node_to_chunk, chunk_to_owner_partition, node_to_partition
+        )
+        for cid, stat in window_stats.items():
+            load[t, cid] = float(stat.total_load)
+    return load

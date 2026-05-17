@@ -7,7 +7,7 @@ Tests:
 """
 
 import torch
-from starry_unigraph.backends.chunk.prepare import ChunkAssignment, build_chunk_assignment
+from starry_unigraph.backends.chunk.prepare import ChunkAssignment, build_chunk_assignment, prepare
 
 
 def test_build_chunk_assignment():
@@ -88,7 +88,70 @@ def test_chunk_rebalancing_placeholder():
     print(f"✓ Load stats stored and normalised: {len(rebalanced.chunk_load_stats)} chunks")
 
 
+def test_prepare_reuses_fixed_assignment():
+    """prepare() can reuse fixed chunk membership without rebuilding it."""
+    num_nodes = 24
+    num_partitions = 3
+    chunks_per_partition = 2
+    node_partition = torch.arange(num_nodes) % num_partitions
+    base = build_chunk_assignment(node_partition, num_chunks_per_partition=chunks_per_partition)
+    base_owner_before = base.chunk_to_owner_partition.clone()
+
+    edge_src = torch.tensor([0, 3, 6, 9, 12, 15, 18, 21])
+    edge_dst = torch.tensor([1, 4, 7, 10, 13, 16, 19, 22])
+
+    art = prepare(
+        edge_src=edge_src,
+        edge_dst=edge_dst,
+        assignment=base,
+        node_to_partition=node_partition,
+        num_partitions=num_partitions,
+        num_chunks_per_partition=chunks_per_partition,
+        max_migrations=0,
+    )
+
+    assert torch.equal(art.assignment.node_to_chunk, base.node_to_chunk)
+    assert art.assignment.chunk_to_nodes == base.chunk_to_nodes
+    assert torch.equal(base.chunk_to_owner_partition, base_owner_before)
+    assert art.node_owner.shape == (num_nodes,)
+
+    print("✓ prepare() reuses fixed ChunkAssignment without mutating input")
+
+
+def test_prepare_partition_strategies():
+    """prepare() supports the three chunk partition strategies."""
+    num_nodes = 36
+    num_partitions = 3
+    chunks_per_partition = 2
+    edge_src = torch.arange(60) % num_nodes
+    edge_dst = (torch.arange(60) * 5 + 1) % num_nodes
+    edge_ts = torch.arange(60, dtype=torch.float)
+    time_ptr = torch.tensor([0, 20, 40, 60])
+
+    for strategy in ("metis", "mem_share", "chunk_metis_balance"):
+        art = prepare(
+            edge_src=edge_src,
+            edge_dst=edge_dst,
+            edge_timestamps=edge_ts,
+            time_ptr=time_ptr,
+            num_nodes=num_nodes,
+            num_partitions=num_partitions,
+            num_chunks_per_partition=chunks_per_partition,
+            partition_strategy=strategy,
+            hot_topk=3,
+            max_migrations=1,
+        )
+        assert art.assignment.total_chunks == num_partitions * chunks_per_partition
+        assert art.assignment.node_to_chunk.shape == (num_nodes,)
+        assert art.node_owner.shape == (num_nodes,)
+        assert art.chunk_load_by_slice is not None
+        assert tuple(art.chunk_load_by_slice.shape) == (3, num_partitions * chunks_per_partition)
+    print("✓ prepare() supports metis, mem_share, and chunk_metis_balance strategies")
+
+
 if __name__ == "__main__":
     test_build_chunk_assignment()
     test_chunk_rebalancing_placeholder()
+    test_prepare_reuses_fixed_assignment()
+    test_prepare_partition_strategies()
     print("\n✅ All tests passed!")

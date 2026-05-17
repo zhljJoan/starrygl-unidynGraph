@@ -14,6 +14,8 @@ from typing import Any
 
 import torch
 
+from starry_unigraph.lib import load_bts_sampler_module
+
 
 SPEED_BINARY = Path.home() / "SPEED" / "partition" / "starrygl_partition"
 
@@ -152,18 +154,39 @@ def run_speed_partition(
         FileNotFoundError: If SPEED binary not found.
         RuntimeError: If SPEED execution fails.
     """
-    if not SPEED_BINARY.exists():
-        raise FileNotFoundError(
-            f"SPEED binary not found at {SPEED_BINARY}. "
-            f"Please build SPEED at ~/SPEED/partition/ or provide binary path."
-        )
-
-    # Extract SPEED parameters from config
     cfg = config or {}
     beta = float(cfg.get("ctdg", {}).get("speed_beta", SPEED_DEFAULTS["beta"]))
     topk_type = str(cfg.get("ctdg", {}).get("speed_topk_type", SPEED_DEFAULTS["topk_type"]))
     topk_ratio = float(cfg.get("ctdg", {}).get("speed_topk_ratio", SPEED_DEFAULTS["topk_ratio"]))
     reorder_type = str(cfg.get("ctdg", {}).get("speed_reorder_type", SPEED_DEFAULTS["reorder_type"]))
+
+    src, dst, ts = edges
+    try:
+        mod = load_bts_sampler_module()
+        if hasattr(mod, "speed_partition"):
+            result = mod.speed_partition(
+                src.long().cpu().contiguous(),
+                dst.long().cpu().contiguous(),
+                ts.cpu().contiguous(),
+                int(num_nodes),
+                int(num_parts),
+                beta,
+                topk_ratio,
+                topk_type,
+            )
+            return result["node_master"].long(), result["edge_owner"].long()
+    except Exception as exc:
+        if not SPEED_BINARY.exists():
+            raise RuntimeError(
+                "Failed to run built-in SPEED partition operator and no external "
+                f"SPEED binary exists at {SPEED_BINARY}"
+            ) from exc
+
+    if not SPEED_BINARY.exists():
+        raise FileNotFoundError(
+            f"SPEED binary not found at {SPEED_BINARY}. "
+            f"Please build SPEED at ~/SPEED/partition/ or rebuild StarryUniGraph native ops."
+        )
 
     # Create temporary directory for SPEED I/O
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -212,7 +235,6 @@ def run_speed_partition(
             f"SPEED produced invalid partition IDs: min={min_part}, max={max_part}, expected [0, {num_parts})"
         )
 
-    src, _dst, _ts = edges
     edge_parts = derive_edge_parts(src=src, node_parts=node_parts)
 
     # Keep parsed edge outputs available only for sanity checking.

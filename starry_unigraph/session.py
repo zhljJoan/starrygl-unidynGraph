@@ -30,7 +30,7 @@ class SchedulerSession:
         self.current_epoch = 0
         self.global_step = 0
         self.runtime = RuntimeBundle()
-        self.snapshot_core: FlareRuntimeLoader | ChunkRuntimeLoader | None = None
+        self.graph_runtime: FlareRuntimeLoader | ChunkRuntimeLoader | None = None
         self.ctdg_session: CTDGSession | None = None
         self.prepared: PreparedArtifacts | None = None
         # New: unified pipeline engine (optional, for refactored code path)
@@ -105,7 +105,7 @@ class SchedulerSession:
             if not partition_path.exists():
                 raise FileNotFoundError(f"Missing flare partition artifact: {partition_path}")
             partition_data = torch.load(partition_path, weights_only=False)
-            self.snapshot_core = FlareRuntimeLoader.from_partition_data(
+            self.graph_runtime = FlareRuntimeLoader.from_partition_data(
                 data=partition_data,
                 device=device,
                 rank=self.ctx.dist.rank,
@@ -117,15 +117,16 @@ class SchedulerSession:
             self.runtime.state.update(
                 {
                     "flare_partition_path": str(partition_path),
-                    "window_state": self.snapshot_core.describe_window_state(),
-                    "snapshot_state": self.snapshot_core.dump_state(),
-                    "route_cache": self.snapshot_core.describe_route_cache(),
+                    "window_state": self.graph_runtime.describe_window_state(),
+                    "graph_state": self.graph_runtime.dump_state(),
+                    "snapshot_state": self.graph_runtime.dump_state(),
+                    "route_cache": self.graph_runtime.describe_route_cache(),
                 }
             )
         elif graph_mode == "chunk":
             # Chunk runtime (independent, with internal CTDG/DTDG branching)
             validate_artifacts(self.prepared, expected_graph_mode="chunk", expected_num_parts=self.ctx.dist.world_size)
-            self.snapshot_core = ChunkRuntimeLoader.from_prepared_artifacts(
+            self.graph_runtime = ChunkRuntimeLoader.from_prepared_artifacts(
                 prepared_dir=self.ctx.artifact_root,
                 device=device,
                 rank=self.ctx.dist.rank,
@@ -133,17 +134,18 @@ class SchedulerSession:
                 config=self.ctx.config,
             )
             self.runtime = RuntimeBundle(state={"graph_mode": "chunk"})
-            self.runtime.model = self.snapshot_core.build_default_model(self.ctx.config)
+            self.runtime.model = self.graph_runtime.build_default_model(self.ctx.config)
             self.runtime.optimizer = torch.optim.Adam(
                 self.runtime.model.parameters(),
                 lr=float(self.ctx.config.get("train", {}).get("lr", 1e-3)),
             )
             self.runtime.state.update(
                 {
-                    "chunk_manifest": self.snapshot_core.chunk_manifest,
-                    "window_state": self.snapshot_core.describe_window_state(),
-                    "snapshot_state": self.snapshot_core.dump_state(),
-                    "route_cache": self.snapshot_core.describe_route_cache(),
+                    "chunk_manifest": self.graph_runtime.chunk_manifest,
+                    "window_state": self.graph_runtime.describe_window_state(),
+                    "graph_state": self.graph_runtime.dump_state(),
+                    "snapshot_state": self.graph_runtime.dump_state(),
+                    "route_cache": self.graph_runtime.describe_route_cache(),
                 }
             )
         else:
@@ -182,32 +184,32 @@ class SchedulerSession:
                 self.ctdg_session.build_runtime(self.ctx)
             backend = CTDGGraphBackend(self.ctdg_session)
         elif graph_mode == "dtdg":
-            if self.snapshot_core is None:
+            if self.graph_runtime is None:
                 # Build FlareRuntimeLoader (same as build_runtime)
                 validate_artifacts(self.prepared, expected_graph_mode="dtdg", expected_num_parts=self.ctx.dist.world_size)
                 flare_dir = self.prepared.directories["flare"]
                 part_id = min(self.ctx.dist.rank, self.ctx.dist.world_size - 1)
                 partition_path = flare_dir / f"part_{part_id:03d}.pth"
                 partition_data = torch.load(partition_path, weights_only=False)
-                self.snapshot_core = FlareRuntimeLoader.from_partition_data(
+                self.graph_runtime = FlareRuntimeLoader.from_partition_data(
                     data=partition_data,
                     device=device,
                     rank=self.ctx.dist.rank,
                     world_size=self.ctx.dist.world_size,
                     config=self.ctx.config,
                 )
-            backend = FlareGraphBackend(self.snapshot_core)
+            backend = FlareGraphBackend(self.graph_runtime)
         elif graph_mode == "chunk":
-            if self.snapshot_core is None:
+            if self.graph_runtime is None:
                 validate_artifacts(self.prepared, expected_graph_mode="chunk", expected_num_parts=self.ctx.dist.world_size)
-                self.snapshot_core = ChunkRuntimeLoader.from_prepared_artifacts(
+                self.graph_runtime = ChunkRuntimeLoader.from_prepared_artifacts(
                     prepared_dir=self.ctx.artifact_root,
                     device=device,
                     rank=self.ctx.dist.rank,
                     world_size=self.ctx.dist.world_size,
                     config=self.ctx.config,
                 )
-            backend = ChunkGraphBackend(self.snapshot_core)
+            backend = ChunkGraphBackend(self.graph_runtime)
         else:
             raise ValueError(f"Unknown graph_mode: {graph_mode}")
 
@@ -271,25 +273,25 @@ class SchedulerSession:
                 "outputs": outputs,
             }
         else:
-            # DTDG or Chunk path (snapshot_core dispatch)
-            assert self.snapshot_core is not None, "Call build_runtime() first"
+            # DTDG or Chunk path (graph runtime dispatch)
+            assert self.graph_runtime is not None, "Call build_runtime() first"
             if split == "train":
-                iterator = self.snapshot_core.iter_train(split=split)
+                iterator = self.graph_runtime.iter_train(split=split)
             else:
                 self.runtime.state.pop("eval_rnn_state", None)
-                iterator = self.snapshot_core.iter_eval(split=split)
+                iterator = self.graph_runtime.iter_eval(split=split)
 
             start_time = time.perf_counter()
             outputs = []
             if split == "train":
                 for batch in iterator:
-                    # snapshot_core handles its own step dispatch (Flare or Chunk)
-                    output = self.snapshot_core.run_train_step(self.runtime, batch)
+                    # graph_runtime handles its own step dispatch (Flare or Chunk)
+                    output = self.graph_runtime.run_train_step(self.runtime, batch)
                     outputs.append(output)
                     self.global_step += 1
             else:
                 for batch in iterator:
-                    output = self.snapshot_core.run_eval_step(self.runtime, batch)
+                    output = self.graph_runtime.run_eval_step(self.runtime, batch)
                     outputs.append(output)
             elapsed = time.perf_counter() - start_time
 
@@ -382,15 +384,15 @@ class SchedulerSession:
                 meta={"split": split, "graph_mode": self.model_spec.graph_mode},
             )
         else:
-            # DTDG or Chunk path (snapshot_core dispatch)
-            assert self.snapshot_core is not None, "Call build_runtime() first"
+            # DTDG or Chunk path (graph runtime dispatch)
+            assert self.graph_runtime is not None, "Call build_runtime() first"
             self.runtime.state.pop("eval_rnn_state", None)
             predictions = []
             targets = []
             meta = {"split": split, "graph_mode": self.model_spec.graph_mode}
-            for batch in self.snapshot_core.iter_predict(split=split):
-                # snapshot_core handles its own predict dispatch (Flare or Chunk)
-                output = self.snapshot_core.run_predict_step(self.runtime, batch)
+            for batch in self.graph_runtime.iter_predict(split=split):
+                # graph_runtime handles its own predict dispatch (Flare or Chunk)
+                output = self.graph_runtime.run_predict_step(self.runtime, batch)
                 predictions.extend(output.get("predictions", []))
                 if output.get("targets") is not None:
                     targets.extend(output.get("targets", []))

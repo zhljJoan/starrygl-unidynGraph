@@ -5,14 +5,15 @@ Modules:
 - load_stats: Per-chunk load statistics computation
 - rebalancer: Greedy load-balanced chunk-to-partition reassignment
 - route_builder: DTDGSnapshotRoute and CTDGSliceRoute construction
-- adaptive: Adaptive load balancing strategies
-- generate_chunk: Legacy chunk generation (deprecated)
+- adaptive: Legacy experimental adaptive chunk generator (not used by pipeline.prepare)
+- generate_chunk: Legacy chunk generation (deprecated; not used by pipeline.prepare)
 - time_split: Time window splitting for snapshots
 """
 
 from .chunk_assignment import ChunkAssignment, build_chunk_assignment, rebalance_chunk_assignment
 from .load_stats import (
     ChunkLoadStats,
+    compute_chunk_load_by_slice,
     compute_chunk_load_stats,
     compute_chunk_load_stats_from_windows,
 )
@@ -20,6 +21,7 @@ from .rebalancer import (
     ChunkMigration,
     ChunkReassignmentManifest,
     greedy_rebalance,
+    greedy_rebalance_by_slice,
     derive_node_owner,
     rebalance_chunks,
 )
@@ -36,11 +38,13 @@ __all__ = [
     "build_chunk_assignment",
     "rebalance_chunk_assignment",
     "ChunkLoadStats",
+    "compute_chunk_load_by_slice",
     "compute_chunk_load_stats",
     "compute_chunk_load_stats_from_windows",
     "ChunkMigration",
     "ChunkReassignmentManifest",
     "greedy_rebalance",
+    "greedy_rebalance_by_slice",
     "derive_node_owner",
     "rebalance_chunks",
     "build_cpu_memory_layout",

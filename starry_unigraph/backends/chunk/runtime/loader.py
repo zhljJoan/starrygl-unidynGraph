@@ -27,7 +27,16 @@ import torch.nn as nn
 from torch import Tensor
 
 from starry_unigraph.backends.chunk.data.batch import BatchData
+from starry_unigraph.backends.chunk.data.graph_store import ChunkGraphStore
 from starry_unigraph.backends.chunk.data.partition import PartitionData
+from starry_unigraph.backends.chunk.data.plans import (
+    ChunkPlacement,
+    CommPlanBundle,
+    ExecutionUnit,
+    FetchPlan,
+    GraphBatchEnvelope,
+    StateSyncPlan,
+)
 from starry_unigraph.backends.chunk.data.route import MemoryRouteData, SpatialRouteData
 from starry_unigraph.backends.chunk.data.comm import CommPipeline
 from starry_unigraph.backends.chunk.runtime.task_adapter import ChunkTaskAdapter, get_task_adapter
@@ -36,6 +45,7 @@ from starry_unigraph.backends.chunk.runtime.sampler import (
     _RandomNegativeSampler, _StubMFGBuilder,
 )
 from starry_unigraph.backends.chunk.runtime.train_step import run_batch
+from starry_unigraph.backends.chunk.runtime.event_engine import MemShareEventEngine
 
 
 class SimpleChunkModel(nn.Module):
@@ -70,10 +80,10 @@ class SimpleChunkModel(nn.Module):
 # ---------------------------------------------------------------------------
 #
 # prepared_dir/
-#   chunk_assignment.pth      ChunkAssignment
-#   part_{rank:03d}.pth       PartitionData  (one per rank)
-#   mem_routes_{rank:03d}/    MemoryRouteData files: slice_{t:06d}.pth
-#   spatial_routes_{rank:03d}/ SpatialRouteData files: slice_{t:06d}.pth
+#   placement.pth            Chunk placement and packed distributed indices
+#   partitions/part_NNN.pth  PartitionData  (one per rank)
+#   mem_routes_NNN.pth       list[MemoryRouteData], one entry per time slice
+#   spatial_routes_NNN.pth   list[SpatialRouteData], one entry per time slice
 #   cpu_layout_{rank:03d}.pth CPUMemoryLayout
 #   meta.json                 dataset metadata (num_nodes, num_slices, splits)
 
@@ -154,6 +164,14 @@ class ChunkRuntimeLoader:
     world_size:      int
     device:          torch.device
     chunk_manifest:  Dict[str, Any] = field(default_factory=dict)
+    graph_store:     Optional[ChunkGraphStore] = None
+    event_engine:    Optional[MemShareEventEngine] = None
+
+    def __post_init__(self) -> None:
+        if self.graph_store is None:
+            self.graph_store = ChunkGraphStore.from_partition_data(self.part_data)
+        if self.event_engine is None:
+            self.event_engine = MemShareEventEngine.from_config(self.graph_store, {})
 
     # ---------------------------------------------------------------------------
     # Construction
@@ -180,19 +198,21 @@ class ChunkRuntimeLoader:
         prepared_dir = Path(prepared_dir)
         device = torch.device(device)
 
-        # PartitionData
-        part_path = prepared_dir / f"part_{rank:03d}.pth"
+        # PartitionData. Prefer the compact layout but keep the old root-level
+        # file as a compatibility fallback.
+        part_path = prepared_dir / "partitions" / f"part_{rank:03d}.pth"
+        if not part_path.exists():
+            part_path = prepared_dir / f"part_{rank:03d}.pth"
         if not part_path.exists():
             raise FileNotFoundError(f"PartitionData not found: {part_path}")
         part_data: PartitionData = torch.load(part_path, weights_only=False)
 
-        # MemoryRouteData (one file per slice)
-        mem_dir = prepared_dir / f"mem_routes_{rank:03d}"
-        mem_routes = cls._load_route_list(mem_dir, MemoryRouteData)
+        # MemoryRouteData. New artifacts store one list per partition; old
+        # artifacts store one file per slice inside a directory.
+        mem_routes = cls._load_route_list(prepared_dir, "mem_routes", rank, MemoryRouteData)
 
         # SpatialRouteData
-        spatial_dir = prepared_dir / f"spatial_routes_{rank:03d}"
-        spatial_routes = cls._load_route_list(spatial_dir, SpatialRouteData)
+        spatial_routes = cls._load_route_list(prepared_dir, "spatial_routes", rank, SpatialRouteData)
 
         # Meta
         import json
@@ -232,6 +252,10 @@ class ChunkRuntimeLoader:
         neg_sampler = NegativeSamplerHook.from_config(sampler_cfg)
         mfg_builder = MFGBuilderHook.default()
 
+        placement = cls._load_placement(prepared_dir, part_data)
+        graph_store = ChunkGraphStore.from_partition_data(part_data, placement=placement)
+        event_engine = MemShareEventEngine.from_config(graph_store, sampler_cfg.get("memshare", sampler_cfg))
+
         # Comm pipeline
         pipeline = CommPipeline(device=device)
 
@@ -243,6 +267,8 @@ class ChunkRuntimeLoader:
             neg_sampler    = neg_sampler,
             mfg_builder    = mfg_builder,
             pipeline       = pipeline,
+            graph_store    = graph_store,
+            event_engine   = event_engine,
             split_slices   = split_info,
             num_nodes      = num_nodes,
             rank           = rank,
@@ -252,12 +278,41 @@ class ChunkRuntimeLoader:
         )
 
     @staticmethod
-    def _load_route_list(directory: Path, cls) -> list:
-        """Load all slice_{t}.pth files from a directory in order."""
+    def _load_route_list(prepared_dir: Path, prefix: str, rank: int, cls) -> list:
+        """Load route artifacts in compact or legacy format."""
+        bundle = prepared_dir / f"{prefix}_{rank:03d}.pth"
+        if bundle.exists():
+            routes = torch.load(bundle, weights_only=False)
+            return list(routes)
+        directory = prepared_dir / f"{prefix}_{rank:03d}"
         if not directory.exists():
             return []
         files = sorted(directory.glob("slice_*.pth"))
         return [torch.load(f, weights_only=False) for f in files]
+
+    @staticmethod
+    def _load_placement(prepared_dir: Path, part_data: PartitionData) -> ChunkPlacement | None:
+        placement_path = prepared_dir / "placement.pth"
+        if not placement_path.exists():
+            return None
+        payload = torch.load(placement_path, weights_only=False)
+        if not isinstance(payload, dict):
+            return None
+        node_to_chunk = payload.get("node_to_chunk")
+        node_owner = payload.get("node_owner")
+        node_master = payload.get("node_master", payload.get("node_partition"))
+        replica_mask = payload.get("replica_mask")
+        if node_to_chunk is None or node_owner is None or node_master is None or replica_mask is None:
+            return None
+        if part_data.node_to_chunk is None:
+            part_data.node_to_chunk = node_to_chunk.long()
+        return ChunkPlacement(
+            placement_version=int(payload.get("placement_version", 0)),
+            node_to_chunk=node_to_chunk.long(),
+            node_owner=node_owner.long(),
+            node_master=node_master.long(),
+            replica_mask=replica_mask.bool(),
+        )
 
     # ---------------------------------------------------------------------------
     # Core iterators — yield BatchData
@@ -275,6 +330,37 @@ class ChunkRuntimeLoader:
         """Iterate test slices, yielding BatchData."""
         yield from self._iter_split(split)
 
+    def iter_train_envelopes(self, split: str = "train") -> Iterator[GraphBatchEnvelope]:
+        yield from self._iter_envelopes(split)
+
+    def iter_eval_envelopes(self, split: str = "val") -> Iterator[GraphBatchEnvelope]:
+        yield from self._iter_envelopes(split)
+
+    def iter_predict_envelopes(self, split: str = "test") -> Iterator[GraphBatchEnvelope]:
+        yield from self._iter_envelopes(split)
+
+    def iter_train_units(self, split: str = "train") -> Iterator[ExecutionUnit]:
+        yield from self._iter_units(split)
+
+    def iter_eval_units(self, split: str = "val") -> Iterator[ExecutionUnit]:
+        yield from self._iter_units(split)
+
+    def iter_predict_units(self, split: str = "test") -> Iterator[ExecutionUnit]:
+        yield from self._iter_units(split)
+
+    def _iter_envelopes(self, split: str) -> Iterator[GraphBatchEnvelope]:
+        for t, batch in self._iter_split_with_index(split):
+            yield self._make_envelope(batch=batch, block_id=t)
+
+    def _iter_units(self, split: str) -> Iterator[ExecutionUnit]:
+        indices = self.split_slices.get(split, [])
+        if not indices:
+            return
+        if self.event_engine is not None and self.task_adapter.task_type in {"edge_predict", "link_prediction"}:
+            yield from self.event_engine.iter_units(indices, plans_fn=self._make_comm_plan)
+            return
+        yield from self._iter_envelopes(split)
+
     def _iter_split(self, split: str) -> Iterator[BatchData]:
         """Core iteration loop with async communication pipeline.
 
@@ -286,6 +372,16 @@ class ChunkRuntimeLoader:
         Actual MFG construction and neighbor sampling are stubs until
         C++ extensions are wired.
         """
+        indices = self.split_slices.get(split, [])
+        if not indices:
+            return
+
+        for _, batch in self._iter_split_with_index(split):
+            yield batch
+
+        self.pipeline.drain_all_sync()
+
+    def _iter_split_with_index(self, split: str) -> Iterator[tuple[int, BatchData]]:
         indices = self.split_slices.get(split, [])
         if not indices:
             return
@@ -323,9 +419,60 @@ class ChunkRuntimeLoader:
                 # Here we just run sync (awaiting after submit immediately)
                 pass  # CommPipeline.submit_memory / await_memory called by trainer
 
-            yield batch
+            yield t, batch
 
         self.pipeline.drain_all_sync()
+
+    def _make_envelope(self, batch: BatchData, block_id: int) -> GraphBatchEnvelope:
+        return GraphBatchEnvelope(
+            mode="ctdg" if self.task_adapter.task_type in {"edge_predict", "link_prediction"} else "dtdg",
+            block_id=int(block_id),
+            placement_version=self.graph_store.placement_version if self.graph_store is not None else 0,
+            payload=batch,
+            comm_plan=self._make_comm_plan(block_id),
+            profile_hint={
+                "num_nodes": float(int(batch.node_ids.numel())),
+                "has_mfgs": float(batch.mfgs is not None),
+            },
+        )
+
+    def _make_comm_plan(self, block_id: int) -> CommPlanBundle:
+        fetch = None
+        if block_id < len(self.spatial_routes):
+            route = self.spatial_routes[block_id]
+            feature_node_ids = route.recv_node_ids.contiguous()
+            counts = route.recv_ptr[1:] - route.recv_ptr[:-1]
+            owners = torch.repeat_interleave(
+                torch.arange(counts.numel(), dtype=torch.long, device=counts.device),
+                counts,
+            ).contiguous()
+            fetch = FetchPlan(
+                block_id=int(block_id),
+                placement_version=self.graph_store.placement_version if self.graph_store is not None else 0,
+                feature_node_ids=feature_node_ids,
+                feature_owners=owners,
+                cache_policy="route",
+            )
+
+        state_sync = None
+        if block_id < len(self.mem_routes):
+            route = self.mem_routes[block_id]
+            counts = route.send_ptr[1:] - route.send_ptr[:-1]
+            owners = torch.repeat_interleave(
+                torch.arange(counts.numel(), dtype=torch.long, device=counts.device),
+                counts,
+            ).contiguous()
+            state_sync = StateSyncPlan(
+                block_id=int(block_id),
+                placement_version=self.graph_store.placement_version if self.graph_store is not None else 0,
+                update_node_ids=route.unique_nodes.contiguous(),
+                update_owners=owners,
+                replica_node_ids=None if route.replica_idx is None else route.unique_nodes[route.replica_idx].contiguous(),
+                replica_owners=None,
+                sync_policy="owner_write",
+            )
+
+        return CommPlanBundle(fetch=fetch, propagation=None, state_sync=state_sync)
 
     # ---------------------------------------------------------------------------
     # Async iteration (for use with asyncio training loop)

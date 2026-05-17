@@ -81,7 +81,11 @@ class BaseDTDGPreprocessor(GraphPreprocessor):
         dataset_name = session_ctx.config["data"]["name"]
         snaps = int(session_ctx.config["train"]["snaps"])
         raw_events = load_raw_temporal_events(root=dataset_root, dataset_name=dataset_name, config=session_ctx.config)
-        raw_dataset = build_snapshot_dataset_from_events(events=raw_events, snaps=snaps)
+        slice_config = dict(session_ctx.config.get("data", {}).get("slice_config") or {})
+        slice_config.setdefault("num_windows", snaps)
+        raw_dataset = build_snapshot_dataset_from_events(events=raw_events, slice_config=slice_config, config=session_ctx.config)
+        if not raw_dataset.get("dataset"):
+            raise RuntimeError("DTDG preprocessing requires data.build_snapshot_dataset=true")
         session_ctx.provider_state["raw_dataset"] = raw_dataset
         session_ctx.provider_state["raw_stats"] = {
             "num_nodes": raw_dataset["num_nodes"],

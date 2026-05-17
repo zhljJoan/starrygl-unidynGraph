@@ -7,6 +7,7 @@ from typing import Any
 
 import torch
 
+from starry_unigraph.backends.chunk.data.dist_index import encode_dist_index
 from starry_unigraph.backends.chunk.data.partition import PartitionData, TensorData
 from starry_unigraph.backends.chunk.prepare.pipeline import PrepareArtifacts as ChunkPrepareArtifacts
 from starry_unigraph.backends.chunk.prepare.pipeline import prepare as prepare_chunks
@@ -71,11 +72,154 @@ def _build_partition_data_for_part(
     if raw_dataset is not None and raw_dataset.get("dataset"):
         dst_ids = part.dst_ids[0].item().long()
         first = raw_dataset["dataset"][0]
-        part.node_data["x"] = TensorData.from_tensors([first["x"][dst_ids].float()])
+        if "x" in first:
+            part.node_data["x"] = TensorData.from_tensors([first["x"][dst_ids].float()])
         y = first.get("y")
         if y is not None:
             part.node_data["y"] = TensorData.from_tensors([y[dst_ids].float().view(-1, 1)])
     return part
+
+
+def _unique_sorted(values: torch.Tensor) -> torch.Tensor:
+    if values.numel() == 0:
+        return values.long().cpu()
+    return values.long().unique(sorted=True).cpu()
+
+
+def _build_part_local_layout(
+    *,
+    edge_src: torch.Tensor,
+    edge_dst: torch.Tensor,
+    node_owner: torch.Tensor,
+    shared_mask: torch.Tensor,
+    part_id: int,
+) -> dict[str, torch.Tensor | int]:
+    owns_dst = node_owner[edge_dst] == part_id
+    hot_edge = shared_mask[edge_src] | shared_mask[edge_dst]
+    touched = _unique_sorted(torch.cat([edge_src[owns_dst | hot_edge], edge_dst[owns_dst | hot_edge]]))
+    shared = _unique_sorted(shared_mask.nonzero(as_tuple=True)[0])
+    owned = _unique_sorted(((node_owner == part_id) & ~shared_mask).nonzero(as_tuple=True)[0])
+    if touched.numel() == 0:
+        shadow = torch.empty(0, dtype=torch.long)
+    else:
+        local_mask = torch.zeros(int(node_owner.numel()), dtype=torch.bool)
+        local_mask[shared] = True
+        local_mask[owned] = True
+        shadow = touched[~local_mask[touched]]
+    local_node_ids = torch.cat([shared, owned, shadow]).long()
+    return {
+        "local_node_ids": local_node_ids,
+        "shared_count": int(shared.numel()),
+        "owned_count": int(owned.numel()),
+        "shadow_1hop_count": int(shadow.numel()),
+    }
+
+
+def _build_placement_artifact(
+    *,
+    artifacts: ChunkPrepareArtifacts,
+    edge_src: torch.Tensor,
+    edge_dst: torch.Tensor,
+    num_edges: int,
+    num_parts: int,
+) -> dict[str, Any]:
+    node_owner = artifacts.node_owner.long().cpu()
+    node_master = artifacts.node_partition.long().cpu()
+    replica_mask = artifacts.replica_mask.bool().cpu()
+    node_to_chunk = artifacts.assignment.node_to_chunk.long().cpu()
+    num_nodes = int(node_owner.numel())
+
+    canonical_nid_dist = torch.empty(num_nodes, dtype=torch.long)
+    local_node_ids_by_part: list[torch.Tensor] = []
+    local_nid_dist_by_part: list[torch.Tensor] = []
+    local_node_counts: list[dict[str, int]] = []
+    for part_id in range(num_parts):
+        layout = _build_part_local_layout(
+            edge_src=edge_src.cpu(),
+            edge_dst=edge_dst.cpu(),
+            node_owner=node_owner,
+            shared_mask=replica_mask,
+            part_id=part_id,
+        )
+        local_node_ids = layout["local_node_ids"]
+        if not isinstance(local_node_ids, torch.Tensor):
+            raise TypeError("local_node_ids must be a tensor")
+        local_node_ids_by_part.append(local_node_ids)
+        shared_count = int(layout["shared_count"])
+        owned_count = int(layout["owned_count"])
+        local_node_counts.append(
+            {
+                "shared": shared_count,
+                "owned": owned_count,
+                "shadow_1hop": int(layout["shadow_1hop_count"]),
+                "total": int(local_node_ids.numel()),
+            }
+        )
+        local_ids = torch.arange(local_node_ids.numel(), dtype=torch.long)
+        shared_local = local_ids < shared_count
+        shadow_local = local_ids >= shared_count + owned_count
+        local_nid_dist_by_part.append(
+            encode_dist_index(
+                local_ids,
+                torch.full((int(local_node_ids.numel()),), part_id, dtype=torch.long),
+                shared=shared_local,
+                cached=shadow_local,
+            )
+        )
+        canonical_mask = (node_owner[local_node_ids] == part_id) & ~replica_mask[local_node_ids]
+        canonical_nodes = local_node_ids[canonical_mask]
+        canonical_nid_dist[canonical_nodes] = encode_dist_index(
+            local_ids[canonical_mask],
+            torch.full((int(canonical_nodes.numel()),), part_id, dtype=torch.long),
+        )
+
+    shared_nodes = replica_mask.nonzero(as_tuple=True)[0].long().cpu()
+    if shared_nodes.numel() > 0:
+        canonical_nid_dist[shared_nodes] = encode_dist_index(
+            torch.arange(shared_nodes.numel(), dtype=torch.long),
+            node_master[shared_nodes],
+            shared=True,
+        )
+
+    canonical_eid_dist = torch.empty(num_edges, dtype=torch.long)
+    canonical_edge_ids_by_part: list[torch.Tensor] = []
+    edge_owner = node_owner[edge_dst.cpu().long()]
+    all_eids = torch.arange(num_edges, dtype=torch.long)
+    for part_id in range(num_parts):
+        part_eids = all_eids[edge_owner == part_id]
+        canonical_edge_ids_by_part.append(part_eids)
+        canonical_eid_dist[part_eids] = encode_dist_index(
+            torch.arange(part_eids.numel(), dtype=torch.long),
+            torch.full((int(part_eids.numel()),), part_id, dtype=torch.long),
+        )
+
+    return {
+        "format": "chunk_dist_index_v1",
+        "placement_version": 0,
+        "dist_index": {
+            "local_bits": 48,
+            "shared_bit": 48,
+            "cached_bit": 49,
+            "part_shift": 50,
+            "part_bits": 16,
+        },
+        "assignment": artifacts.assignment,
+        "node_to_chunk": node_to_chunk,
+        "node_owner": node_owner,
+        "node_master": node_master,
+        "node_partition": node_master,
+        "replica_mask": replica_mask,
+        "hot_node_ids": artifacts.hot_node_ids.long().cpu(),
+        "graph_family": artifacts.graph_family,
+        "chunk_load_by_slice": artifacts.chunk_load_by_slice,
+        "canonical_nid_dist": canonical_nid_dist,
+        "canonical_eid_dist": canonical_eid_dist,
+        "local_node_ids_by_part": local_node_ids_by_part,
+        "local_nid_dist_by_part": local_nid_dist_by_part,
+        "local_node_counts": local_node_counts,
+        "canonical_edge_ids_by_part": canonical_edge_ids_by_part,
+        "time_ptr": None if artifacts.time_ptr is None else artifacts.time_ptr.long().cpu(),
+    }
 
 
 def _write_route_lists(root: Path, prefix: str, routes: list[list[Any]] | None) -> list[str]:
@@ -83,12 +227,9 @@ def _write_route_lists(root: Path, prefix: str, routes: list[list[Any]] | None) 
         return []
     written: list[str] = []
     for part_id, part_routes in enumerate(routes):
-        route_dir = root / f"{prefix}_{part_id:03d}"
-        route_dir.mkdir(parents=True, exist_ok=True)
-        for slice_id, route in enumerate(part_routes):
-            path = route_dir / f"slice_{slice_id:06d}.pth"
-            torch.save(route, path)
-        written.append(str(route_dir.relative_to(root)))
+        route_path = root / f"{prefix}_{part_id:03d}.pth"
+        torch.save(part_routes, route_path)
+        written.append(str(route_path.relative_to(root)))
     return written
 
 
@@ -108,7 +249,11 @@ class ChunkPreprocessor(GraphPreprocessor):
         dataset_name = session_ctx.config["data"]["name"]
         snaps = int(_cfg_get(session_ctx.config, "train.snaps", _cfg_get(session_ctx.config, "chunk.time_slices", 1)))
         raw_events = load_raw_temporal_events(root=dataset_root, dataset_name=dataset_name, config=session_ctx.config)
-        raw_dataset = build_snapshot_dataset_from_events(events=raw_events, snaps=snaps)
+        slice_config = dict(session_ctx.config.get("data", {}).get("slice_config") or {})
+        slice_config.setdefault("num_windows", snaps)
+        raw_dataset = build_snapshot_dataset_from_events(events=raw_events, slice_config=slice_config, config=session_ctx.config)
+        if not raw_dataset.get("dataset"):
+            raise RuntimeError("Chunk preprocessing requires data.build_snapshot_dataset=true")
 
         session_ctx.provider_state["raw_events"] = raw_events
         session_ctx.provider_state["raw_dataset"] = raw_dataset
@@ -135,6 +280,7 @@ class ChunkPreprocessor(GraphPreprocessor):
             time_ptr=_time_ptr_from_snapshots(raw_dataset),
             num_nodes=int(raw_events.num_nodes),
             num_partitions=num_parts,
+            graph_family=str(session_ctx.config.get("data", {}).get("graph_mode", self.graph_mode)),
             partition_strategy=strategy,
             hot_topk=int(chunk_cfg.get("hot_topk", 0)),
             hot_ratio=float(chunk_cfg.get("hot_ratio", chunk_cfg.get("shared_ratio", 0.0))),
@@ -167,6 +313,13 @@ class ChunkPreprocessor(GraphPreprocessor):
         (root / "partitions").mkdir(parents=True, exist_ok=True)
 
         edge_ids = torch.arange(int(raw_events.num_edges), dtype=torch.long)
+        placement = _build_placement_artifact(
+            artifacts=artifacts,
+            edge_src=raw_events.src.long(),
+            edge_dst=raw_events.dst.long(),
+            num_edges=int(raw_events.num_edges),
+            num_parts=num_parts,
+        )
         for part_id in range(num_parts):
             part_data = _build_partition_data_for_part(
                 edge_src=raw_events.src.long(),
@@ -179,15 +332,10 @@ class ChunkPreprocessor(GraphPreprocessor):
                 part_id=part_id,
                 raw_dataset=raw_dataset,
             )
-            torch.save(part_data, root / f"part_{part_id:03d}.pth")
+            part_data.node_to_chunk = None
             torch.save(part_data, root / "partitions" / f"part_{part_id:03d}.pth")
 
-        torch.save(artifacts.assignment, root / "chunk_assignment.pth")
-        torch.save(artifacts.node_owner, root / "node_owner.pt")
-        torch.save(artifacts.node_partition, root / "node_partition.pt")
-        torch.save(artifacts.hot_node_ids, root / "hot_node_ids.pt")
-        torch.save(artifacts.replica_mask, root / "replica_mask.pt")
-        torch.save(artifacts.time_ptr, root / "time_ptr.pt")
+        torch.save(placement, root / "placement.pth")
         artifacts.rebalance_manifest.save(root / "partitions" / "rebalance_manifest.json")
         mem_route_dirs = _write_route_lists(root, "mem_routes", artifacts.mem_routes)
         spatial_route_dirs = _write_route_lists(root, "spatial_routes", artifacts.spatial_routes)
@@ -225,8 +373,9 @@ class ChunkPreprocessor(GraphPreprocessor):
                 {
                     "route_type": str(session_ctx.config.get("graph", {}).get("route", "all2all")),
                     "cache_policy": str(session_ctx.config.get("runtime", {}).get("cache", "gpu_local")),
-                    "mem_route_dirs": mem_route_dirs,
-                    "spatial_route_dirs": spatial_route_dirs,
+                    "format": "per_partition_bundle",
+                    "mem_route_files": mem_route_dirs,
+                    "spatial_route_files": spatial_route_dirs,
                 },
             ),
             ArtifactOutput(

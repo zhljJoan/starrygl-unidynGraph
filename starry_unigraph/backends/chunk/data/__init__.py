@@ -17,6 +17,29 @@ from .feature_store import FeatureStore, FeatureStoreConfig
 from .memory_store import MemoryStore, DummyMemoryStore
 from .route import SpatialRouteData, MemoryRouteData, CPUMemoryLayout
 from .comm import CommPipeline, SpatialResult, MemoryResult
+from .graph_store import ChunkGraphStore
+from .plans import (
+    BlockPlan,
+    CSCGraphView,
+    EventView,
+    ExecutionUnit,
+    CTDGInputView,
+    CTDGSampleResult,
+    ChunkPlacement,
+    CommPlanBundle,
+    SnapshotView,
+    DTDGInputView,
+    FetchPlan,
+    GraphBatchEnvelope,
+    PlacementDelta,
+    PlacementView,
+    PlanBundle,
+    ProfileRecord,
+    PropagationPlan,
+    StateSyncPlan,
+    TemporalIndexView,
+)
+from .propagation_route import ChunkPropagationRoute
 
 __all__ = [
     "PartitionData",
@@ -33,4 +56,25 @@ __all__ = [
     "CommPipeline",
     "SpatialResult",
     "MemoryResult",
+    "ChunkGraphStore",
+    "BlockPlan",
+    "CSCGraphView",
+    "EventView",
+    "ExecutionUnit",
+    "CTDGInputView",
+    "CTDGSampleResult",
+    "ChunkPlacement",
+    "CommPlanBundle",
+    "SnapshotView",
+    "DTDGInputView",
+    "FetchPlan",
+    "GraphBatchEnvelope",
+    "PlacementDelta",
+    "PlacementView",
+    "PlanBundle",
+    "ProfileRecord",
+    "PropagationPlan",
+    "StateSyncPlan",
+    "TemporalIndexView",
+    "ChunkPropagationRoute",
 ]

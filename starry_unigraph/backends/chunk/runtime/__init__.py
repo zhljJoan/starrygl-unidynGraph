@@ -15,7 +15,8 @@ from .sampler import (
     NegativeSamplerHook,
     MFGBuilderHook,
 )
-from .loader import ChunkRuntimeLoader, redistribute_preprocessed, rebuild_from_scratch
+from .loader import ChunkRuntimeLoader, SimpleChunkModel, redistribute_preprocessed, rebuild_from_scratch
+from .event_engine import MemShareEventEngine, MemShareNativeSampler, is_memshare_native_available
 from .train_step import run_batch
 
 __all__ = [
@@ -31,6 +32,10 @@ __all__ = [
     "NegativeSamplerHook",
     "MFGBuilderHook",
     "ChunkRuntimeLoader",
+    "SimpleChunkModel",
+    "MemShareEventEngine",
+    "MemShareNativeSampler",
+    "is_memshare_native_available",
     "redistribute_preprocessed",
     "rebuild_from_scratch",
     "run_batch",

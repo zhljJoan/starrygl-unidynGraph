@@ -151,8 +151,8 @@ def normalize_snapshot_count(raw_dataset: dict[str, Any], snaps: int) -> dict[st
             {
                 "edge_index": template["edge_index"].clone(),
                 "edge_weight": template["edge_weight"].clone(),
-                "x": template["x"].clone(),
-                "y": None if template.get("y") is None else template["y"].clone(),
+                **({"x": template["x"].clone()} if "x" in template else {}),
+                **({"y": template["y"].clone()} if template.get("y") is not None else {}),
             }
         )
     return {
@@ -282,20 +282,24 @@ class WebDataLoader:
     def _build_mock_dataset(self) -> dict[str, Any]:
         num_nodes = 8
         dataset = []
+        in_degrees: list[torch.Tensor] = []
         for snap in range(self.fallback_snaps):
             src = torch.tensor([(snap + i) % num_nodes for i in range(4)], dtype=torch.int64)
             dst = torch.tensor([(snap + i + 1) % num_nodes for i in range(4)], dtype=torch.int64)
             edge_index = torch.stack([src, dst], dim=0)
             edge_weight = torch.ones(4, dtype=torch.float32)
             in_deg, out_deg = _compute_degrees(edge_index, edge_weight, num_nodes)
+            in_degrees.append(in_deg)
             dataset.append(
                 {
                     "edge_index": edge_index,
                     "edge_weight": edge_weight,
                     "x": torch.stack([in_deg, out_deg], dim=1),
-                    "y": torch.log(in_deg + 1.0) if snap < self.fallback_snaps - 1 else None,
+                    "y": None,
                 }
             )
+        for snap, item in enumerate(dataset):
+            item["y"] = None if snap == self.fallback_snaps - 1 else torch.log(in_degrees[snap + 1] + 1.0)
         num_edges = int(sum(int(item["edge_weight"].numel()) for item in dataset))
         return {
             "num_nodes": num_nodes,
@@ -324,12 +328,15 @@ class WebDataLoader:
             return self._build_mock_dataset()
 
         xs: list[torch.Tensor] = []
-        ys: list[torch.Tensor | None] = []
+        in_degrees: list[torch.Tensor] = []
         for edge_index, edge_weight in zip(edges, edge_weights):
             in_deg, out_deg = _compute_degrees(edge_index, edge_weight, num_nodes)
+            in_degrees.append(in_deg)
             xs.append(torch.stack([in_deg, out_deg], dim=1))
-            ys.append(torch.log(in_deg + 1.0))
-        ys[-1] = None
+        ys: list[torch.Tensor | None] = [
+            None if index == len(in_degrees) - 1 else torch.log(in_degrees[index + 1] + 1.0)
+            for index in range(len(in_degrees))
+        ]
 
         dataset = []
         for index, edge_index in enumerate(edges):
@@ -433,7 +440,7 @@ def _build_snapshot_blocks(
 ) -> list[dgl.DGLBlock]:
     edge_index = snapshot["edge_index"].long()
     edge_weight = snapshot["edge_weight"].float()
-    node_x = snapshot["x"]
+    node_x = snapshot.get("x")
     labels = snapshot.get("y")
     in_deg, out_deg = _compute_degrees(edge_index=edge_index, edge_weight=edge_weight, num_nodes=num_nodes)
     if edge_index.numel() > 0:
@@ -450,8 +457,10 @@ def _build_snapshot_blocks(
         src_ids = block.srcdata[dgl.NID].long()
         dst_ids = block.dstdata[dgl.NID].long()
         edge_ids = block.edata[dgl.EID].long()
-        block.srcdata["x"] = node_x[src_ids] if src_ids.numel() > 0 else torch.zeros((0, node_x.size(-1)), dtype=node_x.dtype)
-        block.dstdata["y"] = labels[dst_ids] if labels is not None and dst_ids.numel() > 0 else torch.zeros((dst_ids.numel(),), dtype=torch.float32)
+        if node_x is not None:
+            block.srcdata["x"] = node_x[src_ids] if src_ids.numel() > 0 else torch.zeros((0, node_x.size(-1)), dtype=node_x.dtype)
+        if labels is not None:
+            block.dstdata["y"] = labels[dst_ids] if dst_ids.numel() > 0 else torch.zeros((dst_ids.numel(),), dtype=torch.float32)
         block.edata["w"] = edge_weight[edge_ids] if edge_ids.numel() > 0 else torch.zeros((0,), dtype=torch.float32)
         block.edata["gcn_norm"] = gcn_norm[edge_ids] if edge_ids.numel() > 0 else torch.zeros((0,), dtype=torch.float32)
         block.edata["snapshot_index"] = torch.full((edge_ids.numel(),), snapshot_index, dtype=torch.long)

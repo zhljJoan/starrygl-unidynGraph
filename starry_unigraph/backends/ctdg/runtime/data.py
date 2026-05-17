@@ -92,8 +92,10 @@ class TGTemporalDataset:
         self.num_edges = int(raw.num_edges)
         self.edge_feat = raw.edge_feat.float()
         self.edge_feat_dim = int(self.edge_feat.size(-1))
+        self.node_feat = None if raw.node_feat is None else raw.node_feat.float()
+        self.node_label = raw.node_label
         self.node_temporal_features = raw.node_temporal_features
-        self.node_feat_dim = 0 if raw.node_temporal_features is None else raw.node_temporal_features.dim
+        self.node_feat_dim = 0 if self.node_feat is None else int(self.node_feat.size(-1))
         self._split_cache: dict[str, torch.Tensor] = {}
         self._sampler_cache: dict[str, dict[str, torch.Tensor]] = {}
         self.split_ratio = normalize_split_ratio(merged_config["data"].get("split_ratio"))
@@ -101,7 +103,7 @@ class TGTemporalDataset:
         self.edge_parts: torch.Tensor | None = None
         self.partition_rank: int = 0
         self.partition_world_size: int = 1
-        self._node_feat_history = self._build_node_feat_history()
+        self._node_feat_history: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
 
     def configure_partition(
         self,
@@ -126,37 +128,15 @@ class TGTemporalDataset:
         return event_ids
 
     def _build_node_feat_history(self) -> dict[int, tuple[torch.Tensor, torch.Tensor]]:
-        table = self.node_temporal_features
-        if table is None or table.size == 0 or table.dim == 0:
-            return {}
-        history: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
-        unique_nodes = torch.unique(table.node_ids, sorted=True)
-        for node_id in unique_nodes.tolist():
-            mask = table.node_ids == int(node_id)
-            ts = table.ts[mask].float()
-            vals = table.values[mask].float()
-            order = torch.argsort(ts, stable=True)
-            history[int(node_id)] = (ts[order], vals[order])
-        return history
+        return {}
+
+    def get_node_features(self, node_ids: torch.Tensor) -> torch.Tensor | None:
+        if self.node_feat is None:
+            return None
+        return self.node_feat[node_ids.long()]
 
     def lookup_node_features(self, node_ids: torch.Tensor, ts: torch.Tensor) -> torch.Tensor | None:
-        if self.node_feat_dim <= 0 or not self._node_feat_history:
-            return None
-        out = torch.zeros(node_ids.numel(), self.node_feat_dim, dtype=torch.float32)
-        unique_nodes = torch.unique(node_ids.long(), sorted=True)
-        for node_id in unique_nodes.tolist():
-            history = self._node_feat_history.get(int(node_id))
-            if history is None:
-                continue
-            hist_ts, hist_vals = history
-            node_mask = node_ids.long() == int(node_id)
-            row_ids = torch.nonzero(node_mask, as_tuple=False).view(-1)
-            query_ts = ts[row_ids].float()
-            idx = torch.searchsorted(hist_ts, query_ts, right=True) - 1
-            valid = idx >= 0
-            if valid.any():
-                out[row_ids[valid]] = hist_vals[idx[valid]]
-        return out
+        return None
 
     def iter_batches(self, split: str, batch_size: int) -> Iterator[CTDGDataBatch]:
         """Iterate over mini-batches for the given split.
@@ -189,8 +169,8 @@ class TGTemporalDataset:
                 dst=batch_dst,
                 ts=batch_ts,
                 edge_feat=self.edge_feat[event_ids],
-                src_node_feat=self.lookup_node_features(batch_src, batch_ts),
-                dst_node_feat=self.lookup_node_features(batch_dst, batch_ts),
+                src_node_feat=self.get_node_features(batch_src),
+                dst_node_feat=self.get_node_features(batch_dst),
             )
 
     def sampler_graph(self, split: str) -> dict[str, torch.Tensor]:

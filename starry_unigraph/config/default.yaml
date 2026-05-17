@@ -114,6 +114,14 @@ data:
   name: demo
   format: auto
   graph_mode: null      # null=自动从 model.family 推断；或显式设置 ctdg / dtdg
+  build_snapshot_dataset: true
+  copy_snapshot_features: true
+  slice_config:
+    use_batch_split: false
+    num_windows: 8       # DTDG/chunk snapshots: split events by time into this many windows
+    window_size: 0
+    lags: 0
+    skip_time: 0
   split_ratio:
     train: 0.7
     val: 0.15

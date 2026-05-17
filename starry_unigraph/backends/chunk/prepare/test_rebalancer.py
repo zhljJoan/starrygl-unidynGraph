@@ -3,6 +3,7 @@
 import torch
 from starry_unigraph.backends.chunk.prepare import (
     build_chunk_assignment,
+    compute_chunk_load_by_slice,
     compute_chunk_load_stats,
     compute_chunk_load_stats_from_windows,
     rebalance_chunks,
@@ -71,6 +72,37 @@ def test_rebalance_chunks_reduces_imbalance():
           f"imbalance {manifest.imbalance_before:.2f} → {manifest.imbalance_after:.2f}")
 
 
+def test_chunk_load_by_slice_and_vector_rebalance():
+    """Per-slice load matrix drives vector-aware chunk ownership."""
+    num_nodes = 8
+    num_partitions = 2
+    node_partition = torch.arange(num_nodes) % num_partitions
+    assignment = build_chunk_assignment(node_partition, num_chunks_per_partition=2)
+
+    window_src = [torch.tensor([0, 2, 4, 6]), torch.tensor([1, 3, 5, 7])]
+    window_dst = [torch.tensor([0, 2, 4, 6]), torch.tensor([1, 3, 5, 7])]
+    load = compute_chunk_load_by_slice(
+        window_src,
+        window_dst,
+        assignment.node_to_chunk,
+        assignment.chunk_to_owner_partition,
+        node_partition,
+    )
+    assert load.shape == (2, assignment.total_chunks)
+
+    load_stats = {cid: ChunkLoadStats(chunk_id=cid, edge_count=1, total_load=1.0) for cid in range(assignment.total_chunks)}
+    updated, node_owner, manifest = rebalance_chunks(
+        assignment,
+        load_stats,
+        num_partitions=num_partitions,
+        max_imbalance_ratio=1.0,
+        chunk_load_by_slice=load,
+    )
+    assert node_owner.shape == (num_nodes,)
+    assert manifest.num_chunks == assignment.total_chunks
+    print(f"✓ vector rebalance: chunk_load_by_slice={tuple(load.shape)}, migrations={len(manifest.migrations)}")
+
+
 def test_derive_node_owner():
     """node_owner correctly follows chunk_to_owner_partition."""
     num_nodes = 20
@@ -120,6 +152,7 @@ def test_rebalance_chunk_assignment_dict_interface():
 if __name__ == "__main__":
     test_compute_load_stats()
     test_rebalance_chunks_reduces_imbalance()
+    test_chunk_load_by_slice_and_vector_rebalance()
     test_derive_node_owner()
     test_rebalance_chunk_assignment_dict_interface()
     print("\n✅ All Phase 4 tests passed!")
