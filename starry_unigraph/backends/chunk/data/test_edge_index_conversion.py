@@ -192,10 +192,35 @@ def test_edge_events_sort_by_timestamp():
     print("✓ edge_events sort_by_timestamp works")
 
 
+def test_to_block_uses_csc_storage():
+    """PartitionData materializes a valid block directly from CSC tensors."""
+    num_nodes = 24
+    node_partition = torch.arange(num_nodes) % 2
+    assignment = build_chunk_assignment(node_partition, num_chunks_per_partition=4)
+
+    edge_src = torch.tensor([0, 1, 2, 3, 4, 5])
+    edge_dst = torch.tensor([10, 10, 11, 11, 12, 12])
+    edge_ids = torch.arange(100, 106)
+    part = PartitionData.from_edge_index(
+        edge_src,
+        edge_dst,
+        edge_ids=edge_ids,
+        node_to_chunk=assignment.node_to_chunk,
+    )
+
+    block = part.to_block(0, keep_ids=True)
+    assert block.is_block
+    assert block.num_dst_nodes() == part.dst_ids[0].item().numel()
+    assert block.num_src_nodes() == part.dst_ids[0].item().numel() + part.src_ids[0].item().numel()
+    assert block.num_edges() == edge_src.numel()
+    print("✓ to_block materializes a valid CSC-backed DGL block")
+
+
 if __name__ == "__main__":
     test_from_edge_index_basic()
     test_edge_index_roundtrip()
     test_dst_chunk_sorting()
     test_edge_events_global_ids_and_from_edge_events_slice()
     test_edge_events_sort_by_timestamp()
+    test_to_block_uses_csc_storage()
     print("\n✅ All edge_index conversion tests passed!")

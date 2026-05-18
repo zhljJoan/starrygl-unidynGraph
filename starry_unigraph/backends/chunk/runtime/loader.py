@@ -8,11 +8,11 @@
   - 加载 SpatialRouteData（特征 fetch 路由，预计算）
   - 对每个时间切片，通过 TaskAdapter 构建 BatchData
   - 通过 CommPipeline 管理异步通信（submit/await 流水线）
-  - 采样和 MFG 构造留给 SamplerHook（接口已定，C++ 待接入）
+  - CTDG 采样和 MFG 构造通过 MemShareEventEngine 进入 C++ native 路径
 
 特征存储重分布：
-  - 暂不实现 redistribute_preprocessed 的完整逻辑
-  - 提供 rebuild_from_scratch() 接口，从 prepare 阶段重头执行
+  - redistribute_preprocessed 当前显式拒绝半成品重排。
+  - rebuild_from_scratch() 从 prepare 阶段重头执行。
 """
 
 from __future__ import annotations
@@ -30,26 +30,28 @@ from starry_unigraph.backends.chunk.data.batch import BatchData
 from starry_unigraph.backends.chunk.data.graph_store import ChunkGraphStore
 from starry_unigraph.backends.chunk.data.partition import PartitionData
 from starry_unigraph.backends.chunk.data.plans import (
+    EventView,
     ChunkPlacement,
     CommPlanBundle,
     ExecutionUnit,
     FetchPlan,
     GraphBatchEnvelope,
     StateSyncPlan,
+    TemporalIndexView,
 )
 from starry_unigraph.backends.chunk.data.route import MemoryRouteData, SpatialRouteData
-from starry_unigraph.backends.chunk.data.comm import CommPipeline
+from starry_unigraph.backends.chunk.data.comm import CommPipeline, MemoryResult, validate_training_comm_backend
+from starry_unigraph.backends.chunk.data.dist_index import dist_index_part
 from starry_unigraph.backends.chunk.runtime.task_adapter import ChunkTaskAdapter, get_task_adapter
 from starry_unigraph.backends.chunk.runtime.sampler import (
-    NeighborSamplerHook, NegativeSamplerHook, MFGBuilderHook,
-    _RandomNegativeSampler, _StubMFGBuilder,
+    NegativeSamplerHook, MFGBuilderHook,
 )
 from starry_unigraph.backends.chunk.runtime.train_step import run_batch
 from starry_unigraph.backends.chunk.runtime.event_engine import MemShareEventEngine
 
 
 class SimpleChunkModel(nn.Module):
-    """Minimal BatchData-native model used until real chunk GNN kernels are wired."""
+    """Small BatchData-native model for smoke tests and local debugging."""
 
     def __init__(self, num_nodes: int, hidden_dim: int, task_type: str, output_dim: int = 1) -> None:
         super().__init__()
@@ -96,7 +98,7 @@ def _load_optional(path: Path, cls):
 
 
 # ---------------------------------------------------------------------------
-# Redistribute stub
+# Redistribution entry points
 # ---------------------------------------------------------------------------
 
 def redistribute_preprocessed(
@@ -106,11 +108,7 @@ def redistribute_preprocessed(
     rebalance: bool = True,
     **kwargs,
 ) -> None:
-    """Redistribute already-prepared artifacts under a new chunk assignment.
-
-    Interface only — actual redistribution not yet implemented.
-    Use rebuild_from_scratch() to run preprocessing from the beginning.
-    """
+    """Redistribute already-prepared artifacts under a new chunk assignment."""
     raise NotImplementedError(
         "redistribute_preprocessed: full redistribution not yet implemented. "
         "Use rebuild_from_scratch() to re-run from prepare phase."
@@ -118,12 +116,10 @@ def redistribute_preprocessed(
 
 
 def rebuild_from_scratch(config: Dict[str, Any]) -> None:
-    """Run full preprocessing pipeline from scratch using config.
+    """Run full preprocessing pipeline from scratch using config."""
+    from starry_unigraph.preprocess.chunk import run_chunk_preprocess_from_config
 
-    Calls ChunkPreprocessor with given config; output lands in
-    config['data']['artifact_root'].
-    """
-    raise NotImplementedError("Delegates to ChunkPreprocessor — not yet wired.")
+    run_chunk_preprocess_from_config(config)
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +138,7 @@ class ChunkRuntimeLoader:
         spatial_routes: List of SpatialRouteData, one per time slice.
         task_adapter:   Task-specific batch builder and loss/metric logic.
         neg_sampler:    Negative sampling hook.
-        mfg_builder:    MFG construction hook (stub until C++ ready).
+        mfg_builder:    DGL MFG construction hook for sampled graph objects.
         pipeline:       Async CommPipeline for feature fetch + memory update.
         split_slices:   Dict mapping split name → list of slice indices.
         num_nodes:      Total graph node count.
@@ -166,12 +162,18 @@ class ChunkRuntimeLoader:
     chunk_manifest:  Dict[str, Any] = field(default_factory=dict)
     graph_store:     Optional[ChunkGraphStore] = None
     event_engine:    Optional[MemShareEventEngine] = None
+    memory_change_threshold: float = 0.0
+    memory_change_metric: str = "cos"
+    _last_memory_result: Optional[MemoryResult] = field(default=None, init=False, repr=False)
+    _ctdg_fetch_plan_cache: Dict[tuple[int, int, bytes], FetchPlan] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.graph_store is None:
             self.graph_store = ChunkGraphStore.from_partition_data(self.part_data)
         if self.event_engine is None:
             self.event_engine = MemShareEventEngine.from_config(self.graph_store, {})
+        if self.world_size > 1:
+            validate_training_comm_backend(self.device)
 
     # ---------------------------------------------------------------------------
     # Construction
@@ -253,8 +255,30 @@ class ChunkRuntimeLoader:
         mfg_builder = MFGBuilderHook.default()
 
         placement = cls._load_placement(prepared_dir, part_data)
-        graph_store = ChunkGraphStore.from_partition_data(part_data, placement=placement)
-        event_engine = MemShareEventEngine.from_config(graph_store, sampler_cfg.get("memshare", sampler_cfg))
+        if hasattr(neg_sampler, "configure_pools") and placement is not None:
+            local_pool = torch.nonzero(placement.node_owner == int(rank), as_tuple=False).flatten().long()
+            global_pool = torch.arange(int(num_nodes), dtype=torch.long)
+            neg_sampler.configure_pools(local_dst_pool=local_pool, global_dst_pool=global_pool)
+        temporal_index = cls._load_temporal_index(prepared_dir, rank, placement)
+        graph_store = ChunkGraphStore.from_partition_data(
+            part_data,
+            placement=placement,
+            temporal_index=temporal_index,
+        )
+        event_engine_cfg = dict(sampler_cfg.get("memshare", sampler_cfg))
+        event_engine_cfg.setdefault("event_batch_size", int(config.get("train", {}).get("batch_size", 0)))
+        event_engine_cfg.setdefault("require_prebuilt_temporal_index", True)
+        event_engine_cfg.setdefault("local_part", int(rank))
+        event_engine = MemShareEventEngine.from_config(graph_store, event_engine_cfg)
+        memory_cfg = config.get("memory", {})
+        memshare_cfg = sampler_cfg.get("memshare", {})
+        change_threshold = float(
+            memory_cfg.get(
+                "change_threshold",
+                memshare_cfg.get("change_threshold", memshare_cfg.get("alpha", 0.0)),
+            )
+        )
+        change_metric = str(memory_cfg.get("change_metric", memshare_cfg.get("change_metric", "cos")))
 
         # Comm pipeline
         pipeline = CommPipeline(device=device)
@@ -269,6 +293,8 @@ class ChunkRuntimeLoader:
             pipeline       = pipeline,
             graph_store    = graph_store,
             event_engine   = event_engine,
+            memory_change_threshold = change_threshold,
+            memory_change_metric    = change_metric,
             split_slices   = split_info,
             num_nodes      = num_nodes,
             rank           = rank,
@@ -306,12 +332,52 @@ class ChunkRuntimeLoader:
             return None
         if part_data.node_to_chunk is None:
             part_data.node_to_chunk = node_to_chunk.long()
+        master_dist_index = payload.get("canonical_nid_dist", payload.get("master_dist_index"))
+        read_dist_by_part = payload.get("read_dist_index_by_part", payload.get("local_nid_dist_by_part"))
+        read_dist_index = None
+        if isinstance(read_dist_by_part, list) and len(read_dist_by_part) > 0:
+            # local_nid_dist_by_part is not a global lookup table. Keep it out
+            # of hot-path indexing until prepare emits read_dist_index[rank].
+            read_dist_index = payload.get("read_dist_index")
         return ChunkPlacement(
             placement_version=int(payload.get("placement_version", 0)),
             node_to_chunk=node_to_chunk.long(),
             node_owner=node_owner.long(),
             node_master=node_master.long(),
             replica_mask=replica_mask.bool(),
+            master_dist_index=None if master_dist_index is None else master_dist_index.long(),
+            read_dist_index=None if read_dist_index is None else read_dist_index.long(),
+        )
+
+    @staticmethod
+    def _load_temporal_index(
+        prepared_dir: Path,
+        rank: int,
+        placement: ChunkPlacement | None,
+    ) -> TemporalIndexView | None:
+        index_path = prepared_dir / "sampling" / f"temporal_index_part_{rank:03d}.pth"
+        if not index_path.exists():
+            return None
+        if placement is None:
+            raise FileNotFoundError(
+                f"{index_path} exists but placement.pth is missing; "
+                "cannot attach placement metadata to temporal index"
+            )
+        payload = torch.load(index_path, weights_only=False)
+        if isinstance(payload, TemporalIndexView):
+            return payload
+        if not isinstance(payload, dict):
+            raise TypeError(f"Expected temporal index dict, got {type(payload).__name__}")
+        return TemporalIndexView(
+            indptr=payload["indptr"].long().contiguous(),
+            indices=payload["indices"].long().contiguous(),
+            edge_ids=payload["edge_ids"].long().contiguous(),
+            timestamps=(
+                None
+                if payload.get("timestamps") is None
+                else payload["timestamps"].contiguous()
+            ),
+            placement=placement.view(),
         )
 
     # ---------------------------------------------------------------------------
@@ -348,6 +414,10 @@ class ChunkRuntimeLoader:
     def iter_predict_units(self, split: str = "test") -> Iterator[ExecutionUnit]:
         yield from self._iter_units(split)
 
+    @property
+    def uses_native_ctdg_sampling(self) -> bool:
+        return self.task_adapter.task_type in {"edge_predict", "link_prediction"}
+
     def _iter_envelopes(self, split: str) -> Iterator[GraphBatchEnvelope]:
         for t, batch in self._iter_split_with_index(split):
             yield self._make_envelope(batch=batch, block_id=t)
@@ -356,8 +426,8 @@ class ChunkRuntimeLoader:
         indices = self.split_slices.get(split, [])
         if not indices:
             return
-        if self.event_engine is not None and self.task_adapter.task_type in {"edge_predict", "link_prediction"}:
-            yield from self.event_engine.iter_units(indices, plans_fn=self._make_comm_plan)
+        if self.event_engine is not None and self.uses_native_ctdg_sampling:
+            yield from self.event_engine.iter_units(indices, plans_fn=self._make_ctdg_base_comm_plan)
             return
         yield from self._iter_envelopes(split)
 
@@ -369,8 +439,9 @@ class ChunkRuntimeLoader:
           t=1: compute on slice 0 result, submit comm for slice 1
           ...
 
-        Actual MFG construction and neighbor sampling are stubs until
-        C++ extensions are wired.
+        CTDG training can use ``iter_train_units`` to keep sampling and native
+        MFG construction in ``MemShareEventEngine``.  ``iter_train`` yields
+        BatchData with CSC-backed DGL blocks materialized from PartitionData.
         """
         indices = self.split_slices.get(split, [])
         if not indices:
@@ -405,12 +476,12 @@ class ChunkRuntimeLoader:
                 num_nodes    = self.num_nodes,
             )
 
-            # MFG construction hook (stub — will attach real mfgs later)
-            if batch.mfgs is None and self.world_size > 1:
-                spatial_route = (
-                    self.spatial_routes[t] if t < len(self.spatial_routes) else None
+            if batch.mfgs is None:
+                raise RuntimeError(
+                    "BatchData.mfgs is required. Task adapters must materialize "
+                    "CSC-backed DGL blocks or CTDG callers must use iter_train_units "
+                    "with MemShareEventEngine native sampling."
                 )
-                batch.mfgs = self.mfg_builder.build(None)  # stub
 
             # Async comm: submit memory update for next batch, await for current
             # (pipeline is a no-op in single-rank or when routes are empty)
@@ -454,7 +525,21 @@ class ChunkRuntimeLoader:
                 cache_policy="route",
             )
 
-        state_sync = None
+        state_sync = self._make_state_sync_plan(block_id)
+
+        return CommPlanBundle(fetch=fetch, propagation=None, state_sync=state_sync)
+
+    def _make_ctdg_base_comm_plan(self, time_slice_id: int) -> CommPlanBundle:
+        """Base CTDG plan before sampling.
+
+        CTDG feature/memory fetch depends on the sampled remote read set, so it
+        is built later from ``CTDGSampleResult.remote_read_index``.  The only
+        stable pre-sampling route is the memory writeback/state-sync relation
+        for the time slice.
+        """
+        return CommPlanBundle(fetch=None, propagation=None, state_sync=self._make_state_sync_plan(time_slice_id))
+
+    def _make_state_sync_plan(self, block_id: int) -> StateSyncPlan | None:
         if block_id < len(self.mem_routes):
             route = self.mem_routes[block_id]
             counts = route.send_ptr[1:] - route.send_ptr[:-1]
@@ -462,7 +547,7 @@ class ChunkRuntimeLoader:
                 torch.arange(counts.numel(), dtype=torch.long, device=counts.device),
                 counts,
             ).contiguous()
-            state_sync = StateSyncPlan(
+            return StateSyncPlan(
                 block_id=int(block_id),
                 placement_version=self.graph_store.placement_version if self.graph_store is not None else 0,
                 update_node_ids=route.unique_nodes.contiguous(),
@@ -470,9 +555,90 @@ class ChunkRuntimeLoader:
                 replica_node_ids=None if route.replica_idx is None else route.unique_nodes[route.replica_idx].contiguous(),
                 replica_owners=None,
                 sync_policy="owner_write",
+                change_threshold=self.memory_change_threshold,
+                change_metric=self.memory_change_metric,
             )
+        return None
 
-        return CommPlanBundle(fetch=fetch, propagation=None, state_sync=state_sync)
+    def _make_dynamic_fetch_plan(
+        self,
+        block_id: int,
+        remote_read_index: Optional[Tensor],
+        local_read_index: Optional[Tensor] = None,
+    ) -> FetchPlan | None:
+        """Build a CTDG fetch plan from sampled packed DistIndex values."""
+        if remote_read_index is None or remote_read_index.numel() == 0:
+            return None
+        remote_read_index = remote_read_index.long().contiguous()
+        owners = dist_index_part(remote_read_index).long().contiguous()
+        if remote_read_index.numel() > 1:
+            order = torch.argsort(owners, stable=True)
+            remote_read_index = remote_read_index[order].contiguous()
+            owners = owners[order].contiguous()
+        cache_key = (
+            int(self.graph_store.placement_version if self.graph_store is not None else 0),
+            int(remote_read_index.numel()),
+            remote_read_index.cpu().numpy().tobytes(),
+        )
+        cached = self._ctdg_fetch_plan_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        plan = FetchPlan(
+            block_id=int(block_id),
+            placement_version=self.graph_store.placement_version if self.graph_store is not None else 0,
+            feature_node_ids=torch.empty(0, dtype=torch.long, device=remote_read_index.device),
+            feature_owners=owners,
+            remote_read_index=remote_read_index,
+            local_read_index=None if local_read_index is None else local_read_index.long().contiguous(),
+            memory_read_index=remote_read_index,
+            cache_policy="sampled_packed_dist_index",
+        )
+        self._ctdg_fetch_plan_cache[cache_key] = plan
+        return plan
+
+    def submit_memory_update(
+        self,
+        block_id: int,
+        memory: Tensor,
+        ts: Tensor,
+        baseline_memory: Optional[Tensor] = None,
+    ) -> Optional[MemoryResult]:
+        """Submit one routed memory update and synchronously collect results.
+
+        ``memory`` and ``ts`` must be aligned with
+        ``self.mem_routes[block_id].unique_nodes``.  The filtering threshold is
+        taken from the chunk config and the underlying all-to-all uses the
+        process group's NCCL backend in distributed CUDA training.
+        """
+        if block_id >= len(self.mem_routes):
+            return None
+        route = self.mem_routes[block_id]
+        if route.num_unique == 0:
+            return None
+        if memory.size(0) != route.num_unique or ts.size(0) != route.num_unique:
+            raise ValueError(
+                "memory update tensors must be aligned with route.unique_nodes: "
+                f"route={route.num_unique}, memory={memory.size(0)}, ts={ts.size(0)}"
+            )
+        if baseline_memory is not None and baseline_memory.size(0) != route.num_unique:
+            raise ValueError(
+                "baseline_memory must be aligned with route.unique_nodes: "
+                f"route={route.num_unique}, baseline={baseline_memory.size(0)}"
+            )
+        if self.world_size <= 1:
+            return None
+
+        validate_training_comm_backend(self.device)
+        handle = self.pipeline.submit_memory(
+            route,
+            memory,
+            ts,
+            baseline_memory=baseline_memory,
+            change_threshold=self.memory_change_threshold,
+            change_metric=self.memory_change_metric,
+        )
+        self._last_memory_result = asyncio.run(self.pipeline.await_handle(handle))
+        return self._last_memory_result
 
     # ---------------------------------------------------------------------------
     # Async iteration (for use with asyncio training loop)
@@ -551,13 +717,99 @@ class ChunkRuntimeLoader:
         ).to(self.device)
 
     def run_train_step(self, runtime: Any, batch: BatchData) -> dict[str, Any]:
-        return run_batch(
+        result = run_batch(
             model=runtime.model,
             batch=batch,
             task_adapter=self.task_adapter,
             optimizer=runtime.optimizer,
             train=True,
         )
+        memory_update = result.get("output", {}).get("memory_update")
+        if isinstance(memory_update, dict):
+            mem = memory_update.get("memory")
+            ts = memory_update.get("ts")
+            baseline = memory_update.get("baseline_memory")
+            if mem is not None and ts is not None and batch.chunk_id is not None:
+                mem_result = self.submit_memory_update(
+                    int(batch.chunk_id),
+                    mem,
+                    ts,
+                    baseline_memory=baseline,
+                )
+                result.setdefault("meta", {})["memory_sync_recv"] = (
+                    0 if mem_result is None else int(mem_result.recv_node_ids.numel())
+                )
+        return result
+
+    def _batch_from_sampled_unit(self, unit: ExecutionUnit, split: str = "train") -> BatchData:
+        if self.event_engine is None:
+            raise RuntimeError("Chunk CTDG sampled-unit execution requires MemShareEventEngine")
+        view = unit.payload
+        if not isinstance(view, EventView):
+            raise TypeError(f"Expected EventView payload, got {type(view).__name__}")
+
+        sampled = self.event_engine.sample(unit)
+        events = self.graph_store.temporal_events()
+        start, end = int(view.event_start), int(view.event_end)
+        pos_src = events.src[start:end].long().contiguous()
+        pos_dst = events.dst[start:end].long().contiguous()
+        timestamps = events.ts[start:end].contiguous()
+        neg_src, neg_dst = self.neg_sampler.sample(pos_src, pos_dst, self.num_nodes, 1, split=split)
+        node_ids = sampled.input_nodes.long().contiguous()
+        if node_ids.numel() == 0:
+            node_ids = torch.cat([pos_src, pos_dst, neg_src, neg_dst], dim=0).unique(sorted=True).contiguous()
+
+        fetch_plan = self._make_dynamic_fetch_plan(
+            int(unit.block_id),
+            sampled.remote_read_index,
+            sampled.local_read_index,
+        )
+        return BatchData(
+            mfgs=sampled.mfgs,
+            node_ids=node_ids,
+            pos_src=pos_src,
+            pos_dst=pos_dst,
+            neg_src=neg_src,
+            neg_dst=neg_dst,
+            timestamps=timestamps,
+            chunk_id=int(view.time_slice_id),
+            remote_manifest={
+                "batch_id": int(unit.block_id),
+                "time_slice_id": int(view.time_slice_id),
+                "batch_offset": int(view.batch_offset),
+                "sampled_input_nodes": sampled.input_nodes,
+                "sampled_output_nodes": sampled.output_nodes,
+                "sampled_edge_ids": sampled.edge_ids,
+                "remote_read_index": sampled.remote_read_index,
+                "local_read_index": sampled.local_read_index,
+                "dynamic_fetch_plan": fetch_plan,
+                "native_sampling": True,
+            },
+        )
+
+    def run_train_unit_step(self, runtime: Any, unit: ExecutionUnit) -> dict[str, Any]:
+        batch = self._batch_from_sampled_unit(unit, split="train")
+        result = self.run_train_step(runtime, batch)
+        result.setdefault("meta", {})["native_sampling"] = True
+        result["meta"]["sampled_mfg_count"] = len(batch.mfgs) if isinstance(batch.mfgs, list) else 1
+        manifest = batch.remote_manifest or {}
+        fetch_plan = manifest.get("dynamic_fetch_plan")
+        result["meta"]["dynamic_fetch_nodes"] = 0 if fetch_plan is None else int(fetch_plan.remote_read_index.numel())
+        result["meta"]["time_slice_id"] = manifest.get("time_slice_id")
+        result["meta"]["batch_offset"] = manifest.get("batch_offset")
+        return result
+
+    def run_eval_unit_step(self, runtime: Any, unit: ExecutionUnit) -> dict[str, Any]:
+        batch = self._batch_from_sampled_unit(unit, split="test")
+        result = self.run_eval_step(runtime, batch)
+        result.setdefault("meta", {})["native_sampling"] = True
+        result["meta"]["sampled_mfg_count"] = len(batch.mfgs) if isinstance(batch.mfgs, list) else 1
+        manifest = batch.remote_manifest or {}
+        fetch_plan = manifest.get("dynamic_fetch_plan")
+        result["meta"]["dynamic_fetch_nodes"] = 0 if fetch_plan is None else int(fetch_plan.remote_read_index.numel())
+        result["meta"]["time_slice_id"] = manifest.get("time_slice_id")
+        result["meta"]["batch_offset"] = manifest.get("batch_offset")
+        return result
 
     def run_eval_step(self, runtime: Any, batch: BatchData) -> dict[str, Any]:
         with torch.no_grad():

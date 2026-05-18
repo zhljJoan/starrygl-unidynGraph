@@ -8,12 +8,14 @@ from typing import Any
 import torch
 
 from starry_unigraph.backends.chunk.data.dist_index import encode_dist_index
+from starry_unigraph.backends.chunk.data.graph_store import ChunkGraphStore
 from starry_unigraph.backends.chunk.data.partition import PartitionData, TensorData
+from starry_unigraph.backends.chunk.data.plans import ChunkPlacement
 from starry_unigraph.backends.chunk.prepare.pipeline import PrepareArtifacts as ChunkPrepareArtifacts
 from starry_unigraph.backends.chunk.prepare.pipeline import prepare as prepare_chunks
 from starry_unigraph.data import build_snapshot_dataset_from_events, load_raw_temporal_events
 from starry_unigraph.preprocess.base import ArtifactOutput, ArtifactPayload, GraphPreprocessor
-from starry_unigraph.types import PreparedArtifacts, SessionContext
+from starry_unigraph.types import DistributedContext, PreparedArtifacts, SessionContext
 
 ARTIFACT_VERSION = 1
 
@@ -237,7 +239,7 @@ class ChunkPreprocessor(GraphPreprocessor):
     """Preprocessor for chunk graph mode."""
 
     graph_mode = "chunk"
-    artifact_dirs = ("meta", "partitions", "routes", "snapshots", "clusters")
+    artifact_dirs = ("meta", "partitions", "routes", "sampling", "snapshots", "clusters")
 
     def prepare_raw(self, session_ctx: SessionContext) -> None:
         dataset_root = (
@@ -287,7 +289,7 @@ class ChunkPreprocessor(GraphPreprocessor):
             num_chunks_per_partition=int(chunk_cfg.get("num_chunks_per_partition", chunk_cfg.get("node_clusters", 32))),
             max_imbalance_ratio=float(chunk_cfg.get("max_imbalance_ratio", 1.2)),
             max_migrations=chunk_cfg.get("max_migrations"),
-            build_mem_routes=bool(chunk_cfg.get("build_mem_routes", False)),
+            build_mem_routes=bool(chunk_cfg.get("build_mem_routes", True)),
             num_candidates=int(chunk_cfg.get("num_candidates", 3)),
         )
         session_ctx.provider_state["chunk_prepare"] = artifacts
@@ -311,6 +313,7 @@ class ChunkPreprocessor(GraphPreprocessor):
         root = session_ctx.artifact_root
         root.mkdir(parents=True, exist_ok=True)
         (root / "partitions").mkdir(parents=True, exist_ok=True)
+        (root / "sampling").mkdir(parents=True, exist_ok=True)
 
         edge_ids = torch.arange(int(raw_events.num_edges), dtype=torch.long)
         placement = _build_placement_artifact(
@@ -319,6 +322,13 @@ class ChunkPreprocessor(GraphPreprocessor):
             edge_dst=raw_events.dst.long(),
             num_edges=int(raw_events.num_edges),
             num_parts=num_parts,
+        )
+        placement_view = ChunkPlacement(
+            placement_version=int(placement.get("placement_version", 0)),
+            node_to_chunk=placement["node_to_chunk"].long(),
+            node_owner=placement["node_owner"].long(),
+            node_master=placement["node_master"].long(),
+            replica_mask=placement["replica_mask"].bool(),
         )
         for part_id in range(num_parts):
             part_data = _build_partition_data_for_part(
@@ -334,6 +344,24 @@ class ChunkPreprocessor(GraphPreprocessor):
             )
             part_data.node_to_chunk = None
             torch.save(part_data, root / "partitions" / f"part_{part_id:03d}.pth")
+            graph_store = ChunkGraphStore.from_partition_data(part_data, placement=placement_view)
+            temporal_index = graph_store.temporal_index_view()
+            torch.save(
+                {
+                    "format": "chunk_temporal_index_v1",
+                    "indptr": temporal_index.indptr.cpu().contiguous(),
+                    "indices": temporal_index.indices.cpu().contiguous(),
+                    "edge_ids": temporal_index.edge_ids.cpu().contiguous(),
+                    "timestamps": (
+                        None
+                        if temporal_index.timestamps is None
+                        else temporal_index.timestamps.cpu().contiguous()
+                    ),
+                    "num_nodes": temporal_index.num_nodes,
+                    "num_edges": temporal_index.num_edges,
+                },
+                root / "sampling" / f"temporal_index_part_{part_id:03d}.pth",
+            )
 
         torch.save(placement, root / "placement.pth")
         artifacts.rebalance_manifest.save(root / "partitions" / "rebalance_manifest.json")
@@ -379,6 +407,18 @@ class ChunkPreprocessor(GraphPreprocessor):
                 },
             ),
             ArtifactOutput(
+                "sampling/manifest.json",
+                {
+                    "format": "chunk_temporal_index_v1",
+                    "num_parts": num_parts,
+                    "files": [
+                        f"temporal_index_part_{part_id:03d}.pth"
+                        for part_id in range(num_parts)
+                    ],
+                    "layout": "csc_by_dst_then_time",
+                },
+            ),
+            ArtifactOutput(
                 "snapshots/manifest.json",
                 {
                     "graph_mode": "chunk",
@@ -405,3 +445,33 @@ class ChunkPreprocessor(GraphPreprocessor):
             session_ctx,
             ArtifactPayload(provider_meta=provider_meta, outputs=outputs),
         )
+
+
+def run_chunk_preprocess_from_config(config: dict[str, Any]) -> PreparedArtifacts:
+    """Run chunk preprocessing from a plain config dictionary."""
+    data_cfg = config.get("data", {})
+    dist_cfg = config.get("dist", {})
+    artifact_root = Path(
+        data_cfg.get("artifact_root")
+        or config.get("artifact_root")
+        or data_cfg.get("prepared_dir")
+        or "artifacts/chunk"
+    ).expanduser().resolve()
+    dataset_root = data_cfg.get("root")
+    session_ctx = SessionContext(
+        config=config,
+        project_root=Path(config.get("project_root", ".")).expanduser().resolve(),
+        dataset_path=None if dataset_root is None else Path(dataset_root).expanduser().resolve(),
+        artifact_root=artifact_root,
+        dist=DistributedContext(
+            backend=str(dist_cfg.get("backend", "nccl" if int(dist_cfg.get("world_size", 1)) > 1 else "single")),
+            world_size=int(dist_cfg.get("world_size", 1)),
+            rank=int(dist_cfg.get("rank", 0)),
+            local_rank=int(dist_cfg.get("local_rank", 0)),
+            local_world_size=int(dist_cfg.get("local_world_size", dist_cfg.get("world_size", 1))),
+        ),
+    )
+    preprocessor = ChunkPreprocessor()
+    artifacts = preprocessor.run(session_ctx)
+    session_ctx.prepared_artifacts = artifacts
+    return artifacts

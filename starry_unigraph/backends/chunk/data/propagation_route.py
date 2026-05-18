@@ -28,6 +28,8 @@ class ChunkPropagationRoute:
     send_sizes: list[int]
     recv_sizes: list[int]
     send_index: Optional[Tensor] = None
+    recv_src_rows: Optional[Tensor] = None
+    append_recv: bool = True
     group: Optional[dist.ProcessGroup] = None
 
     @property
@@ -59,6 +61,8 @@ class ChunkPropagationRoute:
             send_sizes=self.send_sizes,
             recv_sizes=self.recv_sizes,
             send_index=None if self.send_index is None else self.send_index.pin_memory(),
+            recv_src_rows=None if self.recv_src_rows is None else self.recv_src_rows.pin_memory(),
+            append_recv=self.append_recv,
             group=self.group,
         )
 
@@ -67,6 +71,8 @@ class ChunkPropagationRoute:
             send_sizes=self.send_sizes,
             recv_sizes=self.recv_sizes,
             send_index=None if self.send_index is None else self.send_index.to(device),
+            recv_src_rows=None if self.recv_src_rows is None else self.recv_src_rows.to(device),
+            append_recv=self.append_recv,
             group=self.group,
         )
 
@@ -78,6 +84,8 @@ class ChunkPropagationRoute:
             "send_sizes": [int(x) for x in self.send_sizes],
             "recv_sizes": [int(x) for x in self.recv_sizes],
             "has_send_index": self.send_index is not None,
+            "has_recv_src_rows": self.recv_src_rows is not None,
+            "append_recv": bool(self.append_recv),
         }
 
 
@@ -94,12 +102,16 @@ class _PropagationAgent:
 
     def forward(self, x: Tensor) -> Tensor:
         if self.route.send_index is None or not dist.is_available() or not dist.is_initialized():
-            return x
+            if self.route.append_recv:
+                return x
+            return x.new_empty((0, *x.shape[1:]))
         return self.recv(self.send(x))
 
     async def async_forward(self, x: Tensor) -> Tensor:
         if self.route.send_index is None or not dist.is_available() or not dist.is_initialized():
-            return x
+            if self.route.append_recv:
+                return x
+            return x.new_empty((0, *x.shape[1:]))
         ctx = self.send(x)
         await asyncio.sleep(0.0)
         return self.recv(ctx)
@@ -154,6 +166,8 @@ class _PropagationContext:
         self.send_work = None
         self.recv_work = None
         self.x_num_rows = 0
+        self.local_x: Optional[Tensor] = None
+        self.local_grad: Optional[Tensor] = None
 
     @property
     def send_sizes(self) -> list[int]:
@@ -167,6 +181,8 @@ class _PropagationContext:
         if self.route.send_index is None:
             raise RuntimeError("send_index is required for propagation send")
         self.x_num_rows = int(x.size(0))
+        if self.route.append_recv:
+            self.local_x = x
         self.send_buf = x[self.route.send_index].contiguous()
         self.recv_buf = torch.empty(sum(self.recv_sizes), x.size(1), dtype=x.dtype, device=x.device)
         self.recv_work = dist.all_to_all_single(
@@ -183,12 +199,32 @@ class _PropagationContext:
             self.recv_work.wait()
         if self.recv_buf is None:
             raise RuntimeError("forward_recv called before forward_send")
+        if self.route.recv_src_rows is not None:
+            self.recv_buf = self.recv_buf[self.route.recv_src_rows.to(self.recv_buf.device)]
+        if self.route.append_recv:
+            if self.local_x is None:
+                raise RuntimeError("append_recv requires local input from forward_send")
+            return torch.cat([self.local_x, self.recv_buf], dim=0)
         return self.recv_buf
 
     def backward_send(self, grad_output: Tensor) -> None:
-        self.send_buf = grad_output.contiguous()
-        feature_dim = grad_output.size(1) if grad_output.dim() > 1 else 1
-        self.recv_buf = torch.empty(sum(self.send_sizes), feature_dim, dtype=grad_output.dtype, device=grad_output.device)
+        if self.route.append_recv:
+            self.local_grad = grad_output[: self.x_num_rows].contiguous()
+            remote_grad = grad_output[self.x_num_rows :].contiguous()
+        else:
+            self.local_grad = None
+            remote_grad = grad_output.contiguous()
+        if self.route.recv_src_rows is not None and remote_grad.numel() > 0:
+            inv = torch.empty_like(self.route.recv_src_rows, device=remote_grad.device)
+            inv[self.route.recv_src_rows.to(remote_grad.device)] = torch.arange(
+                int(self.route.recv_src_rows.numel()),
+                dtype=torch.long,
+                device=remote_grad.device,
+            )
+            remote_grad = remote_grad[inv]
+        self.send_buf = remote_grad
+        feature_dim = remote_grad.size(1) if remote_grad.dim() > 1 else 1
+        self.recv_buf = torch.empty(sum(self.send_sizes), feature_dim, dtype=remote_grad.dtype, device=remote_grad.device)
         self.recv_work = dist.all_to_all_single(
             self.recv_buf,
             self.send_buf,
@@ -205,4 +241,6 @@ class _PropagationContext:
             raise RuntimeError("backward_recv called before backward_send")
         grad_x = torch.zeros(self.x_num_rows, self.recv_buf.size(1), dtype=self.recv_buf.dtype, device=self.recv_buf.device)
         grad_x.index_add_(0, self.route.send_index, self.recv_buf)
+        if self.local_grad is not None:
+            grad_x = grad_x + self.local_grad
         return grad_x

@@ -307,6 +307,254 @@ def test_chunk_loader_units():
           f"payload={type(units[0].payload).__name__}")
 
 
+def test_event_units_follow_batch_size():
+    part = _make_part(num_edges=10, num_snaps=1)
+    adapter = get_task_adapter("edge_predict")
+    neg = NegativeSamplerHook.from_config({})
+
+    loader = ChunkRuntimeLoader(
+        part_data=part,
+        mem_routes=[],
+        spatial_routes=[],
+        task_adapter=adapter,
+        neg_sampler=neg,
+        mfg_builder=__import__(
+            "starry_unigraph.backends.chunk.runtime.sampler",
+            fromlist=["MFGBuilderHook"]
+        ).MFGBuilderHook.default(),
+        pipeline=__import__(
+            "starry_unigraph.backends.chunk.data.comm",
+            fromlist=["CommPipeline"]
+        ).CommPipeline(device=torch.device("cpu")),
+        split_slices={"train": [0], "val": [], "test": []},
+        num_nodes=20,
+        rank=0,
+        world_size=1,
+        device=torch.device("cpu"),
+    )
+    loader.event_engine.event_batch_size = 3
+    units = list(loader.iter_train_units())
+    assert len(units) == 4
+    assert [(u.payload.event_start, u.payload.event_end) for u in units] == [
+        (0, 3), (3, 6), (6, 9), (9, 10)
+    ]
+    print("✓ event units are split by train batch size")
+
+
+def test_default_mfg_builder_materializes_csc_block():
+    from starry_unigraph.backends.chunk.runtime.sampler import MFGBuilderHook, SampledGraph
+    import dgl
+
+    builder = MFGBuilderHook.default()
+    sampled = SampledGraph(
+        src_nodes=torch.tensor([10, 11, 12]),
+        dst_nodes=torch.tensor([10, 11]),
+        edge_src=torch.tensor([2, 0, 1]),
+        edge_dst=torch.tensor([1, 0, 1]),
+        edge_ts=torch.tensor([3.0, 1.0, 2.0]),
+        edge_ids=torch.tensor([30, 10, 20]),
+    )
+    block = builder.build(sampled)
+    assert block.num_src_nodes() == 3
+    assert block.num_dst_nodes() == 2
+    assert block.num_edges() == 3
+    assert torch.equal(block.srcdata[dgl.NID], sampled.src_nodes)
+    assert torch.equal(block.dstdata[dgl.NID], sampled.dst_nodes)
+    assert torch.equal(block.edata[dgl.EID], torch.tensor([10, 30, 20]))
+    try:
+        builder.build(None)
+    except ValueError as exc:
+        assert "sampled graph is required" in str(exc)
+    else:
+        raise AssertionError("default MFG builder must reject fake None input")
+    print("✓ default MFG builder materializes a CSC-backed DGL block")
+
+
+def test_train_unit_step_uses_event_engine_sampling():
+    import types
+    from starry_unigraph.backends.chunk.data.dist_index import encode_dist_index
+    from starry_unigraph.backends.chunk.data.plans import CTDGSampleResult, ExecutionUnit
+    from starry_unigraph.backends.chunk.runtime.loader import SimpleChunkModel
+
+    part = _make_part(num_snaps=2)
+    adapter = get_task_adapter("edge_predict")
+    neg = NegativeSamplerHook.from_config({})
+
+    loader = ChunkRuntimeLoader(
+        part_data=part,
+        mem_routes=[],
+        spatial_routes=[],
+        task_adapter=adapter,
+        neg_sampler=neg,
+        mfg_builder=__import__(
+            "starry_unigraph.backends.chunk.runtime.sampler",
+            fromlist=["MFGBuilderHook"]
+        ).MFGBuilderHook.default(),
+        pipeline=__import__(
+            "starry_unigraph.backends.chunk.data.comm",
+            fromlist=["CommPipeline"]
+        ).CommPipeline(device=torch.device("cpu")),
+        split_slices={"train": [0], "val": [], "test": []},
+        num_nodes=20,
+        rank=0,
+        world_size=1,
+        device=torch.device("cpu"),
+    )
+
+    calls = {"sample": 0}
+
+    class FakeEventEngine:
+        def sample(self, unit):
+            calls["sample"] += 1
+            view = unit.payload
+            return CTDGSampleResult(
+                mfgs=["native-block"],
+                input_nodes=view.root_nodes,
+                output_nodes=view.root_nodes,
+                edge_ids=torch.arange(max(0, int(view.event_end) - int(view.event_start))),
+                node_ts=view.root_ts,
+                remote_read_index=encode_dist_index(
+                    torch.tensor([5, 6]),
+                    torch.tensor([1, 2]),
+                ),
+                local_read_index=encode_dist_index(
+                    torch.tensor([1]),
+                    torch.tensor([0]),
+                ),
+            )
+
+    loader.event_engine = FakeEventEngine()
+    view = loader.graph_store.ctdg_input_view(
+        batch_id=1_000_002,
+        event_start=0,
+        event_end=3,
+        time_slice_id=1,
+        batch_offset=2,
+    )
+    unit = ExecutionUnit(mode="ctdg", block_id=0, placement_version=0, payload=view)
+    model = SimpleChunkModel(num_nodes=20, hidden_dim=8, task_type="edge_predict")
+    runtime = types.SimpleNamespace(
+        model=model,
+        optimizer=torch.optim.SGD(model.parameters(), lr=0.01),
+    )
+
+    result = loader.run_train_unit_step(runtime, unit)
+    assert calls["sample"] == 1
+    assert result["meta"]["native_sampling"] is True
+    assert result["meta"]["sampled_mfg_count"] == 1
+    assert result["meta"]["dynamic_fetch_nodes"] == 2
+    assert result["meta"]["time_slice_id"] == 1
+    assert result["meta"]["batch_offset"] == 2
+    assert "loss" in result
+    print("✓ sampled ExecutionUnit path calls event_engine.sample in train step")
+
+
+def test_native_units_require_prebuilt_temporal_index_when_configured():
+    part = _make_part(num_edges=4, num_snaps=1)
+    adapter = get_task_adapter("edge_predict")
+    neg = NegativeSamplerHook.from_config({})
+    loader = ChunkRuntimeLoader(
+        part_data=part,
+        mem_routes=[],
+        spatial_routes=[],
+        task_adapter=adapter,
+        neg_sampler=neg,
+        mfg_builder=__import__(
+            "starry_unigraph.backends.chunk.runtime.sampler",
+            fromlist=["MFGBuilderHook"]
+        ).MFGBuilderHook.default(),
+        pipeline=__import__(
+            "starry_unigraph.backends.chunk.data.comm",
+            fromlist=["CommPipeline"]
+        ).CommPipeline(device=torch.device("cpu")),
+        split_slices={"train": [0], "val": [], "test": []},
+        num_nodes=20,
+        rank=0,
+        world_size=1,
+        device=torch.device("cpu"),
+    )
+    loader.event_engine.require_prebuilt_temporal_index = True
+    try:
+        list(loader.iter_train_units())
+    except FileNotFoundError as exc:
+        assert "prepare-time temporal index" in str(exc)
+    else:
+        raise AssertionError("native unit path must reject missing temporal-index artifact")
+    print("✓ native sampling rejects missing prepare-time temporal index")
+
+
+def test_edge_predict_mixed_negative_sampler_uses_local_train_and_global_eval():
+    sampler = NegativeSamplerHook.from_config(
+        {
+            "neg_strategy": "edge_predict_mixed",
+            "train_remote_dst_prob": 0.0,
+            "test_policy": "global_average",
+            "local_dst_pool": [1, 2],
+            "global_dst_pool": [8, 9],
+            "neg_weight": 0.5,
+        }
+    )
+    pos_src = torch.tensor([0, 0, 0, 0])
+    pos_dst = torch.tensor([3, 4, 5, 6])
+    _, train_dst = sampler.sample(pos_src, pos_dst, num_nodes=10, neg_ratio=2, split="train")
+    _, test_dst = sampler.sample(pos_src, pos_dst, num_nodes=10, neg_ratio=2, split="test")
+
+    assert set(train_dst.tolist()).issubset({1, 2})
+    assert set(test_dst.tolist()).issubset({8, 9})
+    assert sampler.neg_weight == 0.5
+    print("✓ edge_predict_mixed negative sampler follows train/eval dst-pool policy")
+
+
+def test_submit_memory_update_single_rank_noop_and_shape_check():
+    """Memory sync API is no-op on one rank but validates route alignment."""
+    from starry_unigraph.backends.chunk.data.route import MemoryRouteData
+
+    part = _make_part(num_snaps=1)
+    adapter = get_task_adapter("edge_predict")
+    route = MemoryRouteData(
+        unique_nodes=torch.tensor([0, 1, 2]),
+        cand_pos=torch.zeros(3, 1, dtype=torch.long),
+        send_ptr=torch.tensor([0, 3]),
+        recv_ptr=torch.tensor([0, 0]),
+        recv_node_ids=torch.empty(0, dtype=torch.long),
+    )
+    loader = ChunkRuntimeLoader(
+        part_data=part,
+        mem_routes=[route],
+        spatial_routes=[],
+        task_adapter=adapter,
+        neg_sampler=NegativeSamplerHook.from_config({}),
+        mfg_builder=__import__(
+            "starry_unigraph.backends.chunk.runtime.sampler",
+            fromlist=["MFGBuilderHook"]
+        ).MFGBuilderHook.default(),
+        pipeline=__import__(
+            "starry_unigraph.backends.chunk.data.comm",
+            fromlist=["CommPipeline"]
+        ).CommPipeline(device=torch.device("cpu")),
+        split_slices={"train": [0], "val": [], "test": []},
+        num_nodes=20,
+        rank=0,
+        world_size=1,
+        device=torch.device("cpu"),
+    )
+
+    result = loader.submit_memory_update(
+        0,
+        memory=torch.zeros(3, 4),
+        ts=torch.zeros(3),
+        baseline_memory=torch.zeros(3, 4),
+    )
+    assert result is None
+    try:
+        loader.submit_memory_update(0, memory=torch.zeros(2, 4), ts=torch.zeros(2))
+    except ValueError as exc:
+        assert "aligned with route.unique_nodes" in str(exc)
+    else:
+        raise AssertionError("Expected route alignment validation failure")
+    print("✓ submit_memory_update: single-rank no-op and alignment validation")
+
+
 if __name__ == "__main__":
     test_prepare_pipeline()
     test_edge_predict_adapter()
@@ -316,4 +564,10 @@ if __name__ == "__main__":
     test_prediction_head_and_run_batch()
     test_chunk_loader_iter()
     test_chunk_loader_units()
+    test_event_units_follow_batch_size()
+    test_default_mfg_builder_materializes_csc_block()
+    test_train_unit_step_uses_event_engine_sampling()
+    test_native_units_require_prebuilt_temporal_index_when_configured()
+    test_edge_predict_mixed_negative_sampler_uses_local_train_and_global_eval()
+    test_submit_memory_update_single_rank_noop_and_shape_check()
     print("\n✅ 阶段8 全部测试通过!")

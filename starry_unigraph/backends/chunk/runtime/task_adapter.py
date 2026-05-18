@@ -81,6 +81,10 @@ def _node_ids_from_part(part: PartitionData, snapshot_idx: int) -> Tensor:
     return part.dst_ids[snapshot_idx].item()
 
 
+def _mfg_from_part(part: PartitionData, snapshot_idx: int) -> Any:
+    return part.to_block(snapshot_idx, keep_ids=True)
+
+
 # ---------------------------------------------------------------------------
 # Edge prediction (link existence)
 # ---------------------------------------------------------------------------
@@ -110,10 +114,16 @@ class EdgePredictAdapter(ChunkTaskAdapter):
         node_ids = _node_ids_from_part(part, snapshot_idx)
 
         sampler = neg_sampler or _RandomNegativeSampler()
-        neg_src, neg_dst = sampler.sample(pos_src, pos_dst, num_nodes or int(node_ids.max()) + 1, self.neg_ratio)
+        neg_src, neg_dst = sampler.sample(
+            pos_src,
+            pos_dst,
+            num_nodes or int(node_ids.max()) + 1,
+            self.neg_ratio,
+            split=split,
+        )
 
         return BatchData(
-            mfgs     = None,
+            mfgs     = _mfg_from_part(part, snapshot_idx),
             node_ids = node_ids,
             pos_src  = pos_src,
             pos_dst  = pos_dst,
@@ -180,7 +190,7 @@ class EdgeRegressAdapter(ChunkTaskAdapter):
             labels = raw[valid] if valid.numel() > 0 else raw[:E]
 
         return BatchData(
-            mfgs     = None,
+            mfgs     = _mfg_from_part(part, snapshot_idx),
             node_ids = node_ids,
             pos_src  = pos_src,
             pos_dst  = pos_dst,
@@ -235,7 +245,7 @@ class NodeClassifyAdapter(ChunkTaskAdapter):
             labels = part.node_data["y"][snapshot_idx].item().long()
 
         return BatchData(
-            mfgs         = None,
+            mfgs         = _mfg_from_part(part, snapshot_idx),
             node_ids     = node_ids,
             target_nodes = None,   # all local dst nodes
             labels       = labels,
@@ -288,7 +298,7 @@ class NodeRegressAdapter(ChunkTaskAdapter):
             labels = part.node_data["y"][snapshot_idx].item().float()
 
         return BatchData(
-            mfgs         = None,
+            mfgs         = _mfg_from_part(part, snapshot_idx),
             node_ids     = node_ids,
             target_nodes = None,
             labels       = labels,

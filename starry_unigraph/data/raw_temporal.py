@@ -232,6 +232,80 @@ def _load_real_edges_file(dataset_dir: Path, dataset_name: str) -> RawTemporalEv
     )
 
 
+def _load_real_pth(root: Path, dataset_dir: Path, dataset_name: str) -> RawTemporalEvents | None:
+    candidates = (
+        root / f"{dataset_name}.pth",
+        root / f"{dataset_name.lower()}.pth",
+        dataset_dir / f"{dataset_name}.pth",
+        dataset_dir / f"{dataset_name.lower()}.pth",
+        dataset_dir / "data.pth",
+    )
+    pth_path = next((item for item in candidates if item.exists()), None)
+    if pth_path is None:
+        return None
+
+    payload = torch.load(pth_path, map_location="cpu")
+    dataset = payload.get("dataset", payload) if isinstance(payload, dict) else payload
+    if not isinstance(dataset, dict) or "edge_index" not in dataset:
+        raise ValueError(f"{pth_path} must contain a dict with edge_index")
+
+    edge_index = dataset["edge_index"].long().cpu()
+    if edge_index.dim() != 2 or edge_index.size(0) < 2:
+        raise ValueError(f"{pth_path}: edge_index must have shape [2 or 3, num_edges]")
+
+    src = edge_index[0].long().contiguous()
+    dst = edge_index[1].long().contiguous()
+    if edge_index.size(0) >= 3:
+        ts = edge_index[2].float().contiguous()
+    elif "ts" in dataset:
+        ts = torch.as_tensor(dataset["ts"], dtype=torch.float32).cpu().contiguous()
+    elif "timestamp" in dataset:
+        ts = torch.as_tensor(dataset["timestamp"], dtype=torch.float32).cpu().contiguous()
+    else:
+        ts = torch.arange(src.numel(), dtype=torch.float32)
+    if ts.numel() != src.numel():
+        raise ValueError(f"{pth_path}: timestamp length {ts.numel()} != edge count {src.numel()}")
+
+    weight = dataset.get("edge_weight", dataset.get("weight"))
+    if weight is None:
+        weight = torch.ones(src.numel(), dtype=torch.float32)
+    else:
+        weight = torch.as_tensor(weight, dtype=torch.float32).cpu().view(-1)
+        if weight.numel() != src.numel():
+            raise ValueError(f"{pth_path}: weight length {weight.numel()} != edge count {src.numel()}")
+
+    node_feat = dataset.get("node_feat")
+    if node_feat is not None:
+        node_feat = _as_2d_float_tensor(node_feat)
+    node_label = dataset.get("node_label", dataset.get("labels"))
+    if node_label is not None:
+        node_label = node_label if isinstance(node_label, torch.Tensor) else torch.as_tensor(node_label)
+        node_label = node_label.cpu()
+
+    edge_feat = dataset.get("edge_feat")
+    if edge_feat is None:
+        edge_feat = torch.ones(src.numel(), 1, dtype=torch.float32)
+    else:
+        edge_feat = _as_2d_float_tensor(edge_feat)
+        if edge_feat.size(0) != src.numel():
+            raise ValueError(f"{pth_path}: edge_feat rows {edge_feat.size(0)} != edge count {src.numel()}")
+
+    num_nodes = int(payload.get("num_nodes", 0)) if isinstance(payload, dict) else 0
+    num_nodes = max(num_nodes, _num_nodes_from_edges_and_features(src, dst, node_feat, node_label))
+    return RawTemporalEvents(
+        src=src,
+        dst=dst,
+        ts=ts,
+        weight=weight,
+        edge_feat=edge_feat,
+        num_nodes=num_nodes,
+        num_edges=int(src.numel()),
+        source=str(pth_path),
+        node_feat=node_feat,
+        node_label=node_label,
+    )
+
+
 def _sort_raw_temporal_events_by_time(events: RawTemporalEvents) -> RawTemporalEvents:
     if events.ts.numel() <= 1:
         return events
@@ -261,12 +335,15 @@ def load_raw_temporal_events(root: Path | str, dataset_name: str, config: dict[s
         return _sort_raw_temporal_events_by_time(_mock_events(dataset_name=dataset_name, config=config))
     root_path = Path(root).expanduser().resolve()
     dataset_dir = _resolve_dataset_dir(root_path, dataset_name)
-    events = _load_real_edges_csv(dataset_dir)
+    events = _load_real_pth(root_path, dataset_dir, dataset_name)
+    if events is None:
+        events = _load_real_edges_csv(dataset_dir)
     if events is None:
         events = _load_real_edges_file(dataset_dir, dataset_name)
     if events is None:
         raise FileNotFoundError(
-            f"Could not find edges.csv or {dataset_name}.edges under {dataset_dir}"
+            f"Could not find {dataset_name}.pth under {root_path}, "
+            f"or edges.csv/{dataset_name}.edges under {dataset_dir}"
         )
     return _sort_raw_temporal_events_by_time(events)
 
@@ -525,6 +602,9 @@ def build_snapshot_dataset_from_events(events: RawTemporalEvents, snaps: int | N
             raise ValueError(f"input_x must contain at least {snaps} snapshots, got {len(input_x)}")
         snapshot_features = input_x
         node_feature_source = "input_x"
+    elif events.node_feat is not None and build_features:
+        snapshot_features = events.node_feat
+        node_feature_source = "static_node_feat"
     elif not build_features:
         snapshot_features = None
         node_feature_source = "not_copied"

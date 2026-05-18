@@ -67,6 +67,10 @@ class SpatialRouteData:
     send_ptr:      Tensor   # [P+1]
     recv_ptr:      Tensor   # [P+1]
     recv_node_ids: Tensor   # [recv_total]
+    unique_index: Optional[Tensor] = None       # [S] packed DistIndex for sent rows
+    recv_index: Optional[Tensor] = None         # [recv_total] packed DistIndex for received rows
+    read_dist_index: Optional[Tensor] = None    # [recv_total] sampled CTDG remote read set
+    master_dist_index: Optional[Tensor] = None  # optional debug/compat lookup
 
     @property
     def num_send(self) -> int:
@@ -74,7 +78,11 @@ class SpatialRouteData:
 
     @property
     def num_recv(self) -> int:
-        return int(self.recv_node_ids.numel())
+        recv_ids = getattr(self, "recv_node_ids", None)
+        recv_index = getattr(self, "recv_index", None)
+        if recv_ids is not None:
+            return int(recv_ids.numel())
+        return 0 if recv_index is None else int(recv_index.numel())
 
     def pin_memory(self) -> SpatialRouteData:
         return SpatialRouteData(
@@ -82,6 +90,10 @@ class SpatialRouteData:
             send_ptr      = self.send_ptr.pin_memory(),
             recv_ptr      = self.recv_ptr.pin_memory(),
             recv_node_ids = self.recv_node_ids.pin_memory(),
+            unique_index  = None if getattr(self, "unique_index", None) is None else self.unique_index.pin_memory(),
+            recv_index    = None if getattr(self, "recv_index", None) is None else self.recv_index.pin_memory(),
+            read_dist_index = None if getattr(self, "read_dist_index", None) is None else self.read_dist_index.pin_memory(),
+            master_dist_index = None if getattr(self, "master_dist_index", None) is None else self.master_dist_index.pin_memory(),
         )
 
     def to(self, device) -> SpatialRouteData:
@@ -90,6 +102,10 @@ class SpatialRouteData:
             send_ptr      = self.send_ptr.to(device),
             recv_ptr      = self.recv_ptr.to(device),
             recv_node_ids = self.recv_node_ids.to(device),
+            unique_index  = None if getattr(self, "unique_index", None) is None else self.unique_index.to(device),
+            recv_index    = None if getattr(self, "recv_index", None) is None else self.recv_index.to(device),
+            read_dist_index = None if getattr(self, "read_dist_index", None) is None else self.read_dist_index.to(device),
+            master_dist_index = None if getattr(self, "master_dist_index", None) is None else self.master_dist_index.to(device),
         )
 
     def save(self, path: str | Path) -> None:
@@ -134,6 +150,10 @@ class MemoryRouteData:
     send_ptr:      Tensor  # [P+1]
     recv_ptr:      Tensor  # [P+1]
     recv_node_ids: Tensor  # [recv_total]
+    unique_index: Optional[Tensor] = None       # [D] packed DistIndex aligned with unique_nodes
+    recv_index: Optional[Tensor] = None         # [recv_total] packed DistIndex aligned with recv_node_ids
+    read_dist_index: Optional[Tensor] = None    # optional owner/local read rows
+    master_dist_index: Optional[Tensor] = None  # optional debug/compat lookup
 
     # Replica / hot-node sync
     replica_idx:      Optional[Tensor] = None   # [R]
@@ -155,6 +175,80 @@ class MemoryRouteData:
     def latest_pos(self) -> Tensor:
         """[D] position of the latest event per unique node."""
         return self.cand_pos[:, 0]
+
+    def filter_updates(self, keep_mask: Tensor) -> MemoryRouteData:
+        """Return a route containing only nodes selected by ``keep_mask``.
+
+        ``unique_nodes`` are stored sorted by destination owner, so the CSR
+        send pointer can be rebuilt by segment ids and ``bincount`` without a
+        per-partition Python loop.  This is used by the MemShare-style
+        change-rate check before memory communication.
+        """
+        if keep_mask.dtype != torch.bool:
+            raise TypeError(f"keep_mask must be bool, got {keep_mask.dtype}")
+        if keep_mask.numel() != self.unique_nodes.numel():
+            raise ValueError("keep_mask length must match unique_nodes")
+
+        keep_mask = keep_mask.to(device=self.unique_nodes.device)
+        old_ptr = self.send_ptr.to(device=keep_mask.device)
+        num_parts = int(old_ptr.numel()) - 1
+        segment_sizes = old_ptr[1:] - old_ptr[:-1]
+        segment_ids = torch.repeat_interleave(
+            torch.arange(num_parts, dtype=torch.long, device=old_ptr.device),
+            segment_sizes,
+        )
+        kept_segments = segment_ids[keep_mask]
+        send_counts = torch.bincount(kept_segments, minlength=num_parts)
+        send_ptr = torch.zeros(num_parts + 1, dtype=torch.long, device=old_ptr.device)
+        send_ptr[1:] = send_counts.cumsum(0)
+
+        kept_nodes = self.unique_nodes[keep_mask]
+        kept_cand = self.cand_pos[keep_mask]
+        unique_index = None
+        if getattr(self, "unique_index", None) is not None:
+            unique_index = self.unique_index.to(keep_mask.device)[keep_mask]
+        read_dist_index = None
+        if getattr(self, "read_dist_index", None) is not None:
+            read_dist_index = self.read_dist_index.to(keep_mask.device)[keep_mask]
+
+        replica_idx = replica_send_ptr = replica_recv_ptr = None
+        if self.replica_idx is not None and self.replica_idx.numel() > 0:
+            old_to_new = torch.full(
+                (keep_mask.numel(),),
+                -1,
+                dtype=torch.long,
+                device=keep_mask.device,
+            )
+            old_to_new[keep_mask] = torch.arange(int(keep_mask.sum().item()), device=keep_mask.device)
+            replica_idx = old_to_new[self.replica_idx.to(keep_mask.device)]
+            replica_idx = replica_idx[replica_idx >= 0]
+            if self.replica_send_ptr is not None:
+                old_rep_ptr = self.replica_send_ptr.to(device=keep_mask.device)
+                rep_keep = keep_mask[self.replica_idx.to(keep_mask.device)]
+                rep_segment_sizes = old_rep_ptr[1:] - old_rep_ptr[:-1]
+                rep_segment_ids = torch.repeat_interleave(
+                    torch.arange(num_parts, dtype=torch.long, device=keep_mask.device),
+                    rep_segment_sizes,
+                )
+                rep_counts = torch.bincount(rep_segment_ids[rep_keep], minlength=num_parts)
+                replica_send_ptr = torch.zeros(num_parts + 1, dtype=torch.long, device=keep_mask.device)
+                replica_send_ptr[1:] = rep_counts.cumsum(0)
+            replica_recv_ptr = self.replica_recv_ptr
+
+        return MemoryRouteData(
+            unique_nodes=kept_nodes,
+            cand_pos=kept_cand,
+            send_ptr=send_ptr,
+            recv_ptr=self.recv_ptr,
+            recv_node_ids=self.recv_node_ids,
+            unique_index=unique_index,
+            recv_index=getattr(self, "recv_index", None),
+            read_dist_index=read_dist_index,
+            master_dist_index=getattr(self, "master_dist_index", None),
+            replica_idx=replica_idx,
+            replica_send_ptr=replica_send_ptr,
+            replica_recv_ptr=replica_recv_ptr,
+        )
 
     def sampled_pos(self, rng: Optional[torch.Generator] = None) -> Tensor:
         """[D] randomly sampled candidate event position (perturbation).
@@ -213,6 +307,10 @@ class MemoryRouteData:
             send_ptr          = send_ptr,
             recv_ptr          = torch.zeros(num_parts + 1, dtype=torch.long),  # filled by fill_recv_ptrs
             recv_node_ids     = torch.zeros(0, dtype=torch.long),
+            unique_index      = None,
+            recv_index        = None,
+            read_dist_index   = None,
+            master_dist_index = getattr(self, "master_dist_index", None),
             replica_idx       = replica_idx,
             replica_send_ptr  = replica_send_ptr,
             replica_recv_ptr  = replica_recv_ptr,
@@ -226,6 +324,10 @@ class MemoryRouteData:
             send_ptr          = self.send_ptr.pin_memory(),
             recv_ptr          = self.recv_ptr.pin_memory(),
             recv_node_ids     = self.recv_node_ids.pin_memory(),
+            unique_index      = _p(getattr(self, "unique_index", None)),
+            recv_index        = _p(getattr(self, "recv_index", None)),
+            read_dist_index   = _p(getattr(self, "read_dist_index", None)),
+            master_dist_index = _p(getattr(self, "master_dist_index", None)),
             replica_idx       = _p(self.replica_idx),
             replica_send_ptr  = _p(self.replica_send_ptr),
             replica_recv_ptr  = _p(self.replica_recv_ptr),
@@ -239,6 +341,10 @@ class MemoryRouteData:
             send_ptr          = self.send_ptr.to(device),
             recv_ptr          = self.recv_ptr.to(device),
             recv_node_ids     = self.recv_node_ids.to(device),
+            unique_index      = _t(getattr(self, "unique_index", None)),
+            recv_index        = _t(getattr(self, "recv_index", None)),
+            read_dist_index   = _t(getattr(self, "read_dist_index", None)),
+            master_dist_index = _t(getattr(self, "master_dist_index", None)),
             replica_idx       = _t(self.replica_idx),
             replica_send_ptr  = _t(self.replica_send_ptr),
             replica_recv_ptr  = _t(self.replica_recv_ptr),

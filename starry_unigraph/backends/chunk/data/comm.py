@@ -39,6 +39,7 @@ from typing import Optional, Tuple
 
 import torch
 import torch.distributed as dist
+import torch.nn.functional as F
 from torch import Tensor
 
 from .route import MemoryRouteData, SpatialRouteData
@@ -74,6 +75,13 @@ class MemoryResult:
     recv_ts:       Tensor
 
 
+@dataclass(frozen=True)
+class CommHandle:
+    """Opaque handle returned by non-blocking communication submission."""
+
+    channel: str
+
+
 # ---------------------------------------------------------------------------
 # Internal: await a single dist.Work handle
 # ---------------------------------------------------------------------------
@@ -87,6 +95,65 @@ async def _wait_work(work: dist.Work) -> None:
 def _split_sizes(ptr: Tensor) -> list[int]:
     """Convert CSR ptr [P+1] to a list of per-partition sizes [P]."""
     return (ptr[1:] - ptr[:-1]).tolist()
+
+
+def validate_training_comm_backend(device: torch.device) -> None:
+    """Validate that distributed CUDA training uses NCCL-backed tensors."""
+    if not dist.is_available() or not dist.is_initialized():
+        return
+    if dist.get_world_size() <= 1:
+        return
+    backend = dist.get_backend()
+    if device.type != "cuda":
+        raise RuntimeError(
+            "Chunk distributed training requires CUDA tensors so internal "
+            f"communication can use NCCL; got device={device}."
+        )
+    if backend != "nccl":
+        raise RuntimeError(
+            "Chunk distributed training requires NCCL for internal communication; "
+            f"current process group backend is {backend!r}."
+        )
+
+
+def _ptr_from_counts(counts: Tensor) -> Tensor:
+    ptr = torch.zeros(counts.numel() + 1, dtype=torch.long, device=counts.device)
+    ptr[1:] = counts.to(torch.long).cumsum(0)
+    return ptr
+
+
+def _exchange_recv_ptr(send_ptr: Tensor, group: Optional[dist.ProcessGroup]) -> Tensor:
+    """Exchange filtered send sizes and return the matching recv ptr."""
+    send_counts = (send_ptr[1:] - send_ptr[:-1]).to(dtype=torch.long).contiguous()
+    recv_counts = torch.empty_like(send_counts)
+    dist.all_to_all_single(recv_counts, send_counts, group=group)
+    return _ptr_from_counts(recv_counts)
+
+
+def _memory_change_mask(
+    memory: Tensor,
+    baseline_memory: Tensor,
+    threshold: float,
+    metric: str,
+) -> Tensor:
+    """MemShare-style change-rate check for memory communication."""
+    if memory.shape != baseline_memory.shape:
+        raise ValueError("memory and baseline_memory must have the same shape")
+    if threshold <= 0:
+        return torch.ones(memory.size(0), dtype=torch.bool, device=memory.device)
+    if memory.numel() == 0:
+        return torch.zeros(memory.size(0), dtype=torch.bool, device=memory.device)
+
+    metric = str(metric)
+    if metric == "cos":
+        change = 1.0 - F.cosine_similarity(memory, baseline_memory, dim=1, eps=1e-12)
+    elif metric in {"l2", "mse"}:
+        change = (memory - baseline_memory).pow(2).sum(dim=1)
+        if metric == "l2":
+            change = change.sqrt()
+    else:
+        raise ValueError(f"Unknown memory change metric: {metric}")
+    return change > float(threshold)
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +207,7 @@ class CommPipeline:
         self,
         route:    SpatialRouteData,
         features: Tensor,           # [num_local_nodes, feat_dim]
-    ) -> None:
+    ) -> CommHandle:
         """Start async all-to-all for spatial feature exchange.
 
         Gathers features[route.send_index] and scatters to peers.
@@ -168,6 +235,7 @@ class CommPipeline:
         )
         self._spatial_pending  = _PendingOp(works=[work], recv_bufs=[recv_buf])
         self._spatial_recv_ids = route.recv_node_ids
+        return CommHandle("spatial")
 
     async def await_spatial(self) -> Optional[SpatialResult]:
         """Await in-flight spatial op.  Returns None if none was submitted."""
@@ -191,21 +259,39 @@ class CommPipeline:
         route:  MemoryRouteData,
         memory: Tensor,    # [D, mem_dim]  D = route.num_unique
         ts:     Tensor,    # [D]
-    ) -> None:
+        baseline_memory: Optional[Tensor] = None,
+        change_threshold: float = 0.0,
+        change_metric: str = "cos",
+    ) -> CommHandle:
         """Start async all-to-all for memory/state cache updates.
 
         ``memory`` and ``ts`` must already be indexed by event_pos
         (caller selects latest or sampled candidate per unique node).
+        If ``baseline_memory`` is supplied, only nodes whose memory changed
+        beyond ``change_threshold`` are communicated.
         """
         self._drain_memory_sync()
+        route = route.to(self._device)
+        memory = memory.to(self._device, non_blocking=True)
+        ts = ts.to(self._device, non_blocking=True)
+        if baseline_memory is not None:
+            baseline_memory = baseline_memory.to(self._device, non_blocking=True)
 
-        recv_total = int(route.recv_ptr[-1])
+        if baseline_memory is not None:
+            keep = _memory_change_mask(memory, baseline_memory, change_threshold, change_metric)
+            route = route.filter_updates(keep)
+            memory = memory[keep]
+            ts = ts[keep]
+
+        recv_ptr = _exchange_recv_ptr(route.send_ptr, self._group)
+
+        recv_total = int(recv_ptr[-1])
         recv_mem   = torch.empty(recv_total, memory.size(1), dtype=memory.dtype, device=self._device)
         recv_ts    = torch.empty(recv_total, dtype=ts.dtype, device=self._device)
         recv_ids   = torch.empty(recv_total, dtype=torch.long, device=self._device)
 
         in_split  = _split_sizes(route.send_ptr)
-        out_split = _split_sizes(route.recv_ptr)
+        out_split = _split_sizes(recv_ptr)
 
         w_ids = dist.all_to_all_single(
             recv_ids, route.unique_nodes,
@@ -226,6 +312,7 @@ class CommPipeline:
         self._memory_pending   = _PendingOp(works=[w_ids, w_mem, w_ts],
                                             recv_bufs=[recv_ids, recv_mem, recv_ts])
         self._memory_recv_ids  = recv_ids  # same tensor, aliased for clarity
+        return CommHandle("memory")
 
     async def await_memory(self) -> Optional[MemoryResult]:
         """Await in-flight memory update op."""
@@ -246,10 +333,10 @@ class CommPipeline:
         self,
         route:  MemoryRouteData,
         memory: Tensor,    # [D, mem_dim]
-    ) -> None:
+    ) -> Optional[CommHandle]:
         """Start async all-to-all for replica (hot) node memory sync."""
         if not route.has_replicas:
-            return
+            return None
         self._drain_replica_sync()
 
         rep_idx  = route.replica_idx                          # [R]
@@ -275,6 +362,7 @@ class CommPipeline:
             group=self._group, async_op=True,
         )
         self._replica_pending  = _PendingOp(works=[w_ids, w_mem], recv_bufs=[recv_ids, recv_mem])
+        return CommHandle("replica")
 
     async def await_replica(self) -> Optional[Tuple[Tensor, Tensor]]:
         """Await in-flight replica sync.
@@ -288,6 +376,22 @@ class CommPipeline:
         ids, mem = self._replica_pending.recv_bufs
         self._replica_pending = None
         return ids, mem
+
+    async def await_handle(self, handle: Optional[CommHandle]):
+        """Await a handle returned by ``submit_*``.
+
+        This keeps the public interface channel-based while preserving the
+        existing ``await_spatial`` / ``await_memory`` / ``await_replica`` calls.
+        """
+        if handle is None:
+            return None
+        if handle.channel == "spatial":
+            return await self.await_spatial()
+        if handle.channel == "memory":
+            return await self.await_memory()
+        if handle.channel == "replica":
+            return await self.await_replica()
+        raise ValueError(f"Unknown communication channel: {handle.channel}")
 
     # ------------------------------------------------------------------
     # Synchronous drain helpers (safety valves)

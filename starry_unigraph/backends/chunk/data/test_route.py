@@ -11,6 +11,7 @@ from starry_unigraph.backends.chunk.prepare import (
 from starry_unigraph.backends.chunk.data import (
     MemoryRouteData, SpatialRouteData, CPUMemoryLayout, CommPipeline
 )
+from starry_unigraph.backends.chunk.data.comm import _memory_change_mask
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +156,31 @@ def test_memory_route_sampled_pos():
     print(f"✓ sampled_pos: no -1 values, shape {tuple(sampled.shape)}")
 
 
+def test_memory_route_filter_updates_rebuilds_send_ptr():
+    """Filtering memory updates preserves owner-group CSR consistency."""
+    r = MemoryRouteData(
+        unique_nodes=torch.tensor([0, 2, 4, 1, 3, 5]),
+        cand_pos=torch.arange(12).view(6, 2),
+        send_ptr=torch.tensor([0, 3, 6]),
+        recv_ptr=torch.tensor([0, 0, 0]),
+        recv_node_ids=torch.empty(0, dtype=torch.long),
+    )
+    filtered = r.filter_updates(torch.tensor([True, False, True, False, True, True]))
+    assert torch.equal(filtered.unique_nodes, torch.tensor([0, 4, 3, 5]))
+    assert torch.equal(filtered.send_ptr, torch.tensor([0, 2, 4]))
+    assert torch.equal(filtered.cand_pos, torch.tensor([[0, 1], [4, 5], [8, 9], [10, 11]]))
+    print("✓ filter_updates rebuilds send_ptr after change-rate filtering")
+
+
+def test_memory_change_mask_cosine_threshold():
+    """Cosine change mask matches MemShare historical-cache threshold style."""
+    old = torch.tensor([[1.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    new = torch.tensor([[1.0, 0.0], [0.0, 1.0], [0.0, 0.9]])
+    mask = _memory_change_mask(new, old, threshold=0.1, metric="cos")
+    assert torch.equal(mask, torch.tensor([False, True, False]))
+    print("✓ memory change mask filters only updates above threshold")
+
+
 if __name__ == "__main__":
     test_phase1_dedup_and_candidates()
     test_phase2_ptrs_consistent()
@@ -163,4 +189,6 @@ if __name__ == "__main__":
     test_comm_pipeline_interface()
     test_comm_pipeline_drain_sync()
     test_memory_route_sampled_pos()
+    test_memory_route_filter_updates_rebuilds_send_ptr()
+    test_memory_change_mask_cosine_threshold()
     print("\n✅ All route / comm tests passed!")

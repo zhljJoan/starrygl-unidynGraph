@@ -275,23 +275,41 @@ class SchedulerSession:
         else:
             # DTDG or Chunk path (graph runtime dispatch)
             assert self.graph_runtime is not None, "Call build_runtime() first"
+            graph_mode = self.prepared.provider_meta.get("graph_mode") if self.prepared is not None else None
+            use_chunk_sampled_units = (
+                graph_mode == "chunk"
+                and getattr(self.graph_runtime, "uses_native_ctdg_sampling", False)
+            )
             if split == "train":
-                iterator = self.graph_runtime.iter_train(split=split)
+                iterator = (
+                    self.graph_runtime.iter_train_units(split=split)
+                    if use_chunk_sampled_units
+                    else self.graph_runtime.iter_train(split=split)
+                )
             else:
                 self.runtime.state.pop("eval_rnn_state", None)
-                iterator = self.graph_runtime.iter_eval(split=split)
+                iterator = (
+                    self.graph_runtime.iter_eval_units(split=split)
+                    if use_chunk_sampled_units
+                    else self.graph_runtime.iter_eval(split=split)
+                )
 
             start_time = time.perf_counter()
             outputs = []
             if split == "train":
-                for batch in iterator:
-                    # graph_runtime handles its own step dispatch (Flare or Chunk)
-                    output = self.graph_runtime.run_train_step(self.runtime, batch)
+                for item in iterator:
+                    if use_chunk_sampled_units:
+                        output = self.graph_runtime.run_train_unit_step(self.runtime, item)
+                    else:
+                        output = self.graph_runtime.run_train_step(self.runtime, item)
                     outputs.append(output)
                     self.global_step += 1
             else:
-                for batch in iterator:
-                    output = self.graph_runtime.run_eval_step(self.runtime, batch)
+                for item in iterator:
+                    if use_chunk_sampled_units:
+                        output = self.graph_runtime.run_eval_unit_step(self.runtime, item)
+                    else:
+                        output = self.graph_runtime.run_eval_step(self.runtime, item)
                     outputs.append(output)
             elapsed = time.perf_counter() - start_time
 

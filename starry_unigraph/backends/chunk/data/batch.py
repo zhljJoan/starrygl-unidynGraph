@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+import torch
 from torch import Tensor
 
 
@@ -56,3 +57,30 @@ class BatchData:
 
     # Distributed / remote data
     remote_manifest: Optional[Dict[str, Any]] = None  # Remote data requests
+
+    def to(self, device: str | torch.device, non_blocking: bool = False) -> "BatchData":
+        def move(value: Any) -> Any:
+            if isinstance(value, Tensor):
+                return value.to(device=device, non_blocking=non_blocking)
+            if hasattr(value, "to"):
+                return value.to(device)
+            if isinstance(value, list):
+                return [move(item) for item in value]
+            if isinstance(value, tuple):
+                return tuple(move(item) for item in value)
+            return value
+
+        return BatchData(
+            mfgs=move(self.mfgs),
+            node_ids=move(self.node_ids),
+            pos_src=move(self.pos_src),
+            pos_dst=move(self.pos_dst),
+            neg_src=move(self.neg_src),
+            neg_dst=move(self.neg_dst),
+            labels=move(self.labels),
+            target_nodes=move(self.target_nodes),
+            timestamps=move(self.timestamps),
+            chunk_id=self.chunk_id,
+            local_node_mask=move(self.local_node_mask),
+            remote_manifest=self.remote_manifest,
+        )

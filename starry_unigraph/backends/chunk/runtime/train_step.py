@@ -31,6 +31,12 @@ def run_batch(
         }
     """
     model.train(mode=train)
+    try:
+        device = next(model.parameters()).device
+    except (AttributeError, StopIteration):
+        device = None
+    if device is not None:
+        batch = batch.to(device)
     if optimizer is not None and train:
         optimizer.zero_grad(set_to_none=True)
 

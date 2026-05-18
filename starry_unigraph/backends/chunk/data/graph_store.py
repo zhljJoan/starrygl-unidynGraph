@@ -59,9 +59,14 @@ class ChunkGraphStore:
         cls,
         part: PartitionData,
         placement: Optional[ChunkPlacement] = None,
+        temporal_index: Optional[TemporalIndexView] = None,
     ) -> "ChunkGraphStore":
         num_nodes = int(part.node_to_chunk.numel()) if part.node_to_chunk is not None else _infer_num_nodes(part)
-        return cls(part=part, placement=placement or _default_placement(part, num_nodes))
+        return cls(
+            part=part,
+            placement=placement or _default_placement(part, num_nodes),
+            _temporal_index_cache=temporal_index,
+        )
 
     @property
     def placement_version(self) -> int:
@@ -69,6 +74,10 @@ class ChunkGraphStore:
 
     def placement_view(self) -> PlacementView:
         return self.placement.view()
+
+    @property
+    def has_prebuilt_temporal_index(self) -> bool:
+        return self._temporal_index_cache is not None
 
     def temporal_index_view(self, sort_by_time: bool = True) -> TemporalIndexView:
         """Return a contiguous temporal adjacency index for sampling.
@@ -172,7 +181,15 @@ class ChunkGraphStore:
         idx = min(max(0, int(snapshot_idx)), max(0, int(events.snapshot_event_ptr.numel()) - 2))
         return int(events.snapshot_event_ptr[idx].item()), int(events.snapshot_event_ptr[idx + 1].item())
 
-    def ctdg_input_view(self, batch_id: int, event_start: int, event_end: int) -> EventView:
+    def ctdg_input_view(
+        self,
+        batch_id: int,
+        event_start: int,
+        event_end: int,
+        *,
+        time_slice_id: int | None = None,
+        batch_offset: int = 0,
+    ) -> EventView:
         events = self.temporal_events()
         event_start = max(0, int(event_start))
         event_end = min(int(event_end), int(events.src.numel()))
@@ -186,6 +203,8 @@ class ChunkGraphStore:
         root_ts = event_ts.repeat(2).contiguous() if event_ts.numel() > 0 else torch.empty(0)
         return EventView(
             batch_id=int(batch_id),
+            time_slice_id=int(batch_id if time_slice_id is None else time_slice_id),
+            batch_offset=int(batch_offset),
             event_start=event_start,
             event_end=event_end,
             root_nodes=root_nodes.contiguous(),

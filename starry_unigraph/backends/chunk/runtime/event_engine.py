@@ -16,6 +16,7 @@ import torch
 from torch import Tensor
 
 from starry_unigraph.lib import load_bts_sampler_module
+from starry_unigraph.backends.chunk.data.dist_index import encode_dist_index
 from starry_unigraph.backends.chunk.data.graph_store import ChunkGraphStore
 from starry_unigraph.backends.chunk.data.plans import CTDGSampleResult, EventView, ExecutionUnit, PlanBundle
 
@@ -109,6 +110,9 @@ class MemShareEventEngine:
     num_layers: int
     policy: str = "recent"
     workers: int = 1
+    event_batch_size: int = 0
+    require_prebuilt_temporal_index: bool = False
+    local_part: int = 0
     graph_name: str = "chunk_events"
     enabled: bool = True
     _samplers: Dict[str, MemShareNativeSampler] = field(default_factory=dict, init=False)
@@ -129,6 +133,9 @@ class MemShareEventEngine:
             num_layers=int(cfg.get("num_layers", len(fanout))),
             policy=str(cfg.get("policy", cfg.get("sample_type", "recent"))),
             workers=int(cfg.get("workers", cfg.get("num_workers", 1))),
+            event_batch_size=int(cfg.get("event_batch_size", cfg.get("batch_size", 0))),
+            require_prebuilt_temporal_index=bool(cfg.get("require_prebuilt_temporal_index", False)),
+            local_part=int(cfg.get("local_part", 0)),
             enabled=bool(cfg.get("enabled", True)),
         )
 
@@ -151,15 +158,30 @@ class MemShareEventEngine:
         )
 
     def iter_units(self, split_slices: list[int], plans_fn=None) -> Iterator[ExecutionUnit]:
-        for t in split_slices:
-            start, end = self.graph_store.event_range_for_snapshot(int(t))
-            view = self.graph_store.ctdg_input_view(
-                batch_id=int(t),
-                event_start=start,
-                event_end=end,
+        if self.require_prebuilt_temporal_index and not self.graph_store.has_prebuilt_temporal_index:
+            raise FileNotFoundError(
+                "Chunk CTDG native sampling requires a prepare-time temporal index "
+                "artifact at sampling/temporal_index_part_<rank>.pth"
             )
-            plans = plans_fn(int(t)) if plans_fn is not None else None
-            yield self.make_unit(view, plans)
+        for t in split_slices:
+            slice_start, slice_end = self.graph_store.event_range_for_snapshot(int(t))
+            batch_size = int(self.event_batch_size)
+            if batch_size <= 0:
+                batch_size = max(1, slice_end - slice_start)
+            offset = 0
+            for start in range(slice_start, slice_end, batch_size):
+                end = min(slice_end, start + batch_size)
+                block_id = int(t) if offset == 0 else int(t) * 1_000_000 + offset
+                view = self.graph_store.ctdg_input_view(
+                    batch_id=block_id,
+                    event_start=start,
+                    event_end=end,
+                    time_slice_id=int(t),
+                    batch_offset=offset,
+                )
+                plans = plans_fn(int(t)) if plans_fn is not None else None
+                yield self.make_unit(view, plans)
+                offset += 1
 
     def sample(self, unit: ExecutionUnit) -> CTDGSampleResult:
         view = unit.payload
@@ -175,16 +197,35 @@ class MemShareEventEngine:
             self._samplers["default"] = sampler
         query_ts = view.root_ts.cpu() if view.temporal_index.timestamps is not None and view.root_ts is not None else None
         blocks = sampler.sample(view.root_nodes.cpu(), query_ts)
+        unique_nodes = view.root_nodes.long().unique(sorted=True).contiguous()
+        placement = view.temporal_index.placement
+        owners = placement.node_owner[unique_nodes].long()
+        remote_mask = owners != int(self.local_part)
+        local_mask = ~remote_mask
+        read_index = (
+            placement.master_dist_index[unique_nodes].long()
+            if placement.master_dist_index is not None
+            else encode_dist_index(unique_nodes, owners)
+        )
         return CTDGSampleResult(
             mfgs=blocks,
-            input_nodes=view.root_nodes,
+            input_nodes=unique_nodes,
             output_nodes=view.root_nodes,
             edge_ids=torch.empty(0, dtype=torch.long),
             node_ts=view.root_ts,
             edge_ts=None,
+            memory_node_ids=unique_nodes,
+            remote_node_ids=unique_nodes[remote_mask].contiguous(),
+            remote_read_index=read_index[remote_mask].contiguous(),
+            local_read_index=read_index[local_mask].contiguous(),
         )
 
     def _build_sampler(self) -> MemShareNativeSampler:
+        if self.require_prebuilt_temporal_index and not self.graph_store.has_prebuilt_temporal_index:
+            raise FileNotFoundError(
+                "Chunk CTDG native sampler cannot be built without the prepare-time "
+                "temporal index artifact"
+            )
         temporal_index = self.graph_store.temporal_index_view()
         if temporal_index.num_edges == 0:
             row = torch.empty(0, dtype=torch.long)
@@ -212,6 +253,7 @@ class MemShareEventEngine:
             num_layers=self.num_layers,
             workers=self.workers,
             policy=self.policy,
+            local_part=int(self.local_part),
             node_part=temporal_index.placement.node_owner.cpu().to(torch.int32),
             edge_part=torch.zeros(temporal_index.num_edges, dtype=torch.int32),
         )

@@ -24,6 +24,8 @@ class PlacementView:
     node_owner: Tensor
     node_master: Tensor
     replica_mask: Tensor
+    master_dist_index: Optional[Tensor] = None
+    read_dist_index: Optional[Tensor] = None
 
 
 @dataclass(slots=True)
@@ -71,6 +73,8 @@ class EventView:
     """CTDG event-batch view backed by a shared temporal sampling index."""
 
     batch_id: int
+    time_slice_id: int
+    batch_offset: int
     event_start: int
     event_end: int
     root_nodes: Tensor
@@ -101,6 +105,8 @@ class CTDGSampleResult:
     edge_ts: Optional[Tensor] = None
     memory_node_ids: Optional[Tensor] = None
     remote_node_ids: Optional[Tensor] = None
+    remote_read_index: Optional[Tensor] = None
+    local_read_index: Optional[Tensor] = None
 
 
 @dataclass(slots=True)
@@ -126,8 +132,11 @@ class FetchPlan:
     placement_version: int
     feature_node_ids: Tensor
     feature_owners: Tensor
+    remote_read_index: Optional[Tensor] = None
+    local_read_index: Optional[Tensor] = None
     memory_node_ids: Optional[Tensor] = None
     memory_owners: Optional[Tensor] = None
+    memory_read_index: Optional[Tensor] = None
     cache_policy: str = "none"
 
 
@@ -152,6 +161,8 @@ class StateSyncPlan:
     replica_node_ids: Optional[Tensor] = None
     replica_owners: Optional[Tensor] = None
     sync_policy: str = "owner_write"
+    change_threshold: float = 0.0
+    change_metric: str = "cos"
 
 
 @dataclass(slots=True)
@@ -209,6 +220,8 @@ class ChunkPlacement:
     node_owner: Tensor
     node_master: Tensor
     replica_mask: Tensor
+    master_dist_index: Optional[Tensor] = None
+    read_dist_index: Optional[Tensor] = None
 
     def view(self) -> PlacementView:
         return PlacementView(
@@ -217,6 +230,8 @@ class ChunkPlacement:
             node_owner=self.node_owner,
             node_master=self.node_master,
             replica_mask=self.replica_mask,
+            master_dist_index=self.master_dist_index,
+            read_dist_index=self.read_dist_index,
         )
 
 

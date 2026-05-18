@@ -40,6 +40,27 @@ from dgl.heterograph import DGLBlock
 import dgl
 
 
+def _create_block_from_csc(
+    edge_ptr: Tensor,
+    edge_src: Tensor,
+    edge_ids: Tensor,
+    *,
+    num_src_nodes: int,
+    num_dst_nodes: int,
+    idtype: torch.dtype = torch.int32,
+) -> DGLBlock:
+    """Create a DGL block from local CSC tensors."""
+    indptr = edge_ptr.to(dtype=idtype).contiguous()
+    indices = edge_src.to(dtype=idtype).contiguous()
+    eids = edge_ids.to(dtype=idtype).contiguous()
+    return dgl.create_block(
+        ("csc", (indptr, indices, eids)),
+        num_src_nodes=num_src_nodes,
+        num_dst_nodes=num_dst_nodes,
+        idtype=idtype,
+    )
+
+
 @dataclass
 class TensorData:
     """CSR-packed variable-length tensor list (copied from main data layer).
@@ -284,6 +305,66 @@ class PartitionData:
     @property
     def num_dst_nodes(self) -> int:
         return int(self.dst_ids[0].item().numel())
+
+    def to_block(
+        self,
+        snapshot_index: int = 0,
+        *,
+        keep_ids: bool = True,
+        idtype: torch.dtype = torch.int32,
+    ) -> DGLBlock:
+        """Materialize one snapshot as a DGL block directly from CSC storage.
+
+        ``edge_ptr`` is already the CSC pointer by compact dst row and
+        ``edge_src`` stores compact source rows.  Building the block from CSC
+        avoids constructing a repeated flat dst tensor in the dataloader path.
+        """
+        src_ids = self.src_ids[snapshot_index].item()
+        dst_ids = self.dst_ids[snapshot_index].item()
+        edge_src = self.edge_src[snapshot_index].item()
+        edge_ptr = self.edge_ptr[snapshot_index].item()
+        edge_ids = self.edge_ids[snapshot_index].item()
+        num_dst_nodes = int(dst_ids.numel())
+        num_src_nodes = int(src_ids.numel() + num_dst_nodes)
+
+        g = _create_block_from_csc(
+            edge_ptr=edge_ptr,
+            edge_src=edge_src,
+            edge_ids=edge_ids,
+            num_src_nodes=num_src_nodes,
+            num_dst_nodes=num_dst_nodes,
+            idtype=idtype,
+        )
+
+        if keep_ids:
+            compact_src_ids = torch.cat([dst_ids, src_ids], dim=0)
+            g.srcdata[dgl.NID] = compact_src_ids.long()
+            g.dstdata[dgl.NID] = dst_ids.long()
+            g.edata[dgl.EID] = edge_ids.long()
+
+        for key, val in self.node_data.items():
+            data = val[snapshot_index].item()
+            if data.size(0) == num_src_nodes:
+                g.srcdata[key] = data
+            elif data.size(0) == num_dst_nodes:
+                g.dstdata[key] = data
+            else:
+                raise ValueError(f"Node data {key} has invalid size {data.size(0)}")
+
+        for key, val in self.edge_data.items():
+            g.edata[key] = val[snapshot_index].item()
+
+        g.route = None if self.routes is None else self.routes[snapshot_index]
+        return g
+
+    def to_blocks(
+        self,
+        *,
+        keep_ids: bool = True,
+        idtype: torch.dtype = torch.int32,
+    ) -> list[DGLBlock]:
+        """Materialize all snapshots as CSC-backed DGL blocks."""
+        return [self.to_block(i, keep_ids=keep_ids, idtype=idtype) for i in range(len(self))]
 
     def add_ndata(self, key: str, data: TensorData) -> None:
         if len(data) != len(self):
