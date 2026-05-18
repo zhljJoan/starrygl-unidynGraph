@@ -147,6 +147,7 @@ def assign_memory_route_ptrs(
     routes:     List[MemoryRouteData],
     node_owner: Tensor,
     num_parts:  int,
+    master_dist_index: Optional[Tensor] = None,
 ) -> List[List[MemoryRouteData]]:
     """Assign send_ptr / recv_ptr / recv_node_ids to Phase 1 routes.
 
@@ -179,6 +180,9 @@ def assign_memory_route_ptrs(
         s_nodes  = r.unique_nodes[sort_o]
         s_owners = owners[sort_o]
         s_cand   = r.cand_pos[sort_o]
+        s_index = None
+        if master_dist_index is not None:
+            s_index = master_dist_index[r.unique_nodes].to(device=s_nodes.device)[sort_o]
 
         send_counts = torch.bincount(s_owners, minlength=num_parts)  # [P]
         send_ptr    = torch.zeros(num_parts + 1, dtype=torch.long)
@@ -204,6 +208,7 @@ def assign_memory_route_ptrs(
                 send_ptr         = send_ptr,
                 recv_ptr         = torch.zeros(num_parts + 1, dtype=torch.long),  # Phase 3
                 recv_node_ids    = torch.zeros(0, dtype=torch.long),
+                unique_index     = s_index,
                 replica_idx      = rep_idx_sorted,
                 replica_send_ptr = rep_send_ptr,
                 replica_recv_ptr = None,
@@ -211,7 +216,7 @@ def assign_memory_route_ptrs(
             per_part[p].append(p_route)
 
     # Fill recv_ptr / recv_node_ids by transposing send information
-    _fill_memory_recv_ptrs(per_part, num_parts)
+    _fill_memory_recv_ptrs(per_part, num_parts, master_dist_index=master_dist_index)
 
     return per_part
 
@@ -219,6 +224,7 @@ def assign_memory_route_ptrs(
 def _fill_memory_recv_ptrs(
     per_part: List[List[MemoryRouteData]],
     num_parts: int,
+    master_dist_index: Optional[Tensor] = None,
 ) -> None:
     """Transpose send_ptr to fill recv_ptr / recv_node_ids.  O(P² · T)."""
     if not per_part or not per_part[0]:
@@ -241,6 +247,8 @@ def _fill_memory_recv_ptrs(
 
             per_part[p][t].recv_ptr      = recv_ptr
             per_part[p][t].recv_node_ids = recv_nodes
+            if master_dist_index is not None and recv_nodes.numel() > 0:
+                per_part[p][t].recv_index = master_dist_index[recv_nodes]
 
             # Replica recv_ptr
             rp = per_part[p][t]

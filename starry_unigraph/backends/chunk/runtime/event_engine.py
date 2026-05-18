@@ -16,7 +16,7 @@ import torch
 from torch import Tensor
 
 from starry_unigraph.lib import load_bts_sampler_module
-from starry_unigraph.backends.chunk.data.dist_index import encode_dist_index
+from starry_unigraph.backends.chunk.data.dist_index import encode_dist_index, dist_index_is_cached
 from starry_unigraph.backends.chunk.data.graph_store import ChunkGraphStore
 from starry_unigraph.backends.chunk.data.plans import CTDGSampleResult, EventView, ExecutionUnit, PlanBundle
 
@@ -200,13 +200,18 @@ class MemShareEventEngine:
         unique_nodes = view.root_nodes.long().unique(sorted=True).contiguous()
         placement = view.temporal_index.placement
         owners = placement.node_owner[unique_nodes].long()
-        remote_mask = owners != int(self.local_part)
-        local_mask = ~remote_mask
-        read_index = (
-            placement.master_dist_index[unique_nodes].long()
-            if placement.master_dist_index is not None
-            else encode_dist_index(unique_nodes, owners)
-        )
+        if placement.read_dist_index is not None:
+            read_index = placement.read_dist_index[unique_nodes].long()
+            local_mask = dist_index_is_cached(read_index)
+            remote_mask = ~local_mask
+        elif placement.master_dist_index is not None:
+            read_index = placement.master_dist_index[unique_nodes].long()
+            remote_mask = owners != int(self.local_part)
+            local_mask = ~remote_mask
+        else:
+            read_index = encode_dist_index(unique_nodes, owners)
+            remote_mask = owners != int(self.local_part)
+            local_mask = ~remote_mask
         return CTDGSampleResult(
             mfgs=blocks,
             input_nodes=unique_nodes,
@@ -216,6 +221,7 @@ class MemShareEventEngine:
             edge_ts=None,
             memory_node_ids=unique_nodes,
             remote_node_ids=unique_nodes[remote_mask].contiguous(),
+            local_node_ids=unique_nodes[local_mask].contiguous(),
             remote_read_index=read_index[remote_mask].contiguous(),
             local_read_index=read_index[local_mask].contiguous(),
         )

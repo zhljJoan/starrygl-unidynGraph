@@ -40,7 +40,7 @@ from starry_unigraph.backends.chunk.data.plans import (
     TemporalIndexView,
 )
 from starry_unigraph.backends.chunk.data.route import MemoryRouteData, SpatialRouteData
-from starry_unigraph.backends.chunk.data.comm import CommPipeline, MemoryResult, validate_training_comm_backend
+from starry_unigraph.backends.chunk.data.comm import CommPipeline, FetchResult, MemoryResult, validate_training_comm_backend
 from starry_unigraph.backends.chunk.data.dist_index import dist_index_part
 from starry_unigraph.backends.chunk.runtime.task_adapter import ChunkTaskAdapter, get_task_adapter
 from starry_unigraph.backends.chunk.runtime.sampler import (
@@ -254,7 +254,7 @@ class ChunkRuntimeLoader:
         neg_sampler = NegativeSamplerHook.from_config(sampler_cfg)
         mfg_builder = MFGBuilderHook.default()
 
-        placement = cls._load_placement(prepared_dir, part_data)
+        placement = cls._load_placement(prepared_dir, part_data, rank)
         if hasattr(neg_sampler, "configure_pools") and placement is not None:
             local_pool = torch.nonzero(placement.node_owner == int(rank), as_tuple=False).flatten().long()
             global_pool = torch.arange(int(num_nodes), dtype=torch.long)
@@ -317,7 +317,7 @@ class ChunkRuntimeLoader:
         return [torch.load(f, weights_only=False) for f in files]
 
     @staticmethod
-    def _load_placement(prepared_dir: Path, part_data: PartitionData) -> ChunkPlacement | None:
+    def _load_placement(prepared_dir: Path, part_data: PartitionData, rank: int = 0) -> ChunkPlacement | None:
         placement_path = prepared_dir / "placement.pth"
         if not placement_path.exists():
             return None
@@ -332,12 +332,12 @@ class ChunkRuntimeLoader:
             return None
         if part_data.node_to_chunk is None:
             part_data.node_to_chunk = node_to_chunk.long()
-        master_dist_index = payload.get("canonical_nid_dist", payload.get("master_dist_index"))
-        read_dist_by_part = payload.get("read_dist_index_by_part", payload.get("local_nid_dist_by_part"))
+        master_dist_index = payload.get("master_dist_index", payload.get("canonical_nid_dist"))
+        read_dist_by_part = payload.get("read_dist_index_by_part")
         read_dist_index = None
         if isinstance(read_dist_by_part, list) and len(read_dist_by_part) > 0:
-            # local_nid_dist_by_part is not a global lookup table. Keep it out
-            # of hot-path indexing until prepare emits read_dist_index[rank].
+            read_dist_index = read_dist_by_part[int(rank)]
+        if read_dist_index is None:
             read_dist_index = payload.get("read_dist_index")
         return ChunkPlacement(
             placement_version=int(payload.get("placement_version", 0)),
@@ -567,8 +567,12 @@ class ChunkRuntimeLoader:
         local_read_index: Optional[Tensor] = None,
     ) -> FetchPlan | None:
         """Build a CTDG fetch plan from sampled packed DistIndex values."""
-        if remote_read_index is None or remote_read_index.numel() == 0:
+        has_remote = remote_read_index is not None and remote_read_index.numel() > 0
+        has_local = local_read_index is not None and local_read_index.numel() > 0
+        if not has_remote and not has_local:
             return None
+        if remote_read_index is None:
+            remote_read_index = torch.empty(0, dtype=torch.long)
         remote_read_index = remote_read_index.long().contiguous()
         owners = dist_index_part(remote_read_index).long().contiguous()
         if remote_read_index.numel() > 1:
@@ -595,6 +599,147 @@ class ChunkRuntimeLoader:
         )
         self._ctdg_fetch_plan_cache[cache_key] = plan
         return plan
+
+    @staticmethod
+    def _runtime_tensor(runtime: Any, *names: str) -> Optional[Tensor]:
+        for name in names:
+            value = getattr(runtime, name, None)
+            if isinstance(value, Tensor):
+                return value
+        return None
+
+    @staticmethod
+    def _runtime_feature_tensor(runtime: Any) -> Optional[Tensor]:
+        value = ChunkRuntimeLoader._runtime_tensor(runtime, "node_features", "features")
+        if value is not None:
+            return value
+        feature_store = getattr(runtime, "feature_store", None)
+        if feature_store is not None:
+            value = getattr(feature_store, "node_features", None)
+            if isinstance(value, Tensor):
+                return value
+        return None
+
+    @staticmethod
+    def _runtime_memory_tensor(runtime: Any) -> Optional[Tensor]:
+        value = ChunkRuntimeLoader._runtime_tensor(runtime, "node_memory", "memory")
+        if value is not None:
+            return value
+        memory_store = getattr(runtime, "memory_store", None)
+        if memory_store is not None:
+            value = getattr(memory_store, "node_memory", None)
+            if isinstance(value, Tensor):
+                return value
+            value = getattr(memory_store, "memory", None)
+            if isinstance(value, Tensor):
+                return value
+        return None
+
+    @staticmethod
+    def _flatten_mfgs(mfgs: Any) -> list[Any]:
+        if mfgs is None:
+            return []
+        if isinstance(mfgs, (list, tuple)):
+            out: list[Any] = []
+            for item in mfgs:
+                out.extend(ChunkRuntimeLoader._flatten_mfgs(item))
+            return out
+        return [mfgs]
+
+    @staticmethod
+    def _patch_mfg_srcdata(mfgs: Any, node_ids: Tensor, values: Tensor, key: str) -> int:
+        patched = 0
+        if node_ids.numel() == 0 or values.numel() == 0:
+            return patched
+        lookup = {int(n): i for i, n in enumerate(node_ids.detach().cpu().tolist())}
+        for block in ChunkRuntimeLoader._flatten_mfgs(mfgs):
+            if not hasattr(block, "srcdata"):
+                continue
+            src_ids = None
+            try:
+                import dgl
+
+                if dgl.NID in block.srcdata:
+                    src_ids = block.srcdata[dgl.NID]
+            except Exception:
+                src_ids = None
+            if src_ids is None:
+                if "ID" in block.srcdata:
+                    src_ids = block.srcdata["ID"]
+                elif "__ID" in block.srcdata:
+                    idx = block.srcdata["__ID"].long()
+                    block.srcdata[key] = values[idx.to(values.device)]
+                    patched += 1
+                    continue
+            if src_ids is None:
+                continue
+            row_index = [
+                lookup.get(int(node_id), -1)
+                for node_id in src_ids.detach().cpu().tolist()
+            ]
+            row_index_t = torch.tensor(row_index, dtype=torch.long, device=values.device)
+            out = values.new_zeros((len(row_index), *values.shape[1:]))
+            keep = row_index_t >= 0
+            if keep.any():
+                out[keep] = values[row_index_t[keep]]
+            block.srcdata[key] = out.to(src_ids.device)
+            patched += 1
+        return patched
+
+    def _execute_and_patch_fetch(self, runtime: Any, batch: BatchData) -> Optional[FetchResult]:
+        manifest = batch.remote_manifest or {}
+        plan = manifest.get("dynamic_fetch_plan")
+        if plan is None:
+            return None
+
+        feature_rows = self._runtime_feature_tensor(runtime)
+        memory_rows = self._runtime_memory_tensor(runtime)
+        if feature_rows is None and memory_rows is None:
+            return None
+
+        handle = self.pipeline.submit_fetch(
+            plan,
+            feature_rows=feature_rows,
+            memory_rows=memory_rows,
+        )
+        fetch_result = asyncio.run(self.pipeline.await_handle(handle))
+        if not isinstance(fetch_result, FetchResult):
+            return None
+
+        local_nodes = manifest.get("local_node_ids")
+        remote_nodes = manifest.get("remote_node_ids")
+        feature_nodes: list[Tensor] = []
+        feature_values: list[Tensor] = []
+        if fetch_result.local_features is not None and isinstance(local_nodes, Tensor):
+            feature_nodes.append(local_nodes.to(fetch_result.local_features.device))
+            feature_values.append(fetch_result.local_features)
+        if fetch_result.remote_features is not None and isinstance(remote_nodes, Tensor):
+            feature_nodes.append(remote_nodes.to(fetch_result.remote_features.device))
+            feature_values.append(fetch_result.remote_features)
+        if feature_values:
+            nodes = torch.cat(feature_nodes, dim=0).long()
+            feats = torch.cat(feature_values, dim=0)
+            manifest["fetched_node_ids"] = nodes
+            manifest["fetched_features"] = feats
+            self._patch_mfg_srcdata(batch.mfgs, nodes, feats, "h")
+
+        memory_nodes: list[Tensor] = []
+        memory_values: list[Tensor] = []
+        if fetch_result.local_memory is not None and isinstance(local_nodes, Tensor):
+            memory_nodes.append(local_nodes.to(fetch_result.local_memory.device))
+            memory_values.append(fetch_result.local_memory)
+        if fetch_result.remote_memory is not None and isinstance(remote_nodes, Tensor):
+            memory_nodes.append(remote_nodes.to(fetch_result.remote_memory.device))
+            memory_values.append(fetch_result.remote_memory)
+        if memory_values:
+            nodes = torch.cat(memory_nodes, dim=0).long()
+            mem = torch.cat(memory_values, dim=0)
+            manifest["fetched_memory_node_ids"] = nodes
+            manifest["fetched_memory"] = mem
+            self._patch_mfg_srcdata(batch.mfgs, nodes, mem, "mem")
+
+        batch.remote_manifest = manifest
+        return fetch_result
 
     def submit_memory_update(
         self,
@@ -717,6 +862,7 @@ class ChunkRuntimeLoader:
         ).to(self.device)
 
     def run_train_step(self, runtime: Any, batch: BatchData) -> dict[str, Any]:
+        fetch_result = self._execute_and_patch_fetch(runtime, batch)
         result = run_batch(
             model=runtime.model,
             batch=batch,
@@ -724,6 +870,11 @@ class ChunkRuntimeLoader:
             optimizer=runtime.optimizer,
             train=True,
         )
+        if fetch_result is not None:
+            remote_count = 0 if fetch_result.remote_read_index is None else int(fetch_result.remote_read_index.numel())
+            local_count = 0 if fetch_result.local_read_index is None else int(fetch_result.local_read_index.numel())
+            result.setdefault("meta", {})["fetch_remote_rows"] = remote_count
+            result["meta"]["fetch_local_rows"] = local_count
         memory_update = result.get("output", {}).get("memory_update")
         if isinstance(memory_update, dict):
             mem = memory_update.get("memory")
@@ -780,6 +931,8 @@ class ChunkRuntimeLoader:
                 "sampled_input_nodes": sampled.input_nodes,
                 "sampled_output_nodes": sampled.output_nodes,
                 "sampled_edge_ids": sampled.edge_ids,
+                "remote_node_ids": sampled.remote_node_ids,
+                "local_node_ids": sampled.local_node_ids,
                 "remote_read_index": sampled.remote_read_index,
                 "local_read_index": sampled.local_read_index,
                 "dynamic_fetch_plan": fetch_plan,
@@ -813,13 +966,20 @@ class ChunkRuntimeLoader:
 
     def run_eval_step(self, runtime: Any, batch: BatchData) -> dict[str, Any]:
         with torch.no_grad():
-            return run_batch(
+            fetch_result = self._execute_and_patch_fetch(runtime, batch)
+            result = run_batch(
                 model=runtime.model,
                 batch=batch,
                 task_adapter=self.task_adapter,
                 optimizer=None,
                 train=False,
             )
+            if fetch_result is not None:
+                remote_count = 0 if fetch_result.remote_read_index is None else int(fetch_result.remote_read_index.numel())
+                local_count = 0 if fetch_result.local_read_index is None else int(fetch_result.local_read_index.numel())
+                result.setdefault("meta", {})["fetch_remote_rows"] = remote_count
+                result["meta"]["fetch_local_rows"] = local_count
+            return result
 
     def run_predict_step(self, runtime: Any, batch: BatchData) -> dict[str, Any]:
         result = self.run_eval_step(runtime, batch)

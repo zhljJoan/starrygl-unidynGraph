@@ -8,7 +8,7 @@ Exports:
 - SpatialRouteData: All-to-all for node feature exchange
 - MemoryRouteData: All-to-all for memory/state cache updates
 - CPUMemoryLayout: Hot/cold node layout for CPU store
-- CommPipeline, CommHandle, SpatialResult, MemoryResult: Async communication
+- CommPipeline, CommHandle, SpatialResult, MemoryResult, FetchResult: Async communication
 """
 
 from .partition import PartitionData, RouteData, TensorData
@@ -16,7 +16,7 @@ from .batch import BatchData
 from .feature_store import FeatureStore, FeatureStoreConfig
 from .memory_store import MemoryStore, DummyMemoryStore
 from .route import SpatialRouteData, MemoryRouteData, CPUMemoryLayout
-from .comm import CommPipeline, CommHandle, SpatialResult, MemoryResult, validate_training_comm_backend
+from .comm import CommPipeline, CommHandle, SpatialResult, MemoryResult, FetchResult, validate_training_comm_backend
 from .graph_store import ChunkGraphStore
 from .plans import (
     BlockPlan,
@@ -58,6 +58,7 @@ __all__ = [
     "validate_training_comm_backend",
     "SpatialResult",
     "MemoryResult",
+    "FetchResult",
     "ChunkGraphStore",
     "BlockPlan",
     "CSCGraphView",

@@ -17,6 +17,10 @@ from starry_unigraph.backends.chunk.runtime import (
     NegativeSamplerHook,
 )
 from starry_unigraph.backends.chunk.model import PredictionHead
+from starry_unigraph.backends.chunk.data.dist_index import (
+    dist_index_is_cached,
+    dist_index_part,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +99,59 @@ def test_prepare_pipeline():
     print(f"✓ prepare(): node_owner={art.node_owner.shape}, "
           f"mem_routes[P={P}][T=3], "
           f"migrations={len(art.rebalance_manifest.migrations)}")
+
+
+def test_placement_read_dist_index_by_rank():
+    from starry_unigraph.preprocess.chunk import (
+        _attach_packed_memory_route_indices,
+        _build_placement_artifact,
+    )
+
+    num_nodes, P = 12, 2
+    node_partition = torch.arange(num_nodes) % P
+    edge_src = torch.tensor([0, 1, 2, 3, 4, 5])
+    edge_dst = torch.tensor([6, 7, 8, 9, 10, 11])
+    edge_ts = torch.arange(edge_src.numel(), dtype=torch.float)
+    time_ptr = torch.tensor([0, 3, 6])
+
+    art = prepare(
+        edge_src=edge_src,
+        edge_dst=edge_dst,
+        assignment=build_chunk_assignment(node_partition, num_chunks_per_partition=2),
+        node_partition=node_partition,
+        node_to_partition=node_partition,
+        num_partitions=P,
+        num_chunks_per_partition=2,
+        edge_timestamps=edge_ts,
+        time_ptr=time_ptr,
+        build_mem_routes=True,
+        hot_topk=1,
+        max_imbalance_ratio=10.0,
+    )
+    placement = _build_placement_artifact(
+        artifacts=art,
+        edge_src=edge_src,
+        edge_dst=edge_dst,
+        num_edges=int(edge_src.numel()),
+        num_parts=P,
+    )
+
+    assert "master_dist_index" in placement
+    assert "read_dist_index_by_part" in placement
+    assert len(placement["read_dist_index_by_part"]) == P
+    for rank, read_index in enumerate(placement["read_dist_index_by_part"]):
+        local_nodes = placement["local_node_ids_by_part"][rank]
+        assert read_index.shape == placement["master_dist_index"].shape
+        assert dist_index_is_cached(read_index[local_nodes]).all()
+        assert (dist_index_part(read_index[local_nodes]) == rank).all()
+
+    _attach_packed_memory_route_indices(art.mem_routes, placement["master_dist_index"])
+    assert art.mem_routes is not None
+    route = art.mem_routes[0][0]
+    assert route.unique_index is not None
+    assert route.recv_index is not None
+    assert route.unique_index.numel() == route.unique_nodes.numel()
+    assert route.recv_index.numel() == route.recv_node_ids.numel()
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +398,71 @@ def test_event_units_follow_batch_size():
     print("✓ event units are split by train batch size")
 
 
+def test_event_engine_splits_reads_by_cached_dist_index(monkeypatch):
+    from starry_unigraph.backends.chunk.data.dist_index import encode_dist_index
+    from starry_unigraph.backends.chunk.data.plans import (
+        ChunkPlacement,
+        EventView,
+        ExecutionUnit,
+        TemporalIndexView,
+    )
+    from starry_unigraph.backends.chunk.runtime import event_engine as event_engine_mod
+    from starry_unigraph.backends.chunk.runtime.event_engine import MemShareEventEngine
+
+    monkeypatch.setattr(event_engine_mod, "is_memshare_native_available", lambda: True)
+
+    class FakeSampler:
+        def sample(self, nodes, ts):
+            return ["native-block"]
+
+    placement = ChunkPlacement(
+        placement_version=0,
+        node_to_chunk=torch.zeros(6, dtype=torch.long),
+        node_owner=torch.tensor([0, 0, 1, 1, 1, 0]),
+        node_master=torch.tensor([0, 0, 1, 1, 1, 0]),
+        replica_mask=torch.zeros(6, dtype=torch.bool),
+        master_dist_index=encode_dist_index(torch.arange(6), torch.tensor([0, 0, 1, 1, 1, 0])),
+        read_dist_index=encode_dist_index(
+            torch.arange(6),
+            torch.tensor([0, 0, 1, 0, 1, 0]),
+            cached=torch.tensor([True, True, False, True, False, True]),
+        ),
+    )
+    temporal_index = TemporalIndexView(
+        indptr=torch.zeros(7, dtype=torch.long),
+        indices=torch.empty(0, dtype=torch.long),
+        edge_ids=torch.empty(0, dtype=torch.long),
+        timestamps=torch.empty(0, dtype=torch.float),
+        placement=placement.view(),
+    )
+    view = EventView(
+        batch_id=0,
+        time_slice_id=0,
+        batch_offset=0,
+        event_start=0,
+        event_end=0,
+        root_nodes=torch.tensor([0, 2, 3]),
+        root_ts=torch.tensor([1.0, 1.0, 1.0]),
+        temporal_index=temporal_index,
+        placement_version=0,
+    )
+    engine = MemShareEventEngine(
+        graph_store=None,
+        fanout=[1],
+        num_layers=1,
+        local_part=0,
+    )
+    engine._samplers["default"] = FakeSampler()
+
+    sampled = engine.sample(ExecutionUnit(mode="ctdg", block_id=0, placement_version=0, payload=view))
+    assert sampled.remote_read_index is not None
+    assert sampled.local_read_index is not None
+    assert sampled.remote_read_index.numel() == 1
+    assert sampled.local_read_index.numel() == 2
+    assert dist_index_part(sampled.remote_read_index).tolist() == [1]
+    assert dist_index_part(sampled.local_read_index).tolist() == [0, 0]
+
+
 def test_default_mfg_builder_materializes_csc_block():
     from starry_unigraph.backends.chunk.runtime.sampler import MFGBuilderHook, SampledGraph
     import dgl
@@ -447,6 +569,85 @@ def test_train_unit_step_uses_event_engine_sampling():
     assert result["meta"]["batch_offset"] == 2
     assert "loss" in result
     print("✓ sampled ExecutionUnit path calls event_engine.sample in train step")
+
+
+def test_dynamic_fetch_patches_mfg_features_and_memory():
+    import types
+    from starry_unigraph.backends.chunk.data.dist_index import encode_dist_index
+    from starry_unigraph.backends.chunk.data.plans import FetchPlan
+    from starry_unigraph.backends.chunk.runtime.sampler import MFGBuilderHook, SampledGraph
+
+    part = _make_part(num_snaps=1)
+    adapter = get_task_adapter("edge_predict")
+    neg = NegativeSamplerHook.from_config({})
+    loader = ChunkRuntimeLoader(
+        part_data=part,
+        mem_routes=[],
+        spatial_routes=[],
+        task_adapter=adapter,
+        neg_sampler=neg,
+        mfg_builder=MFGBuilderHook.default(),
+        pipeline=__import__(
+            "starry_unigraph.backends.chunk.data.comm",
+            fromlist=["CommPipeline"]
+        ).CommPipeline(device=torch.device("cpu")),
+        split_slices={"train": [0], "val": [], "test": []},
+        num_nodes=6,
+        rank=0,
+        world_size=1,
+        device=torch.device("cpu"),
+    )
+
+    block = MFGBuilderHook.default().build(SampledGraph(
+        src_nodes=torch.tensor([0, 2, 3]),
+        dst_nodes=torch.tensor([0, 3]),
+        edge_src=torch.tensor([0, 1]),
+        edge_dst=torch.tensor([0, 1]),
+        edge_ts=torch.tensor([1.0, 2.0]),
+    ))
+    local_read = encode_dist_index(
+        torch.tensor([0, 3]),
+        torch.tensor([0, 0]),
+        cached=True,
+    )
+    remote_read = encode_dist_index(
+        torch.tensor([2]),
+        torch.tensor([1]),
+    )
+    plan = FetchPlan(
+        block_id=0,
+        placement_version=0,
+        feature_node_ids=torch.tensor([0, 2, 3]),
+        feature_owners=torch.tensor([1]),
+        remote_read_index=remote_read,
+        local_read_index=local_read,
+        memory_read_index=remote_read,
+    )
+    batch = BatchData(
+        mfgs=[block],
+        node_ids=torch.tensor([0, 2, 3]),
+        pos_src=torch.tensor([0]),
+        pos_dst=torch.tensor([3]),
+        neg_src=torch.tensor([0]),
+        neg_dst=torch.tensor([2]),
+        remote_manifest={
+            "dynamic_fetch_plan": plan,
+            "local_node_ids": torch.tensor([0, 3]),
+            "remote_node_ids": torch.tensor([2]),
+        },
+    )
+    runtime = types.SimpleNamespace(
+        node_features=torch.arange(12, dtype=torch.float32).view(6, 2),
+        node_memory=(torch.arange(18, dtype=torch.float32).view(6, 3) + 100),
+    )
+
+    result = loader._execute_and_patch_fetch(runtime, batch)
+    assert result is not None
+    assert "h" in block.srcdata
+    assert "mem" in block.srcdata
+    assert torch.equal(block.srcdata["h"], runtime.node_features[torch.tensor([0, 2, 3])])
+    assert torch.equal(block.srcdata["mem"], runtime.node_memory[torch.tensor([0, 2, 3])])
+    assert torch.equal(batch.remote_manifest["fetched_node_ids"], torch.tensor([0, 3, 2]))
 
 
 def test_native_units_require_prebuilt_temporal_index_when_configured():

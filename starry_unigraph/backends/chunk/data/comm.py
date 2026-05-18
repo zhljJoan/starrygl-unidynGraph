@@ -35,13 +35,14 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 from torch import Tensor
 
+from .dist_index import dist_index_loc
 from .route import MemoryRouteData, SpatialRouteData
 
 
@@ -73,6 +74,18 @@ class MemoryResult:
     recv_node_ids: Tensor
     recv_memory:   Tensor
     recv_ts:       Tensor
+
+
+@dataclass
+class FetchResult:
+    """Feature/memory rows fetched for one CTDG sampled batch."""
+
+    local_read_index: Optional[Tensor] = None
+    remote_read_index: Optional[Tensor] = None
+    local_features: Optional[Tensor] = None
+    remote_features: Optional[Tensor] = None
+    local_memory: Optional[Tensor] = None
+    remote_memory: Optional[Tensor] = None
 
 
 @dataclass(frozen=True)
@@ -194,10 +207,130 @@ class CommPipeline:
         self._spatial_pending:  Optional[_PendingOp] = None
         self._memory_pending:   Optional[_PendingOp] = None
         self._replica_pending:  Optional[_PendingOp] = None
+        self._fetch_pending:    Optional[_PendingOp] = None
         # Track recv_node_ids so await_ can return them alongside data
         self._spatial_recv_ids: Optional[Tensor] = None
         self._memory_recv_ids:  Optional[Tensor] = None
         self._replica_recv_ids: Optional[Tensor] = None
+        self._fetch_result:     Optional[FetchResult] = None
+
+    def _gather_by_dist_index(self, rows: Tensor, index: Optional[Tensor]) -> Optional[Tensor]:
+        if index is None or index.numel() == 0:
+            return None
+        loc = dist_index_loc(index.to(device=rows.device)).long()
+        return rows.index_select(0, loc).to(self._device, non_blocking=True)
+
+    @staticmethod
+    def _empty_like_rows(rows: Tensor, count: int = 0) -> Tensor:
+        return rows.new_empty((int(count), *rows.shape[1:]))
+
+    def _remote_fetch_rows(
+        self,
+        remote_read_index: Tensor,
+        remote_owners: Tensor,
+        rows: Tensor,
+    ) -> tuple[Tensor, list]:
+        """Request remote rows from owner ranks and return recv buffer + works."""
+        if remote_read_index.numel() == 0:
+            return self._empty_like_rows(rows.to(self._device), 0), []
+
+        if not dist.is_available() or not dist.is_initialized() or dist.get_world_size(group=self._group) <= 1:
+            return self._gather_by_dist_index(rows, remote_read_index), []
+
+        world_size = dist.get_world_size(group=self._group)
+        remote_owners = remote_owners.to(device=self._device, dtype=torch.long).contiguous()
+        req_locs = dist_index_loc(remote_read_index).to(device=self._device, dtype=torch.long).contiguous()
+        send_counts_t = torch.bincount(remote_owners, minlength=world_size).to(device=self._device, dtype=torch.long)
+        recv_counts_t = torch.empty_like(send_counts_t)
+        dist.all_to_all_single(recv_counts_t, send_counts_t, group=self._group)
+        send_counts = send_counts_t.tolist()
+        recv_counts = recv_counts_t.tolist()
+
+        recv_locs = torch.empty(int(recv_counts_t.sum().item()), dtype=torch.long, device=self._device)
+        req_work = dist.all_to_all_single(
+            recv_locs,
+            req_locs,
+            output_split_sizes=recv_counts,
+            input_split_sizes=send_counts,
+            group=self._group,
+            async_op=True,
+        )
+        req_work.wait()
+
+        rows_dev = rows.to(self._device, non_blocking=True)
+        send_values = rows_dev.index_select(0, recv_locs.long()).contiguous()
+        recv_values = self._empty_like_rows(rows_dev, int(send_counts_t.sum().item()))
+        value_work = dist.all_to_all_single(
+            recv_values,
+            send_values,
+            output_split_sizes=send_counts,
+            input_split_sizes=recv_counts,
+            group=self._group,
+            async_op=True,
+        )
+        return recv_values, [value_work]
+
+    def submit_fetch(
+        self,
+        plan: Any,
+        *,
+        feature_rows: Optional[Tensor] = None,
+        memory_rows: Optional[Tensor] = None,
+    ) -> Optional[CommHandle]:
+        """Fetch remote feature/memory rows described by a ``FetchPlan``."""
+        self._drain_fetch_sync()
+        if plan is None:
+            return None
+
+        local_read_index = getattr(plan, "local_read_index", None)
+        remote_read_index = getattr(plan, "remote_read_index", None)
+        remote_owners = getattr(plan, "feature_owners", None)
+        works: list = []
+        result = FetchResult(
+            local_read_index=local_read_index,
+            remote_read_index=remote_read_index,
+        )
+
+        if feature_rows is not None:
+            result.local_features = self._gather_by_dist_index(feature_rows, local_read_index)
+            if remote_read_index is not None and remote_read_index.numel() > 0:
+                if remote_owners is None:
+                    raise ValueError("FetchPlan.feature_owners is required for remote feature fetch")
+                result.remote_features, feature_works = self._remote_fetch_rows(
+                    remote_read_index.long().contiguous(),
+                    remote_owners.long().contiguous(),
+                    feature_rows,
+                )
+                works.extend(feature_works)
+            else:
+                result.remote_features = self._empty_like_rows(feature_rows.to(self._device), 0)
+
+        if memory_rows is not None:
+            result.local_memory = self._gather_by_dist_index(memory_rows, local_read_index)
+            if remote_read_index is not None and remote_read_index.numel() > 0:
+                if remote_owners is None:
+                    raise ValueError("FetchPlan.feature_owners is required for remote memory fetch")
+                result.remote_memory, memory_works = self._remote_fetch_rows(
+                    remote_read_index.long().contiguous(),
+                    remote_owners.long().contiguous(),
+                    memory_rows,
+                )
+                works.extend(memory_works)
+            else:
+                result.remote_memory = self._empty_like_rows(memory_rows.to(self._device), 0)
+
+        self._fetch_result = result
+        self._fetch_pending = _PendingOp(works=works, recv_bufs=[])
+        return CommHandle("fetch")
+
+    async def await_fetch(self) -> Optional[FetchResult]:
+        if self._fetch_pending is None:
+            return None
+        await asyncio.gather(*[_wait_work(w) for w in self._fetch_pending.works])
+        result = self._fetch_result
+        self._fetch_pending = None
+        self._fetch_result = None
+        return result
 
     # ------------------------------------------------------------------
     # Spatial channel
@@ -391,6 +524,8 @@ class CommPipeline:
             return await self.await_memory()
         if handle.channel == "replica":
             return await self.await_replica()
+        if handle.channel == "fetch":
+            return await self.await_fetch()
         raise ValueError(f"Unknown communication channel: {handle.channel}")
 
     # ------------------------------------------------------------------
@@ -417,8 +552,16 @@ class CommPipeline:
                 w.wait()
             self._replica_pending = None
 
+    def _drain_fetch_sync(self) -> None:
+        if self._fetch_pending is not None:
+            for w in self._fetch_pending.works:
+                w.wait()
+            self._fetch_pending = None
+            self._fetch_result = None
+
     def drain_all_sync(self) -> None:
         """Synchronously wait for all in-flight ops (e.g. at epoch end)."""
         self._drain_spatial_sync()
         self._drain_memory_sync()
         self._drain_replica_sync()
+        self._drain_fetch_sync()

@@ -134,7 +134,9 @@ def _build_placement_artifact(
     canonical_nid_dist = torch.empty(num_nodes, dtype=torch.long)
     local_node_ids_by_part: list[torch.Tensor] = []
     local_nid_dist_by_part: list[torch.Tensor] = []
+    read_dist_index_by_part: list[torch.Tensor] = []
     local_node_counts: list[dict[str, int]] = []
+    local_layouts: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
     for part_id in range(num_parts):
         layout = _build_part_local_layout(
             edge_src=edge_src.cpu(),
@@ -160,14 +162,14 @@ def _build_placement_artifact(
         local_ids = torch.arange(local_node_ids.numel(), dtype=torch.long)
         shared_local = local_ids < shared_count
         shadow_local = local_ids >= shared_count + owned_count
-        local_nid_dist_by_part.append(
-            encode_dist_index(
-                local_ids,
-                torch.full((int(local_node_ids.numel()),), part_id, dtype=torch.long),
-                shared=shared_local,
-                cached=shadow_local,
-            )
+        local_dist = encode_dist_index(
+            local_ids,
+            torch.full((int(local_node_ids.numel()),), part_id, dtype=torch.long),
+            shared=shared_local,
+            cached=shadow_local,
         )
+        local_nid_dist_by_part.append(local_dist)
+        local_layouts.append((local_node_ids, local_ids, shared_local))
         canonical_mask = (node_owner[local_node_ids] == part_id) & ~replica_mask[local_node_ids]
         canonical_nodes = local_node_ids[canonical_mask]
         canonical_nid_dist[canonical_nodes] = encode_dist_index(
@@ -182,6 +184,16 @@ def _build_placement_artifact(
             node_master[shared_nodes],
             shared=True,
         )
+
+    for part_id, (local_node_ids, local_ids, shared_local) in enumerate(local_layouts):
+        read_dist_index = canonical_nid_dist.clone()
+        read_dist_index[local_node_ids] = encode_dist_index(
+            local_ids,
+            torch.full((int(local_node_ids.numel()),), part_id, dtype=torch.long),
+            shared=shared_local,
+            cached=True,
+        )
+        read_dist_index_by_part.append(read_dist_index)
 
     canonical_eid_dist = torch.empty(num_edges, dtype=torch.long)
     canonical_edge_ids_by_part: list[torch.Tensor] = []
@@ -214,6 +226,8 @@ def _build_placement_artifact(
         "hot_node_ids": artifacts.hot_node_ids.long().cpu(),
         "graph_family": artifacts.graph_family,
         "chunk_load_by_slice": artifacts.chunk_load_by_slice,
+        "master_dist_index": canonical_nid_dist,
+        "read_dist_index_by_part": read_dist_index_by_part,
         "canonical_nid_dist": canonical_nid_dist,
         "canonical_eid_dist": canonical_eid_dist,
         "local_node_ids_by_part": local_node_ids_by_part,
@@ -233,6 +247,22 @@ def _write_route_lists(root: Path, prefix: str, routes: list[list[Any]] | None) 
         torch.save(part_routes, route_path)
         written.append(str(route_path.relative_to(root)))
     return written
+
+
+def _attach_packed_memory_route_indices(
+    routes: list[list[Any]] | None,
+    master_dist_index: torch.Tensor,
+) -> None:
+    if routes is None:
+        return
+    for part_routes in routes:
+        for route in part_routes:
+            unique_nodes = getattr(route, "unique_nodes", None)
+            if isinstance(unique_nodes, torch.Tensor) and unique_nodes.numel() > 0:
+                route.unique_index = master_dist_index[unique_nodes.long()].clone()
+            recv_node_ids = getattr(route, "recv_node_ids", None)
+            if isinstance(recv_node_ids, torch.Tensor) and recv_node_ids.numel() > 0:
+                route.recv_index = master_dist_index[recv_node_ids.long()].clone()
 
 
 class ChunkPreprocessor(GraphPreprocessor):
@@ -323,14 +353,17 @@ class ChunkPreprocessor(GraphPreprocessor):
             num_edges=int(raw_events.num_edges),
             num_parts=num_parts,
         )
-        placement_view = ChunkPlacement(
-            placement_version=int(placement.get("placement_version", 0)),
-            node_to_chunk=placement["node_to_chunk"].long(),
-            node_owner=placement["node_owner"].long(),
-            node_master=placement["node_master"].long(),
-            replica_mask=placement["replica_mask"].bool(),
-        )
+        _attach_packed_memory_route_indices(artifacts.mem_routes, placement["master_dist_index"])
         for part_id in range(num_parts):
+            placement_view = ChunkPlacement(
+                placement_version=int(placement.get("placement_version", 0)),
+                node_to_chunk=placement["node_to_chunk"].long(),
+                node_owner=placement["node_owner"].long(),
+                node_master=placement["node_master"].long(),
+                replica_mask=placement["replica_mask"].bool(),
+                master_dist_index=placement["master_dist_index"].long(),
+                read_dist_index=placement["read_dist_index_by_part"][part_id].long(),
+            )
             part_data = _build_partition_data_for_part(
                 edge_src=raw_events.src.long(),
                 edge_dst=raw_events.dst.long(),

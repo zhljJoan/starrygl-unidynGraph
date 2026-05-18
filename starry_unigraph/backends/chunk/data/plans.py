@@ -105,6 +105,7 @@ class CTDGSampleResult:
     edge_ts: Optional[Tensor] = None
     memory_node_ids: Optional[Tensor] = None
     remote_node_ids: Optional[Tensor] = None
+    local_node_ids: Optional[Tensor] = None
     remote_read_index: Optional[Tensor] = None
     local_read_index: Optional[Tensor] = None
 
