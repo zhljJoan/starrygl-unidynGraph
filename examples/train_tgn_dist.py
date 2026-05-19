@@ -166,6 +166,52 @@ def main():
     if rank == 0:
         print(f"\n[done] best val AP = {best_val_ap:.4f}  checkpoint: {ckpt_path}")
 
+    # Test / predict on the best validation checkpoint.  All ranks must
+    # participate because CTDG memory fetch/sync uses distributed collectives.
+    dist.barrier()
+    ckpt_exists = torch.tensor(1 if Path(ckpt_path).exists() else 0, device=device)
+    dist.all_reduce(ckpt_exists, op=dist.ReduceOp.MAX)
+    if int(ckpt_exists.item()) > 0:
+        session.load_checkpoint(ckpt_path)
+    dist.barrier()
+
+    t_test = time.time()
+    test_losses, test_aps, test_aucs, test_mrrs = [], [], [], []
+    for batch in session.iter_predict(ctx, split="test"):
+        result = session.predict_step(batch)
+        metrics = result["meta"]["metrics"]
+        test_losses.append(result["loss"])
+        test_aps.append(metrics.get("ap", 0.0))
+        test_aucs.append(metrics.get("auc", 0.0))
+        test_mrrs.append(metrics.get("mrr", 0.0))
+    dist.barrier()
+    test_time = time.time() - t_test
+
+    avg_test_loss = sum(test_losses) / max(len(test_losses), 1)
+    avg_test_ap = sum(test_aps) / max(len(test_aps), 1)
+    avg_test_auc = sum(test_aucs) / max(len(test_aucs), 1)
+    avg_test_mrr = sum(test_mrrs) / max(len(test_mrrs), 1)
+    tl_t = torch.tensor(avg_test_loss, device=device)
+    tap_t = torch.tensor(avg_test_ap, device=device)
+    tauc_t = torch.tensor(avg_test_auc, device=device)
+    tmrr_t = torch.tensor(avg_test_mrr, device=device)
+    dist.all_reduce(tl_t, op=dist.ReduceOp.AVG)
+    dist.all_reduce(tap_t, op=dist.ReduceOp.AVG)
+    dist.all_reduce(tauc_t, op=dist.ReduceOp.AVG)
+    dist.all_reduce(tmrr_t, op=dist.ReduceOp.AVG)
+
+    if rank == 0:
+        loaded = "loaded" if int(ckpt_exists.item()) > 0 else "current"
+        print(
+            f"[test] checkpoint={loaded}"
+            f"  loss={float(tl_t):.4f}"
+            f"  AP={float(tap_t):.4f}"
+            f"  AUC={float(tauc_t):.4f}"
+            f"  MRR={float(tmrr_t):.4f}"
+            f"  ({test_time:.1f}s)",
+            flush=True,
+        )
+
     dist.destroy_process_group()
 
 
