@@ -28,6 +28,12 @@ from starry_unigraph.backends.chunk.data.batch import BatchData
 from starry_unigraph.backends.chunk.data.partition import PartitionData
 from starry_unigraph.backends.chunk.runtime.sampler import NegativeSamplerHook, _RandomNegativeSampler
 
+try:
+    from sklearn.metrics import average_precision_score, roc_auc_score
+except Exception:  # pragma: no cover
+    average_precision_score = None
+    roc_auc_score = None
+
 
 # ---------------------------------------------------------------------------
 # Base
@@ -146,11 +152,18 @@ class EdgePredictAdapter(ChunkTaskAdapter):
         neg = model_output.get("neg_score")
         if pos is None or neg is None:
             return {}
-        pos_p = pos.sigmoid().detach().cpu()
-        neg_p = neg.sigmoid().detach().cpu()
-        auc = float((pos_p[:, None] > neg_p[None, :]).float().mean())
-        ap  = float(torch.clamp((pos_p.mean() - neg_p.mean()) / 2 + 0.5, 0, 1))
-        return {"auc": auc, "ap": ap}
+        pos_p = pos.sigmoid().detach().cpu().flatten()
+        neg_p = neg.sigmoid().detach().cpu().flatten()
+        metrics: Dict[str, float] = {}
+        if roc_auc_score is not None and average_precision_score is not None:
+            scores = torch.cat([pos_p, neg_p], dim=0).numpy()
+            labels = torch.cat([torch.ones_like(pos_p), torch.zeros_like(neg_p)], dim=0).numpy()
+            metrics["auc"] = float(roc_auc_score(labels, scores))
+            metrics["ap"] = float(average_precision_score(labels, scores))
+        else:
+            metrics["auc"] = float((pos_p[:, None] > neg_p[None, :]).float().mean())
+            metrics["ap"] = float(torch.clamp((pos_p.mean() - neg_p.mean()) / 2 + 0.5, 0, 1))
+        return metrics
 
 
 # ---------------------------------------------------------------------------

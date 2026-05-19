@@ -18,6 +18,7 @@ from .sampler import (
 from .loader import ChunkRuntimeLoader, SimpleChunkModel, redistribute_preprocessed, rebuild_from_scratch
 from .event_engine import MemShareEventEngine, MemShareNativeSampler, is_memshare_native_available
 from .train_step import run_batch
+from .stg_loader import RNNStateManager, STGraphBlob, STGraphLoader
 
 __all__ = [
     "ChunkTaskAdapter",
@@ -39,4 +40,8 @@ __all__ = [
     "redistribute_preprocessed",
     "rebuild_from_scratch",
     "run_batch",
+    "RNNStateManager",
+    "STGraphBlob",
+    "STGraphLoader",
 ]
+

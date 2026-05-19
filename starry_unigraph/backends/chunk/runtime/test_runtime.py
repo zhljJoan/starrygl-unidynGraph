@@ -277,6 +277,34 @@ def test_prediction_head_and_run_batch():
     print(f"✓ run_batch: loss={result['loss'].item():.3f}, metrics={result['metrics']}")
 
 
+def test_global_task_heads_accept_compact_id_map_nodes():
+    from starry_unigraph.models import EdgePredictHead, NodeRegressHead
+
+    embeddings = torch.tensor(
+        [
+            [1.0, 0.0],
+            [0.0, 2.0],
+            [3.0, 0.0],
+        ]
+    )
+    batch = BatchData(
+        mfgs=[],
+        node_ids=torch.tensor([10, 20, 30]),
+        id_map_nodes=torch.tensor([10, 20, 30]),
+        pos_src=torch.tensor([10]),
+        pos_dst=torch.tensor([30]),
+        neg_src=torch.tensor([20]),
+        neg_dst=torch.tensor([30]),
+        target_nodes=torch.tensor([20]),
+    )
+
+    edge_out = EdgePredictHead(2)(embeddings, batch)
+    assert torch.equal(edge_out["pos_score"], torch.tensor([3.0]))
+    assert torch.equal(edge_out["neg_score"], torch.tensor([0.0]))
+    node_out = NodeRegressHead(2, output_dim=1)(embeddings, batch)
+    assert node_out["node_pred"].shape == (1, 1)
+
+
 # ---------------------------------------------------------------------------
 # Test ChunkRuntimeLoader iter with in-memory setup
 # ---------------------------------------------------------------------------
@@ -364,8 +392,9 @@ def test_chunk_loader_units():
           f"payload={type(units[0].payload).__name__}")
 
 
-def test_event_units_follow_batch_size():
+def test_event_units_follow_time_slice_subset():
     part = _make_part(num_edges=10, num_snaps=1)
+    from starry_unigraph.backends.chunk.data.graph_store import TemporalEventTable
     adapter = get_task_adapter("edge_predict")
     neg = NegativeSamplerHook.from_config({})
 
@@ -389,13 +418,26 @@ def test_event_units_follow_batch_size():
         world_size=1,
         device=torch.device("cpu"),
     )
-    loader.event_engine.event_batch_size = 3
+    src, dst, ts, eid = loader.graph_store.part.edge_events(0, global_ids=True)
+    loader.graph_store._event_cache = TemporalEventTable(
+        src=src.long(),
+        dst=dst.long(),
+        ts=torch.arange(src.numel(), dtype=torch.float32) if ts.numel() == 0 else ts,
+        edge_ids=eid.long(),
+        snapshot_event_ptr=torch.tensor([0, src.numel()], dtype=torch.long),
+        event_owner=torch.arange(src.numel(), dtype=torch.long) % 2,
+    )
     units = list(loader.iter_train_units())
-    assert len(units) == 4
-    assert [(u.payload.event_start, u.payload.event_end) for u in units] == [
-        (0, 3), (3, 6), (6, 9), (9, 10)
-    ]
-    print("✓ event units are split by train batch size")
+    assert len(units) == 1
+    assert units[0].payload.time_slice_id == 0
+    assert units[0].payload.batch_offset == 0
+    assert units[0].payload.event_indices is not None
+    assert units[0].payload.event_indices.tolist() == [0, 2, 4, 6, 8]
+    loader.event_engine.event_batch_size = 2
+    units_with_batch_size = list(loader.iter_train_units())
+    assert len(units_with_batch_size) == 1
+    assert units_with_batch_size[0].payload.event_indices.tolist() == [0, 2, 4, 6, 8]
+    print("✓ event units follow one prebuilt subset per time slice")
 
 
 def test_event_engine_splits_reads_by_cached_dist_index(monkeypatch):
@@ -648,6 +690,63 @@ def test_dynamic_fetch_patches_mfg_features_and_memory():
     assert torch.equal(block.srcdata["h"], runtime.node_features[torch.tensor([0, 2, 3])])
     assert torch.equal(block.srcdata["mem"], runtime.node_memory[torch.tensor([0, 2, 3])])
     assert torch.equal(batch.remote_manifest["fetched_node_ids"], torch.tensor([0, 3, 2]))
+
+
+def test_dynamic_fetch_keeps_sorted_remote_indices_aligned_with_node_ids():
+    import types
+    from starry_unigraph.backends.chunk.data.dist_index import encode_dist_index
+    from starry_unigraph.backends.chunk.runtime.sampler import MFGBuilderHook, SampledGraph
+
+    part = _make_part(num_snaps=1)
+    loader = ChunkRuntimeLoader(
+        part_data=part,
+        mem_routes=[],
+        spatial_routes=[],
+        task_adapter=get_task_adapter("edge_predict"),
+        neg_sampler=NegativeSamplerHook.from_config({}),
+        mfg_builder=MFGBuilderHook.default(),
+        pipeline=__import__(
+            "starry_unigraph.backends.chunk.data.comm",
+            fromlist=["CommPipeline"]
+        ).CommPipeline(device=torch.device("cpu")),
+        split_slices={"train": [0], "val": [], "test": []},
+        num_nodes=8,
+        rank=0,
+        world_size=1,
+        device=torch.device("cpu"),
+    )
+    block = MFGBuilderHook.default().build(SampledGraph(
+        src_nodes=torch.tensor([4, 2]),
+        dst_nodes=torch.tensor([4]),
+        edge_src=torch.tensor([0, 1]),
+        edge_dst=torch.tensor([0, 0]),
+        edge_ts=torch.tensor([1.0, 2.0]),
+    ))
+    remote_read = encode_dist_index(
+        torch.tensor([2, 4]),
+        torch.tensor([2, 1]),
+    )
+    plan = loader._make_dynamic_fetch_plan(
+        0,
+        remote_read_index=remote_read,
+        local_read_index=None,
+        remote_node_ids=torch.tensor([2, 4]),
+    )
+    batch = BatchData(
+        mfgs=[block],
+        node_ids=torch.tensor([2, 4]),
+        pos_src=torch.tensor([4]),
+        pos_dst=torch.tensor([2]),
+        remote_manifest={"dynamic_fetch_plan": plan},
+    )
+    runtime = types.SimpleNamespace(
+        node_features=torch.arange(16, dtype=torch.float32).view(8, 2),
+    )
+
+    assert plan is not None
+    assert torch.equal(plan.remote_node_ids, torch.tensor([4, 2]))
+    loader._execute_and_patch_fetch(runtime, batch)
+    assert torch.equal(block.srcdata["h"], runtime.node_features[torch.tensor([4, 2])])
 
 
 def test_native_units_require_prebuilt_temporal_index_when_configured():

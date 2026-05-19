@@ -74,6 +74,7 @@ class MemoryResult:
     recv_node_ids: Tensor
     recv_memory:   Tensor
     recv_ts:       Tensor
+    recv_index: Optional[Tensor] = None
 
 
 @dataclass
@@ -422,15 +423,28 @@ class CommPipeline:
         recv_mem   = torch.empty(recv_total, memory.size(1), dtype=memory.dtype, device=self._device)
         recv_ts    = torch.empty(recv_total, dtype=ts.dtype, device=self._device)
         recv_ids   = torch.empty(recv_total, dtype=torch.long, device=self._device)
+        send_ids = route.unique_nodes.to(self._device, non_blocking=True).long().contiguous()
+        send_index = None if route.unique_index is None else route.unique_index.to(self._device, non_blocking=True).long().contiguous()
+        recv_index = None if send_index is None else torch.empty(recv_total, dtype=torch.long, device=self._device)
 
         in_split  = _split_sizes(route.send_ptr)
         out_split = _split_sizes(recv_ptr)
 
         w_ids = dist.all_to_all_single(
-            recv_ids, route.unique_nodes,
+            recv_ids, send_ids,
             output_split_sizes=out_split, input_split_sizes=in_split,
             group=self._group, async_op=True,
         )
+        works = [w_ids]
+        recv_bufs = [recv_ids, recv_mem, recv_ts]
+        if send_index is not None and recv_index is not None:
+            w_index = dist.all_to_all_single(
+                recv_index, send_index,
+                output_split_sizes=out_split, input_split_sizes=in_split,
+                group=self._group, async_op=True,
+            )
+            works.append(w_index)
+            recv_bufs.append(recv_index)
         w_mem = dist.all_to_all_single(
             recv_mem, memory,
             output_split_sizes=out_split, input_split_sizes=in_split,
@@ -442,18 +456,53 @@ class CommPipeline:
             group=self._group, async_op=True,
         )
 
-        self._memory_pending   = _PendingOp(works=[w_ids, w_mem, w_ts],
-                                            recv_bufs=[recv_ids, recv_mem, recv_ts])
+        works.extend([w_mem, w_ts])
+        self._memory_pending   = _PendingOp(works=works, recv_bufs=recv_bufs)
         self._memory_recv_ids  = recv_ids  # same tensor, aliased for clarity
         return CommHandle("memory")
 
     async def await_memory(self) -> Optional[MemoryResult]:
-        """Await in-flight memory update op."""
+        """Await in-flight memory update op and apply timestamp reduce.
+
+        If multiple updates for the same node are received, only the one with
+        the latest timestamp is kept (temporal memory consistency).
+        """
         if self._memory_pending is None:
             return None
         await asyncio.gather(*[_wait_work(w) for w in self._memory_pending.works])
-        ids, mem, ts = self._memory_pending.recv_bufs
-        result = MemoryResult(recv_node_ids=ids, recv_memory=mem, recv_ts=ts)
+        ids, mem, ts = self._memory_pending.recv_bufs[:3]
+        recv_index = self._memory_pending.recv_bufs[3] if len(self._memory_pending.recv_bufs) > 3 else None
+
+        # Timestamp reduce: keep only the latest update per node
+        if ids.numel() > 0:
+            unique_ids, inverse = torch.unique(ids, return_inverse=True)
+            if unique_ids.numel() < ids.numel():
+                n_unique = unique_ids.numel()
+                # Pick the position of the latest timestamp per unique node
+                # Sort by (inverse, ts) so the last position in each group is the max-ts entry
+                order = torch.argsort(ts)
+                inv_sorted = inverse[order]
+                # scatter_reduce "amax" gives max-ts per unique node; we need its index
+                latest_ts = torch.full((n_unique,), float('-inf'), dtype=ts.dtype, device=ts.device)
+                latest_ts.scatter_reduce_(0, inv_sorted, ts[order], reduce="amax", include_self=True)
+                # Re-derive which original index (in `order`) was selected per group:
+                # the first occurrence in order that equals the group max
+                sel = torch.zeros(n_unique, dtype=torch.long, device=ids.device)
+                # Walk once: overwrite sel whenever we see a newer timestamp
+                # (vectorised: for each position in `order`, mask where ts matches the group max)
+                match = ts[order] == latest_ts[inv_sorted]
+                # argmax of `match` per group: first True in each group (sorted by ts asc so first = max)
+                # Use scatter_reduce "amin" on indices where match is True
+                INF = ids.numel()
+                masked_pos = torch.where(match, order, torch.tensor(INF, device=ids.device))
+                sel.scatter_reduce_(0, inv_sorted, masked_pos, reduce="amin", include_self=True)
+
+                ids = unique_ids
+                mem = mem[sel]
+                ts = latest_ts
+                recv_index = recv_index[sel] if recv_index is not None else None
+
+        result = MemoryResult(recv_node_ids=ids, recv_memory=mem, recv_ts=ts, recv_index=recv_index)
         self._memory_pending  = None
         self._memory_recv_ids = None
         return result

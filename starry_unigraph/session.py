@@ -22,6 +22,30 @@ from starry_unigraph.runtime.engine import PipelineEngine
 from starry_unigraph.runtime.backend_adapters import CTDGGraphBackend, FlareGraphBackend, ChunkGraphBackend, DummyStateManager
 
 
+class _SessionProviderCompat:
+    """Compatibility shim for older tests/code that accessed session.provider."""
+
+    def __init__(self, session: "SchedulerSession") -> None:
+        self._session = session
+
+    @property
+    def graph_mode(self) -> str:
+        return detect_graph_mode(self._session.ctx.config)
+
+    @property
+    def prepared(self) -> PreparedArtifacts | None:
+        return self._session.prepared
+
+    @prepared.setter
+    def prepared(self, value: PreparedArtifacts | None) -> None:
+        self._session.prepared = value
+        self._session.ctx.prepared_artifacts = value
+
+    @property
+    def runtime(self) -> RuntimeBundle:
+        return self._session.runtime
+
+
 class SchedulerSession:
     def __init__(self, session_ctx: SessionContext, model_spec: Any, task_adapter: Any):
         self.ctx = session_ctx
@@ -35,6 +59,7 @@ class SchedulerSession:
         self.prepared: PreparedArtifacts | None = None
         # New: unified pipeline engine (optional, for refactored code path)
         self.pipeline_engine: PipelineEngine | None = None
+        self.provider = _SessionProviderCompat(self)
 
     @classmethod
     def from_config(
@@ -64,8 +89,11 @@ class SchedulerSession:
     def prepare_data(self) -> PreparedArtifacts:
         from starry_unigraph.config.schema import detect_graph_mode
         graph_mode = detect_graph_mode(self.ctx.config)
+        dtdg_pipeline = str(self.ctx.config.get("dtdg", {}).get("pipeline", "flare_native"))
         if graph_mode == "ctdg":
             preprocessor = CTDGPreprocessor()
+        elif graph_mode == "dtdg" and dtdg_pipeline == "chunked":
+            preprocessor = ChunkPreprocessor()
         elif graph_mode == "dtdg":
             preprocessor = FlareDTDGPreprocessor()
         elif graph_mode == "chunk":
@@ -90,10 +118,12 @@ class SchedulerSession:
             device = base_device
 
         if graph_mode == "ctdg":
+            validate_artifacts(self.prepared, expected_graph_mode="ctdg", expected_num_parts=self.ctx.dist.world_size)
             # CTDG online runtime (standalone)
             self.ctdg_session = CTDGSession()
             self.ctdg_session.build_runtime(self.ctx)
             self.runtime = self.ctdg_session._runtime
+            self.runtime.state.setdefault("cursor", self.global_step)
         elif graph_mode == "dtdg":
             # DTDG Flare runtime (standalone)
             validate_artifacts(self.prepared, expected_graph_mode="dtdg", expected_num_parts=self.ctx.dist.world_size)
@@ -121,6 +151,7 @@ class SchedulerSession:
                     "graph_state": self.graph_runtime.dump_state(),
                     "snapshot_state": self.graph_runtime.dump_state(),
                     "route_cache": self.graph_runtime.describe_route_cache(),
+                    "dtdg_pipeline": "flare_native",
                 }
             )
         elif graph_mode == "chunk":
@@ -146,6 +177,7 @@ class SchedulerSession:
                     "graph_state": self.graph_runtime.dump_state(),
                     "snapshot_state": self.graph_runtime.dump_state(),
                     "route_cache": self.graph_runtime.describe_route_cache(),
+                    "dtdg_pipeline": "chunked",
                 }
             )
         else:
@@ -239,6 +271,7 @@ class SchedulerSession:
                 for batch in iterator:
                     outputs.append(self.ctdg_session.train_step(batch))
                     self.global_step += 1
+                    self.runtime.state["cursor"] = self.global_step
             else:
                 for batch in iterator:
                     outputs.append(self.ctdg_session.eval_step(batch))
@@ -250,6 +283,8 @@ class SchedulerSession:
             losses = [float(item["loss"]) for item in outputs if "loss" in item]
             metric_accumulator: dict[str, list[float]] = {}
             for item in outputs:
+                for key, value in item.get("metrics", {}).items():
+                    metric_accumulator.setdefault(key, []).append(float(value))
                 metrics = item.get("meta", {}).get("metrics", {})
                 for key, value in metrics.items():
                     metric_accumulator.setdefault(key, []).append(float(value))
@@ -319,6 +354,8 @@ class SchedulerSession:
             losses = [float(item["loss"]) for item in outputs if "loss" in item]
             metric_accumulator: dict[str, list[float]] = {}
             for item in outputs:
+                for key, value in item.get("metrics", {}).items():
+                    metric_accumulator.setdefault(key, []).append(float(value))
                 metrics = item.get("meta", {}).get("metrics", {})
                 for key, value in metrics.items():
                     metric_accumulator.setdefault(key, []).append(float(value))
@@ -432,31 +469,26 @@ class SchedulerSession:
         return float(stats[0].item()), int(stats[1].item()), float(stats[2].item())
 
     def save_checkpoint(self, path: str | Path) -> Path:
-        if self.ctdg_session is not None:
-            self.ctdg_session.save_checkpoint(path)
-            return Path(path)
-        else:
-            payload = {
-                "model_state": self.runtime.model,
-                "optimizer_state": self.runtime.optimizer,
-                "scheduler_state": self.runtime.scheduler,
-                "config": self.ctx.config,
-                "epoch": self.current_epoch,
-                "global_step": self.global_step,
-            }
-            return save_checkpoint(path, payload)
+        payload = {
+            "model_state": self.runtime.model,
+            "optimizer_state": self.runtime.optimizer,
+            "scheduler_state": self.runtime.scheduler,
+            "runtime_state": dict(self.runtime.state),
+            "config": self.ctx.config,
+            "epoch": self.current_epoch,
+            "global_step": self.global_step,
+        }
+        return save_checkpoint(path, payload)
 
     def load_checkpoint(self, path: str | Path) -> dict[str, Any]:
-        if self.ctdg_session is not None:
-            self.ctdg_session.load_checkpoint(path)
-            return {}
-        else:
-            payload = load_checkpoint(path)
-            if self.runtime.model is None:
-                self.build_runtime()
-            self.runtime.model = payload.get("model_state")
-            self.runtime.optimizer = payload.get("optimizer_state")
-            self.runtime.scheduler = payload.get("scheduler_state")
-            self.current_epoch = int(payload.get("epoch", 0))
-            self.global_step = int(payload.get("global_step", 0))
-            return payload
+        payload = load_checkpoint(path)
+        if self.runtime.model is None:
+            self.build_runtime()
+        self.runtime.model = payload.get("model_state", self.runtime.model)
+        self.runtime.optimizer = payload.get("optimizer_state", self.runtime.optimizer)
+        self.runtime.scheduler = payload.get("scheduler_state", self.runtime.scheduler)
+        self.runtime.state.update(payload.get("runtime_state", {}))
+        self.current_epoch = int(payload.get("epoch", 0))
+        self.global_step = int(payload.get("global_step", 0))
+        self.runtime.state["cursor"] = self.global_step
+        return payload

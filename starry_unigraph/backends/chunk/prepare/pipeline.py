@@ -8,6 +8,7 @@ route artifacts.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from typing import Any, Dict, Optional
 
 import torch
@@ -95,40 +96,92 @@ def _balanced_by_degree(deg: Tensor, nodes: Tensor, num_parts: int) -> Tensor:
     return part
 
 
-def _try_metis_partition(edge_src: Tensor, edge_dst: Tensor, nodes: Tensor, num_nodes: int, num_parts: int) -> Optional[Tensor]:
-    """Use pymetis when available; return None for deterministic fallback."""
+def _try_metis_partition(
+    edge_src: Tensor,
+    edge_dst: Tensor,
+    nodes: Tensor,
+    num_nodes: int,
+    num_parts: int
+) -> Optional[Tensor]:
+    """Use DGL METIS on the induced subgraph of nodes."""
+    if os.environ.get("STARRY_CHUNK_DISABLE_DGL_METIS", "0") == "1":
+        return None
+    if int(num_parts) <= 1:
+        part = torch.zeros(num_nodes, dtype=torch.long, device=edge_src.device)
+        return part
+    if int(nodes.numel()) < int(num_parts):
+        return None
+    device = edge_src.device
+
     if nodes.numel() == 0:
-        return torch.zeros(num_nodes, dtype=torch.long, device=edge_src.device)
+        return torch.zeros(num_nodes, dtype=torch.long, device=device)
+
     try:
-        import pymetis  # type: ignore
+        import dgl
     except Exception:
         return None
 
-    keep = torch.zeros(num_nodes, dtype=torch.bool, device=edge_src.device)
-    keep[nodes] = True
-    edge_keep = keep[edge_src] & keep[edge_dst]
-    sub_src = edge_src[edge_keep]
-    sub_dst = edge_dst[edge_keep]
-    if sub_src.numel() == 0:
-        return None
-
-    local = torch.full((num_nodes,), -1, dtype=torch.long, device=edge_src.device)
-    local[nodes] = torch.arange(nodes.numel(), device=edge_src.device)
-    ls = local[sub_src].cpu().tolist()
-    ld = local[sub_dst].cpu().tolist()
-    adj: list[set[int]] = [set() for _ in range(int(nodes.numel()))]
-    for u, v in zip(ls, ld):
-        if u != v:
-            adj[u].add(v)
-            adj[v].add(u)
     try:
-        _, sub_part = pymetis.part_graph(int(num_parts), adjacency=[list(x) for x in adj])
+        src_cpu = edge_src.detach().cpu()
+        dst_cpu = edge_dst.detach().cpu()
+        nodes_cpu = nodes.detach().cpu()
+        g = dgl.graph(
+            (src_cpu, dst_cpu),
+            num_nodes=num_nodes
+        )
+        g = dgl.to_bidirected(g, copy_ndata=False)
+        # Build induced subgraph.
+        sg = dgl.node_subgraph(g, nodes_cpu)
+        if sg.num_edges() == 0:
+            return None
+        sub_part = dgl.metis_partition_assignment(
+            sg,
+            int(num_parts)
+        )
+        part = torch.zeros(num_nodes, dtype=torch.long, device=device)
+        # DGL node_subgraph keeps original node ids in dgl.NID.
+        orig_nids = sg.ndata[dgl.NID]
+        part[orig_nids.to(device)] = sub_part.to(device=device, dtype=torch.long)
+        return part
+
     except Exception:
         return None
 
-    part = torch.zeros(num_nodes, dtype=torch.long, device=edge_src.device)
-    part[nodes] = torch.tensor(sub_part, dtype=torch.long, device=edge_src.device)
-    return part
+
+# def _try_metis_partition(edge_src: Tensor, edge_dst: Tensor, nodes: Tensor, num_nodes: int, num_parts: int) -> Optional[Tensor]:
+#     """Use pymetis when available; return None for deterministic fallback."""
+#     if nodes.numel() == 0:
+#         return torch.zeros(num_nodes, dtype=torch.long, device=edge_src.device)
+#     try:
+#         import pymetis  # type: ignore
+#     except Exception:
+#         return None
+
+#     keep = torch.zeros(num_nodes, dtype=torch.bool, device=edge_src.device)
+#     keep[nodes] = True
+#     edge_keep = keep[edge_src] & keep[edge_dst]
+#     sub_src = edge_src[edge_keep]
+#     sub_dst = edge_dst[edge_keep]
+#     if sub_src.numel() == 0:
+#         return None
+
+#     local = torch.full((num_nodes,), -1, dtype=torch.long, device=edge_src.device)
+#     local[nodes] = torch.arange(nodes.numel(), device=edge_src.device)
+#     ls = local[sub_src].cpu().tolist()
+#     ld = local[sub_dst].cpu().tolist()
+#     adj: list[set[int]] = [set() for _ in range(int(nodes.numel()))]
+#     for u, v in zip(ls, ld):
+#         if u != v:
+#             adj[u].add(v)
+#             adj[v].add(u)
+#     try:
+#         _, sub_part = pymetis.part_graph(int(num_parts), adjacency=[list(x) for x in adj])
+#     except Exception:
+#         return None
+
+#     part = torch.zeros(num_nodes, dtype=torch.long, device=edge_src.device)
+#     part[nodes] = torch.tensor(sub_part, dtype=torch.long, device=edge_src.device)
+#     return part
 
 
 def _assignment_from_node_to_chunk(
@@ -144,31 +197,35 @@ def _assignment_from_node_to_chunk(
         raise ValueError("chunk_to_initial_partition length must equal num_partitions * num_chunks_per_partition")
     sort_order = torch.argsort(node_to_chunk, stable=True)
     sorted_chunks = node_to_chunk[sort_order]
-    counts = torch.bincount(sorted_chunks, minlength=num_chunks).tolist()
-    sorted_nodes = sort_order.tolist()
-    chunk_to_nodes: list[list[int]] = []
-    offset = 0
-    for count in counts:
-        chunk_to_nodes.append(sorted_nodes[offset : offset + count])
-        offset += count
+    counts = torch.bincount(sorted_chunks, minlength=num_chunks)
+    chunk_ptr = torch.zeros(num_chunks + 1, dtype=torch.long)
+    chunk_ptr[1:] = counts.cumsum(0)
     return ChunkAssignment(
         num_chunks_per_partition=num_chunks_per_partition,
         node_to_chunk=node_to_chunk,
-        chunk_to_nodes=chunk_to_nodes,
+        chunk_ptr=chunk_ptr,
+        chunk_nodes=sort_order.long().cpu(),
         chunk_to_initial_partition=chunk_to_initial_partition,
         chunk_to_owner_partition=chunk_to_initial_partition.clone(),
     )
 
 
-def _build_partitioned_metis_chunk_assignment(
+def _build_partitioned_chunk_assignment(
     *,
     edge_src: Tensor,
     edge_dst: Tensor,
     node_partition: Tensor,
     num_partitions: int,
     num_chunks_per_partition: int,
+    use_metis: bool = True,
 ) -> ChunkAssignment:
-    """Split each partition subgraph into chunks using METIS when available."""
+    """Split each partition subgraph into chunks.
+
+    When ``use_metis`` is false this is a deterministic degree-balanced
+    assignment that never calls native DGL METIS.  This is the production
+    fallback path for environments where DGL METIS can terminate the process
+    with a native signal.
+    """
 
     num_nodes = int(node_partition.numel())
     deg = _degree(edge_src, edge_dst, num_nodes).cpu()
@@ -179,13 +236,15 @@ def _build_partitioned_metis_chunk_assignment(
         nodes = (node_partition == part_id).nonzero(as_tuple=True)[0].long().cpu()
         if nodes.numel() == 0:
             continue
-        local_chunk = _try_metis_partition(
-            edge_src=edge_src_cpu,
-            edge_dst=edge_dst_cpu,
-            nodes=nodes,
-            num_nodes=num_nodes,
-            num_parts=num_chunks_per_partition,
-        )
+        local_chunk = None
+        if use_metis:
+            local_chunk = _try_metis_partition(
+                edge_src=edge_src_cpu,
+                edge_dst=edge_dst_cpu,
+                nodes=nodes,
+                num_nodes=num_nodes,
+                num_parts=num_chunks_per_partition,
+            )
         if local_chunk is None:
             local_chunk = _balanced_by_degree(deg, nodes, num_chunks_per_partition).cpu()
         node_to_chunk[nodes] = part_id * num_chunks_per_partition + local_chunk[nodes].long().cpu()
@@ -200,13 +259,14 @@ def _build_partitioned_metis_chunk_assignment(
     )
 
 
-def _build_global_metis_chunk_assignment(
+def _build_global_chunk_assignment(
     *,
     edge_src: Tensor,
     edge_dst: Tensor,
     num_nodes: int,
     num_partitions: int,
     num_chunks_per_partition: int,
+    use_metis: bool = True,
 ) -> ChunkAssignment:
     """Build chunks directly, then seed owners round-robin for vector rebalance."""
 
@@ -214,13 +274,15 @@ def _build_global_metis_chunk_assignment(
     edge_src_cpu = edge_src.long().cpu()
     edge_dst_cpu = edge_dst.long().cpu()
     nodes = torch.arange(num_nodes, dtype=torch.long)
-    chunk_part = _try_metis_partition(
-        edge_src=edge_src_cpu,
-        edge_dst=edge_dst_cpu,
-        nodes=nodes,
-        num_nodes=num_nodes,
-        num_parts=total_chunks,
-    )
+    chunk_part = None
+    if use_metis:
+        chunk_part = _try_metis_partition(
+            edge_src=edge_src_cpu,
+            edge_dst=edge_dst_cpu,
+            nodes=nodes,
+            num_nodes=num_nodes,
+            num_parts=total_chunks,
+        )
     if chunk_part is None:
         deg = _degree(edge_src_cpu, edge_dst_cpu, num_nodes).cpu()
         chunk_part = _balanced_by_degree(deg, nodes, total_chunks).cpu()
@@ -243,6 +305,11 @@ def _normalise_partition_strategy(strategy: str) -> str:
         "chunk_balance": "chunk_metis_balance",
         "metis_chunk_balance": "chunk_metis_balance",
         "global_chunk_metis": "chunk_metis_balance",
+        "degree": "balanced",
+        "degree_balance": "balanced",
+        "fallback": "balanced",
+        "no_metis": "balanced",
+        "none": "balanced",
     }
     return aliases.get(strategy, strategy)
 
@@ -286,6 +353,8 @@ def build_node_partition(
     *,
     edge_src: Tensor,
     edge_dst: Tensor,
+    hot_edge_src: Optional[Tensor] = None,
+    hot_edge_dst: Optional[Tensor] = None,
     num_partitions: int,
     num_nodes: Optional[int] = None,
     strategy: str = "metis",
@@ -304,7 +373,11 @@ def build_node_partition(
         raise ValueError("num_partitions must be positive")
     n = _num_nodes(edge_src, edge_dst, num_nodes)
     deg = _degree(edge_src, edge_dst, n)
-    hot_mask = _hot_mask_from_degree(deg, hot_topk=hot_topk, hot_ratio=hot_ratio)
+    if hot_edge_src is not None and hot_edge_dst is not None:
+        hot_deg = _degree(hot_edge_src.long(), hot_edge_dst.long(), n)
+    else:
+        hot_deg = deg
+    hot_mask = _hot_mask_from_degree(hot_deg, hot_topk=hot_topk, hot_ratio=hot_ratio)
     cold_nodes = (~hot_mask).nonzero(as_tuple=True)[0]
     strategy = _normalise_partition_strategy(strategy)
 
@@ -312,9 +385,9 @@ def build_node_partition(
         cold_part = _try_metis_partition(edge_src, edge_dst, cold_nodes, n, num_partitions)
         if cold_part is None:
             cold_part = _balanced_by_degree(deg, cold_nodes, num_partitions)
-    elif strategy in {"mem_share", "mem-share", "memory_share"}:
+    elif strategy in {"balanced", "mem_share", "mem-share", "memory_share"}:
         cold_part = _balanced_by_degree(deg, cold_nodes, num_partitions)
-        if cold_nodes.numel() > 0 and hot_mask.any():
+        if strategy != "balanced" and cold_nodes.numel() > 0 and hot_mask.any():
             flat_score = torch.zeros(n * num_partitions, dtype=torch.long, device=edge_src.device)
             hot_src = hot_mask[edge_src] & ~hot_mask[edge_dst]
             if hot_src.any():
@@ -331,7 +404,7 @@ def build_node_partition(
             if has_affinity.any():
                 cold_part[cold_nodes[has_affinity]] = torch.argmax(score[has_affinity], dim=1).long()
     else:
-        raise ValueError("node partition strategy must be 'metis' or 'mem_share'")
+        raise ValueError("node partition strategy must be 'metis', 'balanced', or 'mem_share'")
 
     part = _assign_hot_masters(edge_src, edge_dst, hot_mask, cold_part, deg, num_partitions)
     replica_mask = hot_mask.clone()
@@ -354,6 +427,8 @@ def prepare(
     num_chunks_per_partition: int = 32,
     edge_timestamps: Optional[Tensor] = None,
     time_ptr: Optional[Tensor] = None,
+    hot_edge_src: Optional[Tensor] = None,
+    hot_edge_dst: Optional[Tensor] = None,
     max_imbalance_ratio: float = 1.2,
     max_migrations: Optional[int] = None,
     build_mem_routes: bool = False,
@@ -376,8 +451,8 @@ def prepare(
     if graph_family not in {"ctdg", "dtdg", "chunk"}:
         raise ValueError("graph_family must be one of: 'ctdg', 'dtdg', 'chunk'")
     partition_strategy = _normalise_partition_strategy(partition_strategy)
-    if partition_strategy not in {"metis", "mem_share", "chunk_metis_balance"}:
-        raise ValueError("partition_strategy must be one of: 'metis', 'mem_share', 'chunk_metis_balance'")
+    if partition_strategy not in {"metis", "balanced", "mem_share", "chunk_metis_balance", "chunk_balance_fallback"}:
+        raise ValueError("partition_strategy must be one of: 'metis', 'balanced', 'mem_share', 'chunk_metis_balance'")
 
     if assignment is not None:
         if assignment.num_chunks_per_partition != num_chunks_per_partition:
@@ -400,7 +475,8 @@ def prepare(
         assignment = ChunkAssignment(
             num_chunks_per_partition=assignment.num_chunks_per_partition,
             node_to_chunk=assignment.node_to_chunk.long().cpu().clone(),
-            chunk_to_nodes=[list(nodes) for nodes in assignment.chunk_to_nodes],
+            chunk_ptr=assignment.chunk_ptr.long().cpu().clone(),
+            chunk_nodes=assignment.chunk_nodes.long().cpu().clone(),
             chunk_to_initial_partition=assignment.chunk_to_initial_partition.long().cpu().clone(),
             chunk_to_owner_partition=assignment.chunk_to_owner_partition.long().cpu().clone(),
             chunk_load_stats=dict(assignment.chunk_load_stats),
@@ -411,23 +487,30 @@ def prepare(
             node_partition = node_partition.long().cpu()
         hot_node_mask = torch.zeros(int(node_partition.numel()), dtype=torch.bool)
         generated_replica_mask = hot_node_mask.clone()
-    elif node_partition is None and partition_strategy == "chunk_metis_balance":
+    elif node_partition is None and partition_strategy in {"chunk_metis_balance", "chunk_balance_fallback"}:
         n = _num_nodes(edge_src, edge_dst, num_nodes)
         deg = _degree(edge_src, edge_dst, n)
-        hot_node_mask = _hot_mask_from_degree(deg, hot_topk=hot_topk, hot_ratio=hot_ratio).cpu()
+        if hot_edge_src is not None and hot_edge_dst is not None:
+            hot_deg = _degree(hot_edge_src.long(), hot_edge_dst.long(), n)
+        else:
+            hot_deg = deg
+        hot_node_mask = _hot_mask_from_degree(hot_deg, hot_topk=hot_topk, hot_ratio=hot_ratio).cpu()
         generated_replica_mask = hot_node_mask.clone()
-        assignment = _build_global_metis_chunk_assignment(
+        assignment = _build_global_chunk_assignment(
             edge_src=edge_src,
             edge_dst=edge_dst,
             num_nodes=n,
             num_partitions=num_partitions,
             num_chunks_per_partition=num_chunks_per_partition,
+            use_metis=partition_strategy == "chunk_metis_balance",
         )
         node_partition = assignment.chunk_to_initial_partition[assignment.node_to_chunk]
     elif node_partition is None:
         node_partition, hot_node_mask, generated_replica_mask = build_node_partition(
             edge_src=edge_src,
             edge_dst=edge_dst,
+            hot_edge_src=hot_edge_src,
+            hot_edge_dst=hot_edge_dst,
             num_partitions=num_partitions,
             num_nodes=num_nodes,
             strategy=partition_strategy,
@@ -454,12 +537,13 @@ def prepare(
     time_ptr_cpu = None if time_ptr is None else time_ptr.long().cpu()
 
     if assignment is None:
-        assignment = _build_partitioned_metis_chunk_assignment(
+        assignment = _build_partitioned_chunk_assignment(
             edge_src=edge_src_cpu,
             edge_dst=edge_dst_cpu,
             node_partition=node_partition,
             num_partitions=num_partitions,
             num_chunks_per_partition=num_chunks_per_partition,
+            use_metis=partition_strategy == "metis",
         )
 
     chunk_load_by_slice: Optional[Tensor] = None

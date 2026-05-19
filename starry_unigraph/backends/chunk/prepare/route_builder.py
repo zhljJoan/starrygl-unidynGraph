@@ -24,8 +24,8 @@ from typing import List, Optional, Tuple
 import torch
 from torch import Tensor
 
-from ..data.route import MemoryRouteData, SpatialRouteData, CPUMemoryLayout
-from ..prepare.chunk_assignment import ChunkAssignment
+from starry_unigraph.backends.chunk.data.route import MemoryRouteData, SpatialRouteData, CPUMemoryLayout
+from starry_unigraph.backends.chunk.prepare.chunk_assignment import ChunkAssignment
 
 
 # ---------------------------------------------------------------------------

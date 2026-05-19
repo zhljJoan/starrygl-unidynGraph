@@ -16,7 +16,7 @@ import torch
 from torch import Tensor
 
 from starry_unigraph.lib import load_bts_sampler_module
-from starry_unigraph.backends.chunk.data.dist_index import encode_dist_index, dist_index_is_cached
+from starry_unigraph.backends.chunk.data.dist_index import dist_index_is_cached, dist_index_part
 from starry_unigraph.backends.chunk.data.graph_store import ChunkGraphStore
 from starry_unigraph.backends.chunk.data.plans import CTDGSampleResult, EventView, ExecutionUnit, PlanBundle
 
@@ -49,6 +49,54 @@ def _build_native_temporal_graph(
         None,
         None if timestamp is None else timestamp.to(torch.int64).contiguous(),
     )
+
+
+def _maybe_tensor(value: Any) -> Optional[Tensor]:
+    if callable(value):
+        value = value()
+    return value if isinstance(value, Tensor) else None
+
+
+def _block_sample_nodes(block: Any) -> Optional[Tensor]:
+    for name in ("sample_nodes", "input_nodes", "src_nodes", "nodes"):
+        value = _maybe_tensor(getattr(block, name, None))
+        if value is not None:
+            return value
+    srcdata = getattr(block, "srcdata", None)
+    if isinstance(srcdata, dict):
+        for name in ("__ID", "ID", "_ID"):
+            value = srcdata.get(name)
+            if isinstance(value, Tensor):
+                return value
+    return None
+
+
+def _extract_sampled_input_nodes(blocks: list[Any], roots: Tensor, required_nodes: Optional[Tensor]) -> Tensor:
+    pieces: list[Tensor] = [roots.long().reshape(-1)]
+    if required_nodes is not None and required_nodes.numel() > 0:
+        pieces.append(required_nodes.long().reshape(-1))
+    for block in blocks:
+        nodes = _block_sample_nodes(block)
+        if nodes is not None and nodes.numel() > 0:
+            pieces.append(nodes.long().reshape(-1))
+    if not pieces:
+        return torch.empty(0, dtype=torch.long)
+    return torch.cat(pieces, dim=0).unique(sorted=True).contiguous()
+
+
+def _read_index_for_nodes(nodes: Tensor, placement, local_part: int) -> tuple[Tensor, Tensor, Tensor]:
+    if placement.read_dist_index is not None:
+        read_index = placement.read_dist_index[nodes].long()
+        local_mask = dist_index_is_cached(read_index)
+        remote_mask = ~local_mask
+    elif placement.master_dist_index is not None:
+        read_index = placement.master_dist_index[nodes].long()
+        owners = dist_index_part(read_index).long()
+        remote_mask = owners != int(local_part)
+        local_mask = ~remote_mask
+    else:
+        raise RuntimeError("CTDG sampled fetch requires read_dist_index or master_dist_index in placement")
+    return read_index, local_mask, remote_mask
 
 
 @dataclass(slots=True)
@@ -164,26 +212,29 @@ class MemShareEventEngine:
                 "artifact at sampling/temporal_index_part_<rank>.pth"
             )
         for t in split_slices:
+            event_indices = self.graph_store.event_indices_for_snapshot(int(t), owner_part=int(self.local_part))
+            if event_indices.numel() == 0:
+                continue
             slice_start, slice_end = self.graph_store.event_range_for_snapshot(int(t))
-            batch_size = int(self.event_batch_size)
-            if batch_size <= 0:
-                batch_size = max(1, slice_end - slice_start)
-            offset = 0
-            for start in range(slice_start, slice_end, batch_size):
-                end = min(slice_end, start + batch_size)
-                block_id = int(t) if offset == 0 else int(t) * 1_000_000 + offset
-                view = self.graph_store.ctdg_input_view(
-                    batch_id=block_id,
-                    event_start=start,
-                    event_end=end,
-                    time_slice_id=int(t),
-                    batch_offset=offset,
-                )
-                plans = plans_fn(int(t)) if plans_fn is not None else None
-                yield self.make_unit(view, plans)
-                offset += 1
+            view = self.graph_store.ctdg_input_view(
+                batch_id=int(t),
+                event_start=slice_start,
+                event_end=slice_end,
+                time_slice_id=int(t),
+                batch_offset=0,
+                event_indices=event_indices,
+            )
+            plans = plans_fn(int(t)) if plans_fn is not None else None
+            yield self.make_unit(view, plans)
 
-    def sample(self, unit: ExecutionUnit) -> CTDGSampleResult:
+    def sample(
+        self,
+        unit: ExecutionUnit,
+        *,
+        extra_root_nodes: Optional[Tensor] = None,
+        extra_root_ts: Optional[Tensor] = None,
+        required_nodes: Optional[Tensor] = None,
+    ) -> CTDGSampleResult:
         view = unit.payload
         if not isinstance(view, EventView):
             raise TypeError(f"MemShareEventEngine expects EventView payload, got {type(view).__name__}")
@@ -195,35 +246,32 @@ class MemShareEventEngine:
         if sampler is None:
             sampler = self._build_sampler()
             self._samplers["default"] = sampler
-        query_ts = view.root_ts.cpu() if view.temporal_index.timestamps is not None and view.root_ts is not None else None
-        blocks = sampler.sample(view.root_nodes.cpu(), query_ts)
-        unique_nodes = view.root_nodes.long().unique(sorted=True).contiguous()
+        root_nodes = view.root_nodes.long().contiguous()
+        root_ts = view.root_ts
+        if extra_root_nodes is not None and extra_root_nodes.numel() > 0:
+            root_nodes = torch.cat([root_nodes, extra_root_nodes.long().cpu()], dim=0).contiguous()
+            if root_ts is not None and root_ts.numel() > 0:
+                if extra_root_ts is None:
+                    extra_root_ts = root_ts.new_empty(0)
+                root_ts = torch.cat([root_ts.cpu(), extra_root_ts.cpu().to(root_ts.dtype)], dim=0).contiguous()
+        query_ts = root_ts.cpu() if view.temporal_index.timestamps is not None and root_ts is not None and root_ts.numel() > 0 else None
+        blocks = sampler.sample(root_nodes.cpu(), query_ts)
+        unique_nodes = _extract_sampled_input_nodes(blocks, root_nodes, required_nodes)
         placement = view.temporal_index.placement
-        owners = placement.node_owner[unique_nodes].long()
-        if placement.read_dist_index is not None:
-            read_index = placement.read_dist_index[unique_nodes].long()
-            local_mask = dist_index_is_cached(read_index)
-            remote_mask = ~local_mask
-        elif placement.master_dist_index is not None:
-            read_index = placement.master_dist_index[unique_nodes].long()
-            remote_mask = owners != int(self.local_part)
-            local_mask = ~remote_mask
-        else:
-            read_index = encode_dist_index(unique_nodes, owners)
-            remote_mask = owners != int(self.local_part)
-            local_mask = ~remote_mask
+        read_index, local_mask, remote_mask = _read_index_for_nodes(unique_nodes, placement, self.local_part)
         return CTDGSampleResult(
             mfgs=blocks,
             input_nodes=unique_nodes,
-            output_nodes=view.root_nodes,
+            output_nodes=root_nodes,
             edge_ids=torch.empty(0, dtype=torch.long),
-            node_ts=view.root_ts,
+            node_ts=root_ts,
             edge_ts=None,
             memory_node_ids=unique_nodes,
             remote_node_ids=unique_nodes[remote_mask].contiguous(),
             local_node_ids=unique_nodes[local_mask].contiguous(),
             remote_read_index=read_index[remote_mask].contiguous(),
             local_read_index=read_index[local_mask].contiguous(),
+            id_map_nodes=unique_nodes,
         )
 
     def _build_sampler(self) -> MemShareNativeSampler:
@@ -260,6 +308,8 @@ class MemShareEventEngine:
             workers=self.workers,
             policy=self.policy,
             local_part=int(self.local_part),
-            node_part=temporal_index.placement.node_owner.cpu().to(torch.int32),
+            node_part=dist_index_part(temporal_index.placement.master_dist_index).cpu().to(torch.int32)
+            if temporal_index.placement.master_dist_index is not None
+            else temporal_index.placement.node_owner.cpu().to(torch.int32),
             edge_part=torch.zeros(temporal_index.num_edges, dtype=torch.int32),
         )

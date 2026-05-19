@@ -78,7 +78,7 @@ def main():
         artifact_root=Path("artifacts") / cfg["data"]["name"],
     )
 
-    from starry_unigraph.runtime.online import CTDGSession
+    from starry_unigraph.backends.ctdg.runtime.session import CTDGSession
     session = CTDGSession()
 
     if rank == 0:

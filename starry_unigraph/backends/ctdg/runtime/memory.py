@@ -38,6 +38,7 @@ class _PendingMailSync:
     recv_ids: torch.Tensor
     recv_payload: torch.Tensor
     recv_counts: list[int]
+    slot_update: bool = False
 
 
 @dataclass
@@ -180,6 +181,15 @@ class CTDGMemoryBank:
             out[valid] = self.mailbox_ts[loc[valid].to(self._storage_device)].to(self.device)
         return out
 
+    def read_memory_ts(self, node_ids: torch.Tensor) -> torch.Tensor:
+        """Return memory timestamps [M] on self.device."""
+        loc = self._to_local(node_ids)
+        valid = loc >= 0
+        out = torch.full((node_ids.numel(),), -1.0, dtype=torch.float32, device=self.device)
+        if valid.any():
+            out[valid] = self.memory_ts[loc[valid].to(self._storage_device)].to(self.device)
+        return out
+
     def write_mailbox(
         self,
         src_ids: torch.Tensor,
@@ -234,18 +244,25 @@ class CTDGMemoryBank:
         sv   = slot_values[valid].to(sd)
         ts   = timestamps[valid].to(sd)
 
-        order = torch.argsort(ts)
+        order = torch.argsort(lids)
         lids = lids[order]; sv = sv[order]; ts = ts[order]
+        uniq, inv = torch.unique_consecutive(lids, return_inverse=True)
+        latest_ts = torch.full((uniq.numel(),), -1.0, dtype=ts.dtype, device=sd)
+        latest_ts.scatter_reduce_(0, inv, ts, reduce="amax", include_self=False)
+        pos_all = torch.arange(ts.numel(), dtype=torch.long, device=sd)
+        pos_candidates = torch.where(ts == latest_ts[inv], pos_all, torch.full_like(pos_all, -1))
+        latest_pos = torch.full((uniq.numel(),), -1, dtype=torch.long, device=sd)
+        latest_pos.scatter_reduce_(0, inv, pos_candidates, reduce="amax", include_self=False)
+        lids = uniq
+        sv = sv[latest_pos]
+        ts = latest_ts
 
         pos      = self.next_mail_pos[lids]
         flat_idx = lids * K + pos
         self.mailbox.view(-1, sw)[flat_idx]  = sv
         self.mailbox_ts.view(-1)[flat_idx]   = ts
 
-        uniq, inv = torch.unique(lids, return_inverse=True)
-        counts = torch.zeros(uniq.numel(), dtype=torch.long, device=sd)
-        counts.scatter_add_(0, inv, torch.ones_like(inv))
-        self.next_mail_pos[uniq] = (self.next_mail_pos[uniq] + counts) % K
+        self.next_mail_pos[lids] = (self.next_mail_pos[lids] + 1) % K
 
     # ------------------------------------------------------------------
     # Memory update
@@ -263,9 +280,17 @@ class CTDGMemoryBank:
         lids = loc[valid].to(sd)
         vals = values[valid].float().to(sd)
         ts   = timestamps[valid].float().to(sd)
-        order = torch.argsort(ts)
-        self.memory[lids[order]]    = vals[order]
-        self.memory_ts[lids[order]] = ts[order]
+        order = torch.argsort(lids)
+        lids = lids[order]; vals = vals[order]; ts = ts[order]
+        uniq, inv = torch.unique_consecutive(lids, return_inverse=True)
+        latest_ts = torch.full((uniq.numel(),), -1.0, dtype=ts.dtype, device=sd)
+        latest_ts.scatter_reduce_(0, inv, ts, reduce="amax", include_self=False)
+        pos_all = torch.arange(ts.numel(), dtype=torch.long, device=sd)
+        pos_candidates = torch.where(ts == latest_ts[inv], pos_all, torch.full_like(pos_all, -1))
+        latest_pos = torch.full((uniq.numel(),), -1, dtype=torch.long, device=sd)
+        latest_pos.scatter_reduce_(0, inv, pos_candidates, reduce="amax", include_self=False)
+        self.memory[uniq]    = vals[latest_pos]
+        self.memory_ts[uniq] = latest_ts
         self.memory_version += 1
 
     # Backward-compat wrapper
@@ -348,8 +373,6 @@ class CTDGMemoryBank:
         if not self._distributed_ready(ctx):
             self._apply_memory_update(node_ids, values.detach(), timestamps.detach())
             return
-        if node_ids.numel() == 0:
-            return
         import torch.distributed as dist
 
         node_ids = node_ids.detach().long().to(self.device)
@@ -363,8 +386,6 @@ class CTDGMemoryBank:
             owner = torch.remainder(node_ids, ctx.world_size).long()
 
         remote_mask = owner != ctx.rank
-        if not remote_mask.any():
-            return
 
         node_ids = node_ids[remote_mask]
         vals = vals[remote_mask]
@@ -373,12 +394,16 @@ class CTDGMemoryBank:
 
         if self.historical_cache is not None:
             changed = self.historical_cache.historical_check(node_ids, vals)
-            if not changed.any():
-                return
-            node_ids = node_ids[changed]
-            vals = vals[changed]
-            ts = ts[changed]
-            owner = owner[changed]
+            if changed.any():
+                node_ids = node_ids[changed]
+                vals = vals[changed]
+                ts = ts[changed]
+                owner = owner[changed]
+            else:
+                node_ids = node_ids[:0]
+                vals = vals[:0]
+                ts = ts[:0]
+                owner = owner[:0]
 
         send_ids, send_payload, send_counts = self._pack_by_owner(
             owner,
@@ -394,14 +419,14 @@ class CTDGMemoryBank:
 
         id_work = dist.all_to_all_single(
             recv_ids,
-            send_ids,
+            send_ids.contiguous(),
             output_split_sizes=recv_counts,
             input_split_sizes=send_counts,
             async_op=self.async_sync,
         )
         payload_work = dist.all_to_all_single(
             recv_payload_flat,
-            send_payload.view(-1),
+            send_payload.reshape(-1).contiguous(),
             output_split_sizes=[c * width for c in recv_counts],
             input_split_sizes=[c * width for c in send_counts],
             async_op=self.async_sync,
@@ -442,8 +467,6 @@ class CTDGMemoryBank:
         """No-op for single rank; distributed path mirrors memory sync."""
         if not self._distributed_ready(ctx):
             return
-        if node_ids.numel() == 0:
-            return
         import torch.distributed as dist
 
         node_ids = node_ids.detach().long().to(self.device)
@@ -454,8 +477,6 @@ class CTDGMemoryBank:
         else:
             owner = torch.remainder(node_ids, ctx.world_size).long()
         remote_mask = owner != ctx.rank
-        if not remote_mask.any():
-            return
         node_ids = node_ids[remote_mask]
         slots = slots[remote_mask]
         ts = ts[remote_mask]
@@ -476,14 +497,14 @@ class CTDGMemoryBank:
 
         id_work = dist.all_to_all_single(
             recv_ids,
-            send_ids,
+            send_ids.contiguous(),
             output_split_sizes=recv_counts,
             input_split_sizes=send_counts,
             async_op=self.async_sync,
         )
         payload_work = dist.all_to_all_single(
             recv_payload_flat,
-            send_payload.view(-1),
+            send_payload.reshape(-1).contiguous(),
             output_split_sizes=[c * payload_width for c in recv_counts],
             input_split_sizes=[c * payload_width for c in send_counts],
             async_op=self.async_sync,
@@ -497,6 +518,7 @@ class CTDGMemoryBank:
                     recv_ids=recv_ids,
                     recv_payload=recv_payload_flat.view(total_recv, payload_width),
                     recv_counts=recv_counts,
+                    slot_update=False,
                 )
             )
             return
@@ -505,6 +527,176 @@ class CTDGMemoryBank:
         recv_slots = recv_payload[:, : self.mailbox_slots * self.slot_width].view(total_recv, self.mailbox_slots, self.slot_width)
         recv_ts = recv_payload[:, self.mailbox_slots * self.slot_width :].view(total_recv, self.mailbox_slots)
         self._apply_mail_update(recv_ids, recv_slots, recv_ts)
+
+    def submit_async_mail_slot_sync(
+        self,
+        ctx: DistributedContext,
+        node_ids: torch.Tensor,
+        slot_values: torch.Tensor,
+        timestamps: torch.Tensor,
+    ) -> None:
+        """Submit per-event mailbox slot updates to remote owners.
+
+        ``submit_async_mail_sync`` sends a full mailbox snapshot.  This method
+        sends individual mail slots, which matches MemShare's
+        ``set_mailbox_local(..., Reduce_Op='max')`` path and avoids reading
+        zero mailboxes for remote nodes from local storage.
+        """
+        if not self._distributed_ready(ctx):
+            return
+        import torch.distributed as dist
+
+        node_ids = node_ids.detach().long().to(self.device)
+        slots = slot_values.detach().float().to(self.device)
+        ts = timestamps.detach().float().to(self.device)
+        if self.node_parts is not None:
+            owner = self.node_parts[node_ids.cpu()].long().to(self.device)
+        else:
+            owner = torch.remainder(node_ids, ctx.world_size).long()
+        remote_mask = owner != ctx.rank
+        node_ids = node_ids[remote_mask]
+        slots = slots[remote_mask]
+        ts = ts[remote_mask]
+        owner = owner[remote_mask]
+
+        payload_width = self.slot_width + 1
+        mail_payload = torch.cat([slots, ts.unsqueeze(1)], dim=1)
+        send_ids, send_payload, send_counts = self._pack_by_owner(
+            owner,
+            node_ids,
+            mail_payload,
+            ctx.world_size,
+        )
+        recv_counts = self._exchange_counts(send_counts, device=node_ids.device)
+        total_recv = int(sum(recv_counts))
+        recv_ids = torch.empty(total_recv, dtype=torch.long, device=node_ids.device)
+        recv_payload_flat = torch.empty(total_recv * payload_width, dtype=torch.float32, device=node_ids.device)
+
+        id_work = dist.all_to_all_single(
+            recv_ids,
+            send_ids.contiguous(),
+            output_split_sizes=recv_counts,
+            input_split_sizes=send_counts,
+            async_op=self.async_sync,
+        )
+        payload_work = dist.all_to_all_single(
+            recv_payload_flat,
+            send_payload.reshape(-1).contiguous(),
+            output_split_sizes=[c * payload_width for c in recv_counts],
+            input_split_sizes=[c * payload_width for c in send_counts],
+            async_op=self.async_sync,
+        )
+
+        if self.async_sync:
+            self._pending_mail_syncs.append(
+                _PendingMailSync(
+                    id_work=id_work,
+                    payload_work=payload_work,
+                    recv_ids=recv_ids,
+                    recv_payload=recv_payload_flat.view(total_recv, payload_width),
+                    recv_counts=recv_counts,
+                    slot_update=True,
+                )
+            )
+            return
+
+        recv_payload = recv_payload_flat.view(total_recv, payload_width)
+        self._write_slots(recv_ids, recv_payload[:, : self.slot_width], recv_payload[:, self.slot_width])
+
+    def fetch_node_state(
+        self,
+        ctx: DistributedContext,
+        node_ids: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Fetch memory/mailbox state for global node IDs in the same order."""
+        node_ids = node_ids.long().to(self.device)
+        memory = self.gather(node_ids)
+        memory_ts = self.read_memory_ts(node_ids)
+        mailbox = self.read_mailbox(node_ids)
+        mailbox_ts = self.read_mailbox_ts(node_ids)
+        if not self._distributed_ready(ctx):
+            return memory, memory_ts, mailbox, mailbox_ts
+
+        import torch.distributed as dist
+
+        if self.node_parts is not None:
+            owner = self.node_parts[node_ids.cpu()].long().to(self.device)
+        else:
+            owner = torch.remainder(node_ids, ctx.world_size).long()
+        remote_mask = owner != ctx.rank
+
+        remote_pos = torch.nonzero(remote_mask, as_tuple=False).view(-1).to(self.device)
+        request_ids = node_ids[remote_pos]
+        request_owner = owner[remote_pos]
+        request_payload = torch.stack([remote_pos, request_ids], dim=1)
+        send_req, send_payload, send_counts = self._pack_by_owner(
+            request_owner,
+            request_ids,
+            request_payload,
+            ctx.world_size,
+        )
+        # send_req and send_payload carry the same node-id ordering; send_req is
+        # only used for counts/owner sorting, payload has [query_pos, node_id].
+        del send_req
+        recv_counts = self._exchange_counts(send_counts, device=node_ids.device)
+        total_recv = int(sum(recv_counts))
+        recv_req_flat = torch.empty(total_recv * 2, dtype=torch.long, device=node_ids.device)
+        dist.all_to_all_single(
+            recv_req_flat,
+            send_payload.reshape(-1).contiguous(),
+            output_split_sizes=[c * 2 for c in recv_counts],
+            input_split_sizes=[c * 2 for c in send_counts],
+            async_op=False,
+        )
+        recv_req = recv_req_flat.view(total_recv, 2)
+        recv_query_pos = recv_req[:, 0]
+        recv_query_ids = recv_req[:, 1]
+
+        resp_memory = self.gather(recv_query_ids)
+        resp_memory_ts = self.read_memory_ts(recv_query_ids)
+        resp_mailbox = self.read_mailbox(recv_query_ids)
+        resp_mailbox_ts = self.read_mailbox_ts(recv_query_ids)
+        resp_payload = torch.cat(
+            [
+                resp_memory,
+                resp_memory_ts.unsqueeze(1),
+                resp_mailbox.reshape(total_recv, -1),
+                resp_mailbox_ts.reshape(total_recv, -1),
+            ],
+            dim=1,
+        )
+        payload_width = resp_payload.size(1)
+        recv_resp_pos = torch.empty(remote_pos.numel(), dtype=torch.long, device=node_ids.device)
+        recv_resp_payload_flat = torch.empty(remote_pos.numel() * payload_width, dtype=torch.float32, device=node_ids.device)
+        dist.all_to_all_single(
+            recv_resp_pos,
+            recv_query_pos.contiguous(),
+            output_split_sizes=send_counts,
+            input_split_sizes=recv_counts,
+            async_op=False,
+        )
+        dist.all_to_all_single(
+            recv_resp_payload_flat,
+            resp_payload.reshape(-1).contiguous(),
+            output_split_sizes=[c * payload_width for c in send_counts],
+            input_split_sizes=[c * payload_width for c in recv_counts],
+            async_op=False,
+        )
+        recv_resp_payload = recv_resp_payload_flat.view(remote_pos.numel(), payload_width)
+        memory[recv_resp_pos] = recv_resp_payload[:, : self.hidden_dim]
+        memory_ts[recv_resp_pos] = recv_resp_payload[:, self.hidden_dim]
+        offset = self.hidden_dim + 1
+        mail_width = self.mailbox_slots * self.slot_width
+        mailbox[recv_resp_pos] = recv_resp_payload[:, offset : offset + mail_width].view(
+            remote_pos.numel(),
+            self.mailbox_slots,
+            self.slot_width,
+        )
+        mailbox_ts[recv_resp_pos] = recv_resp_payload[:, offset + mail_width :].view(
+            remote_pos.numel(),
+            self.mailbox_slots,
+        )
+        return memory, memory_ts, mailbox, mailbox_ts
 
     def wait_pending_syncs(self) -> None:
         """Block until all pending async memory and mailbox syncs complete.
@@ -540,6 +732,17 @@ class CTDGMemoryBank:
             sync.id_work.wait()
             sync.payload_work.wait()
             total_recv = int(sync.recv_ids.numel())
+            if sync.slot_update:
+                self._write_slots(
+                    sync.recv_ids,
+                    sync.recv_payload[:, : self.slot_width],
+                    sync.recv_payload[:, self.slot_width],
+                )
+                self.last_mail_sync = (
+                    total_recv,
+                    tuple(sync.recv_counts),
+                )
+                continue
             recv_slots = sync.recv_payload[:, : self.mailbox_slots * self.slot_width].view(
                 total_recv,
                 self.mailbox_slots,

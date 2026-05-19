@@ -38,6 +38,19 @@ class TemporalEventTable:
     ts: Tensor
     edge_ids: Tensor
     snapshot_event_ptr: Tensor
+    event_owner: Optional[Tensor] = None
+    event_dst_chunk: Optional[Tensor] = None
+    event_split: Optional[Tensor] = None
+
+
+@dataclass(slots=True)
+class TemporalTargetTable:
+    target_node: Tensor
+    target_ts: Tensor
+    target_label: Tensor
+    target_owner: Tensor
+    target_split: Tensor
+    target_ptr: Tensor
 
 
 @dataclass(slots=True)
@@ -53,6 +66,7 @@ class ChunkGraphStore:
     placement: ChunkPlacement
     _temporal_index_cache: Optional[TemporalIndexView] = None
     _event_cache: Optional[TemporalEventTable] = None
+    _target_cache: Optional[TemporalTargetTable] = None
 
     @classmethod
     def from_partition_data(
@@ -60,12 +74,16 @@ class ChunkGraphStore:
         part: PartitionData,
         placement: Optional[ChunkPlacement] = None,
         temporal_index: Optional[TemporalIndexView] = None,
+        events: Optional[TemporalEventTable] = None,
+        targets: Optional[TemporalTargetTable] = None,
     ) -> "ChunkGraphStore":
         num_nodes = int(part.node_to_chunk.numel()) if part.node_to_chunk is not None else _infer_num_nodes(part)
         return cls(
             part=part,
             placement=placement or _default_placement(part, num_nodes),
             _temporal_index_cache=temporal_index,
+            _event_cache=events,
+            _target_cache=targets,
         )
 
     @property
@@ -181,6 +199,32 @@ class ChunkGraphStore:
         idx = min(max(0, int(snapshot_idx)), max(0, int(events.snapshot_event_ptr.numel()) - 2))
         return int(events.snapshot_event_ptr[idx].item()), int(events.snapshot_event_ptr[idx + 1].item())
 
+    def event_indices_for_snapshot(self, snapshot_idx: int, owner_part: int | None = None) -> Tensor:
+        """Return event positions for one time slice, optionally filtered by owner."""
+        start, end = self.event_range_for_snapshot(snapshot_idx)
+        indices = torch.arange(start, end, dtype=torch.long, device=self.temporal_events().src.device)
+        events = self.temporal_events()
+        if owner_part is None or events.event_owner is None or indices.numel() == 0:
+            return indices.contiguous()
+        owner = events.event_owner[indices].to(device=indices.device).long()
+        return indices[owner == int(owner_part)].long().contiguous()
+
+    def temporal_targets(self) -> Optional[TemporalTargetTable]:
+        return self._target_cache
+
+    def target_indices_for_snapshot(self, snapshot_idx: int, owner_part: int | None = None) -> Tensor:
+        targets = self.temporal_targets()
+        if targets is None:
+            return _empty_long()
+        idx = min(max(0, int(snapshot_idx)), max(0, int(targets.target_ptr.numel()) - 2))
+        start = int(targets.target_ptr[idx].item())
+        end = int(targets.target_ptr[idx + 1].item())
+        indices = torch.arange(start, end, dtype=torch.long, device=targets.target_node.device)
+        if owner_part is None or indices.numel() == 0:
+            return indices.contiguous()
+        owner = targets.target_owner[indices].to(device=indices.device).long()
+        return indices[owner == int(owner_part)].long().contiguous()
+
     def ctdg_input_view(
         self,
         batch_id: int,
@@ -189,17 +233,28 @@ class ChunkGraphStore:
         *,
         time_slice_id: int | None = None,
         batch_offset: int = 0,
+        event_indices: Tensor | None = None,
     ) -> EventView:
         events = self.temporal_events()
-        event_start = max(0, int(event_start))
-        event_end = min(int(event_end), int(events.src.numel()))
+        if event_indices is not None:
+            event_indices = event_indices.long().contiguous()
+            if event_indices.numel() > 0:
+                event_start = int(event_indices.min().item())
+                event_end = int(event_indices.max().item()) + 1
+            else:
+                event_start = max(0, int(event_start))
+                event_end = max(event_start, min(int(event_end), int(events.src.numel())))
+        else:
+            event_start = max(0, int(event_start))
+            event_end = min(int(event_end), int(events.src.numel()))
+            event_indices = torch.arange(event_start, event_end, dtype=torch.long, device=events.src.device)
         # Keep roots as a contiguous native input.  The MemShare sampler/native
         # MFG path is responsible for internal deduplication.
         root_nodes = torch.cat(
-            [events.src[event_start:event_end], events.dst[event_start:event_end]],
+            [events.src[event_indices], events.dst[event_indices]],
             dim=0,
         ).long().contiguous()
-        event_ts = events.ts[event_start:event_end].contiguous()
+        event_ts = events.ts[event_indices].contiguous()
         root_ts = event_ts.repeat(2).contiguous() if event_ts.numel() > 0 else torch.empty(0)
         return EventView(
             batch_id=int(batch_id),
@@ -211,6 +266,7 @@ class ChunkGraphStore:
             root_ts=root_ts,
             temporal_index=self.temporal_index_view(),
             placement_version=self.placement_version,
+            event_indices=event_indices,
         )
 
     def dtdg_input_view(

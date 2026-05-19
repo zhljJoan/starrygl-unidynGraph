@@ -37,6 +37,7 @@ class BatchData:
 
     mfgs: Any  # DGL Block or PyTorch structure
     node_ids: Tensor  # [N] Global node IDs
+    id_map_nodes: Optional[Tensor] = None  # [N] global IDs aligned with compact embedding rows
 
     # Edge prediction fields
     pos_src: Optional[Tensor] = None  # [M_pos]
@@ -73,6 +74,7 @@ class BatchData:
         return BatchData(
             mfgs=move(self.mfgs),
             node_ids=move(self.node_ids),
+            id_map_nodes=move(self.id_map_nodes),
             pos_src=move(self.pos_src),
             pos_dst=move(self.pos_dst),
             neg_src=move(self.neg_src),

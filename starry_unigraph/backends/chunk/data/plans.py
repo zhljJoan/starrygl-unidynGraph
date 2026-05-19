@@ -81,6 +81,7 @@ class EventView:
     root_ts: Tensor
     temporal_index: TemporalIndexView
     placement_version: int
+    event_indices: Optional[Tensor] = None
 
     @property
     def csc(self) -> TemporalIndexView:
@@ -108,6 +109,7 @@ class CTDGSampleResult:
     local_node_ids: Optional[Tensor] = None
     remote_read_index: Optional[Tensor] = None
     local_read_index: Optional[Tensor] = None
+    id_map_nodes: Optional[Tensor] = None
 
 
 @dataclass(slots=True)
@@ -135,6 +137,8 @@ class FetchPlan:
     feature_owners: Tensor
     remote_read_index: Optional[Tensor] = None
     local_read_index: Optional[Tensor] = None
+    remote_node_ids: Optional[Tensor] = None
+    local_node_ids: Optional[Tensor] = None
     memory_node_ids: Optional[Tensor] = None
     memory_owners: Optional[Tensor] = None
     memory_read_index: Optional[Tensor] = None
@@ -159,8 +163,10 @@ class StateSyncPlan:
     placement_version: int
     update_node_ids: Tensor
     update_owners: Tensor
+    update_index: Optional[Tensor] = None
     replica_node_ids: Optional[Tensor] = None
     replica_owners: Optional[Tensor] = None
+    replica_index: Optional[Tensor] = None
     sync_policy: str = "owner_write"
     change_threshold: float = 0.0
     change_metric: str = "cos"

@@ -16,6 +16,7 @@ import torch.nn as nn
 from torch import Tensor
 
 from starry_unigraph.backends.chunk.data.batch import BatchData
+from starry_unigraph.backends.chunk.model.id_map import compact_rows
 
 
 class PredictionHead(nn.Module):
@@ -49,18 +50,24 @@ class PredictionHead(nn.Module):
         if self.task_type == "edge_predict":
             out: Dict[str, Tensor] = {}
             if batch.pos_src is not None and batch.pos_dst is not None:
-                out["pos_score"] = (embeddings[batch.pos_src] * embeddings[batch.pos_dst]).sum(dim=1)
+                pos_src = compact_rows(batch.pos_src, batch.id_map_nodes, embeddings)
+                pos_dst = compact_rows(batch.pos_dst, batch.id_map_nodes, embeddings)
+                out["pos_score"] = (embeddings[pos_src] * embeddings[pos_dst]).sum(dim=1)
             if batch.neg_src is not None and batch.neg_dst is not None:
-                out["neg_score"] = (embeddings[batch.neg_src] * embeddings[batch.neg_dst]).sum(dim=1)
+                neg_src = compact_rows(batch.neg_src, batch.id_map_nodes, embeddings)
+                neg_dst = compact_rows(batch.neg_dst, batch.id_map_nodes, embeddings)
+                out["neg_score"] = (embeddings[neg_src] * embeddings[neg_dst]).sum(dim=1)
             return out
 
         if self.task_type == "edge_regress":
             if batch.pos_src is None or batch.pos_dst is None:
                 return {}
-            edge_emb = torch.cat([embeddings[batch.pos_src], embeddings[batch.pos_dst]], dim=1)
+            pos_src = compact_rows(batch.pos_src, batch.id_map_nodes, embeddings)
+            pos_dst = compact_rows(batch.pos_dst, batch.id_map_nodes, embeddings)
+            edge_emb = torch.cat([embeddings[pos_src], embeddings[pos_dst]], dim=1)
             return {"edge_pred": self.edge_mlp(edge_emb)}
 
-        idx = batch.target_nodes if batch.target_nodes is not None else slice(None)
+        idx = compact_rows(batch.target_nodes, batch.id_map_nodes, embeddings) if batch.target_nodes is not None else slice(None)
         node_out = self.node_mlp(embeddings[idx])
         if self.task_type == "node_classify":
             return {"logits": node_out}

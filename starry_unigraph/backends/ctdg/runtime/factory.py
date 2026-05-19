@@ -98,18 +98,15 @@ def build_ctdg_runtime(session_ctx: SessionContext) -> tuple[CTDGOnlineRuntime, 
         num_nodes=dataset.num_nodes,
         hidden_dim=hidden_dim,
         edge_feat_dim=edge_feat_dim,
+        node_feat_dim=dataset.node_feat_dim,
+        mailbox_slots=mailbox_slots,
         dim_time=dim_time,
         num_head=num_head,
         dropout=dropout,
         att_dropout=att_dropout,
     ).to(device)
 
-    mailbox_slot_dim = 2 * hidden_dim + edge_feat_dim
-    memory_updater = CTDGMemoryUpdater(
-        hidden_dim=hidden_dim,
-        mailbox_slot_dim=mailbox_slot_dim,
-        mailbox_slots=mailbox_slots,
-    ).to(device)
+    memory_updater = None
 
     try:
         import torch.distributed as dist
@@ -119,9 +116,7 @@ def build_ctdg_runtime(session_ctx: SessionContext) -> tuple[CTDGOnlineRuntime, 
     except Exception:
         pass
 
-    all_params = list(
-        (model.module if hasattr(model, "module") else model).parameters()
-    ) + list(memory_updater.parameters())
+    all_params = list((model.module if hasattr(model, "module") else model).parameters())
     optimizer = torch.optim.Adam(
         all_params,
         lr=float(session_ctx.config.get("train", {}).get("lr", 1e-3)),

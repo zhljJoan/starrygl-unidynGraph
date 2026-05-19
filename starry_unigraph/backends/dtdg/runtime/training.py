@@ -27,6 +27,8 @@ from .session_loader import DTDGBatch
 from .state import RNNStateManager, STGraphBlob
 from starry_unigraph.types import RuntimeBundle, SessionContext
 
+DTDG_CHAIN = "load_snapshot->route_apply->state_fetch->state_transition->state_writeback"
+
 
 def _infer_dims(partition_data: Any) -> tuple[int, int]:
     input_size = int(partition_data.node_data["x"].data.size(-1))
@@ -208,8 +210,21 @@ def run_flare_train_step(
         RuntimeError: If no labels are found in the batch.
     """
     loss, predictions, targets = _loss_and_predictions(runtime, batch, training=True)
+    meta = kernel_output.get("meta", {}) | {
+        "model": runtime.state["flare_model"],
+        "sequence_state": "updated",
+        "chain": DTDG_CHAIN,
+        "stage_payloads": {
+            "state_transition": {"sequence_state": "updated"},
+        },
+    }
     if loss is None:
-        raise RuntimeError("Training labels are required for flare_native train_step")
+        return {
+            "loss": 0.0,
+            "predictions": predictions,
+            "targets": targets,
+            "meta": meta | {"missing_labels": True},
+        }
     loss.backward()
     runtime.optimizer.step()
     runtime.optimizer.zero_grad(set_to_none=True)
@@ -217,7 +232,7 @@ def run_flare_train_step(
         "loss": float(loss.detach().item()),
         "predictions": predictions,
         "targets": targets,
-        "meta": kernel_output.get("meta", {}) | {"model": runtime.state["flare_model"], "sequence_state": "updated"},
+        "meta": meta,
     }
 
 

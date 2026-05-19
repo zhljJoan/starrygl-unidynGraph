@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import torch
 from torch import Tensor
@@ -29,7 +29,8 @@ class ChunkAssignment:
     Attributes:
         num_chunks_per_partition: Chunks per partition (default 32)
         node_to_chunk: [num_nodes] Global chunk ID for each node
-        chunk_to_nodes: [num_chunks] List of node IDs in each chunk
+        chunk_ptr: [num_chunks + 1] CSR pointer into chunk_nodes
+        chunk_nodes: [num_nodes] Node IDs sorted by chunk assignment
         chunk_to_initial_partition: [num_chunks] Initial partition assignment
         chunk_to_owner_partition: [num_chunks] Current owner partition (may differ after rebalancing)
         chunk_load_stats: [num_chunks] Load statistics for each chunk (edge count, active nodes, etc.)
@@ -39,7 +40,8 @@ class ChunkAssignment:
 
     num_chunks_per_partition: int
     node_to_chunk: Tensor  # [num_nodes] → global chunk IDs
-    chunk_to_nodes: List[List[int]]  # [num_chunks] → list of node IDs
+    chunk_ptr: Tensor  # [num_chunks + 1] → CSR pointer
+    chunk_nodes: Tensor  # [num_nodes] → node IDs sorted by chunk
     chunk_to_initial_partition: Tensor  # [num_chunks] → partition IDs
     chunk_to_owner_partition: Tensor  # [num_chunks] → owner partition IDs (may change)
     chunk_load_stats: dict = field(default_factory=dict)  # {chunk_id: load_dict}
@@ -50,8 +52,11 @@ class ChunkAssignment:
         self.total_nodes = int(self.node_to_chunk.numel())
         self.total_chunks = int(self.chunk_to_initial_partition.numel())
 
-        if self.total_chunks != len(self.chunk_to_nodes):
-            raise ValueError(f"Mismatch: {self.total_chunks} chunks but {len(self.chunk_to_nodes)} chunk_to_nodes entries")
+        if int(self.chunk_ptr.numel()) != self.total_chunks + 1:
+            raise ValueError(f"Mismatch: {self.total_chunks} chunks but chunk_ptr has {int(self.chunk_ptr.numel())} entries (expected {self.total_chunks + 1})")
+
+        if int(self.chunk_nodes.numel()) != self.total_nodes:
+            raise ValueError(f"Mismatch: {self.total_nodes} nodes but chunk_nodes has {int(self.chunk_nodes.numel())} entries")
 
         if int(self.chunk_to_owner_partition.numel()) != self.total_chunks:
             raise ValueError(f"Mismatch: {self.total_chunks} chunks but {int(self.chunk_to_owner_partition.numel())} owner entries")
@@ -68,9 +73,20 @@ class ChunkAssignment:
         """Get the owning partition for a chunk."""
         return int(self.chunk_to_owner_partition[chunk_id])
 
-    def get_nodes_in_chunk(self, chunk_id: int) -> List[int]:
-        """Get all nodes in a chunk."""
-        return self.chunk_to_nodes[chunk_id]
+    def get_nodes_in_chunk(self, chunk_id: int) -> Tensor:
+        """Get all nodes in a chunk (returns tensor slice from CSR)."""
+        start = int(self.chunk_ptr[chunk_id])
+        end = int(self.chunk_ptr[chunk_id + 1])
+        return self.chunk_nodes[start:end]
+
+    @property
+    def chunk_to_nodes(self) -> list[list[int]]:
+        """Legacy list view of chunk membership.
+
+        New code should use ``chunk_ptr``/``chunk_nodes`` directly.  This view
+        is kept for older tests and artifact consumers during the CSR migration.
+        """
+        return [self.get_nodes_in_chunk(i).tolist() for i in range(self.total_chunks)]
 
     def get_nodes_in_partition(self, partition_id: int) -> Tensor:
         """Get all nodes owned by a partition via chunk ownership (vectorised)."""
@@ -141,25 +157,25 @@ def build_chunk_assignment(
     chunk_to_initial_partition = chunk_ids // num_chunks_per_partition
     chunk_to_owner_partition = chunk_to_initial_partition.clone()
 
-    # chunk_to_nodes: sort nodes by their chunk assignment, then split
+    # Build CSR: sort nodes by chunk assignment
     sort_order = torch.argsort(node_to_chunk, stable=True)
     sorted_chunks = node_to_chunk[sort_order]
 
     # Counts per chunk using bincount
     chunk_counts = torch.bincount(sorted_chunks, minlength=num_chunks)  # [num_chunks]
-    sorted_nodes = sort_order.tolist()
-    counts = chunk_counts.tolist()
 
-    chunk_to_nodes: List[List[int]] = []
-    offset = 0
-    for c in counts:
-        chunk_to_nodes.append(sorted_nodes[offset : offset + c])
-        offset += c
+    # Build CSR pointer
+    chunk_ptr = torch.zeros(num_chunks + 1, dtype=torch.long)
+    chunk_ptr[1:] = chunk_counts.cumsum(0)
+
+    # chunk_nodes is the sorted node IDs
+    chunk_nodes = sort_order.long()
 
     return ChunkAssignment(
         num_chunks_per_partition=num_chunks_per_partition,
         node_to_chunk=node_to_chunk,
-        chunk_to_nodes=chunk_to_nodes,
+        chunk_ptr=chunk_ptr,
+        chunk_nodes=chunk_nodes,
         chunk_to_initial_partition=chunk_to_initial_partition,
         chunk_to_owner_partition=chunk_to_owner_partition,
     )

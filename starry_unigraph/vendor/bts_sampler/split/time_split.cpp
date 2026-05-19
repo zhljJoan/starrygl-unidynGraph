@@ -1,7 +1,6 @@
 // adaptive_split.h
 #pragma once
-#include <torch/torch.h>
-#include <pybind11/pybind11.h>
+#include <torch/extension.h>
 #include <pybind11/stl.h>
 #include <vector>
 #include <unordered_map>

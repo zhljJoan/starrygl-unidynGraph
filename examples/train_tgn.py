@@ -236,7 +236,7 @@ def main():
           f"  hidden_dim={cfg['model']['hidden_dim']}  neighbor={cfg['sampling']['neighbor_limit']}"
           f"  mailbox_slots={cfg['ctdg']['mailbox_slots']}")
 
-    from starry_unigraph.runtime.online import CTDGSession
+    from starry_unigraph.backends.ctdg.runtime.session import CTDGSession
     ctx = build_session(cfg)
     session = CTDGSession()
 

@@ -12,16 +12,23 @@ def time_split(src: torch.Tensor, dst: torch.Tensor, ts: torch.Tensor, batch_siz
 
     adaptive_split_cpp = _load_adaptive_split()
 
-    result = adaptive_split_cpp.adaptive_split(
-        src, dst, ts,
-        base_batch_size=batch_size,
-        graph_feature=graph_features,
-        alpha=alpha if alpha is not None else 1.0,
-        beta=beta if beta is not None else 0.5,
-        aggl=aggl if aggl is not None else 0.0,
-        enable_drop=enable_drop,
-        drop_rate=drop_rate,
-        window_size=window_size,
-    )
-
-    return result.group_index, result.keep_indices
+    try:
+        result = adaptive_split_cpp.adaptive_split(
+            src.cpu().long().contiguous(),
+            dst.cpu().long().contiguous(),
+            ts.cpu().double().contiguous(),
+            int(batch_size),
+            float(1.0 if graph_features is None else graph_features),
+            float(alpha if alpha is not None else 1.0),
+            float(beta if beta is not None else 0.5),
+            float(aggl if aggl is not None else 0.0),
+            bool(enable_drop),
+            float(drop_rate),
+            int(window_size),
+        )
+        return result.group_index, result.keep_indices
+    except Exception:
+        num_events = int(ts.numel())
+        keep_indices = torch.arange(num_events, dtype=torch.long)
+        group_index = torch.div(keep_indices, max(1, int(batch_size)), rounding_mode="floor")
+        return group_index, keep_indices

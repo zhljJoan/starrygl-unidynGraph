@@ -13,11 +13,14 @@ from starry_unigraph.backends.chunk.data.partition import PartitionData, TensorD
 from starry_unigraph.backends.chunk.data.plans import ChunkPlacement
 from starry_unigraph.backends.chunk.prepare.pipeline import PrepareArtifacts as ChunkPrepareArtifacts
 from starry_unigraph.backends.chunk.prepare.pipeline import prepare as prepare_chunks
+from starry_unigraph.backends.chunk.prepare.propagation_builder import build_propagation_routes
 from starry_unigraph.data import build_snapshot_dataset_from_events, load_raw_temporal_events
+from starry_unigraph.models.layers.route import ChunkPropagationRoute
 from starry_unigraph.preprocess.base import ArtifactOutput, ArtifactPayload, GraphPreprocessor
 from starry_unigraph.types import DistributedContext, PreparedArtifacts, SessionContext
 
 ARTIFACT_VERSION = 1
+CHUNK_ARTIFACT_SCHEMA_VERSION = 1
 
 
 def _cfg_get(config: dict[str, Any], path: str, default: Any) -> Any:
@@ -59,11 +62,15 @@ def _build_partition_data_for_part(
     hot_mask: torch.Tensor,
     node_to_chunk: torch.Tensor,
     part_id: int,
+    event_owner: torch.Tensor | None = None,
     raw_dataset: dict[str, Any] | None = None,
 ) -> PartitionData:
-    owns_dst = node_owner[edge_dst] == part_id
-    hot_edge = hot_mask[edge_src] | hot_mask[edge_dst]
-    mask = owns_dst | hot_edge
+    if event_owner is None:
+        owns_dst = node_owner[edge_dst] == part_id
+        hot_edge = hot_mask[edge_src] | hot_mask[edge_dst]
+        mask = owns_dst | hot_edge
+    else:
+        mask = event_owner.long() == int(part_id)
     part = PartitionData.from_edge_events(
         edge_src=edge_src[mask],
         edge_dst=edge_dst[mask],
@@ -95,8 +102,9 @@ def _build_part_local_layout(
     node_owner: torch.Tensor,
     shared_mask: torch.Tensor,
     part_id: int,
+    event_owner: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor | int]:
-    owns_dst = node_owner[edge_dst] == part_id
+    owns_dst = (node_owner[edge_dst] == part_id) if event_owner is None else (event_owner.long() == int(part_id))
     hot_edge = shared_mask[edge_src] | shared_mask[edge_dst]
     touched = _unique_sorted(torch.cat([edge_src[owns_dst | hot_edge], edge_dst[owns_dst | hot_edge]]))
     shared = _unique_sorted(shared_mask.nonzero(as_tuple=True)[0])
@@ -124,6 +132,7 @@ def _build_placement_artifact(
     edge_dst: torch.Tensor,
     num_edges: int,
     num_parts: int,
+    event_owner: torch.Tensor | None = None,
 ) -> dict[str, Any]:
     node_owner = artifacts.node_owner.long().cpu()
     node_master = artifacts.node_partition.long().cpu()
@@ -144,6 +153,7 @@ def _build_placement_artifact(
             node_owner=node_owner,
             shared_mask=replica_mask,
             part_id=part_id,
+            event_owner=None if event_owner is None else event_owner.cpu().long(),
         )
         local_node_ids = layout["local_node_ids"]
         if not isinstance(local_node_ids, torch.Tensor):
@@ -197,7 +207,7 @@ def _build_placement_artifact(
 
     canonical_eid_dist = torch.empty(num_edges, dtype=torch.long)
     canonical_edge_ids_by_part: list[torch.Tensor] = []
-    edge_owner = node_owner[edge_dst.cpu().long()]
+    edge_owner = node_owner[edge_dst.cpu().long()] if event_owner is None else event_owner.cpu().long()
     all_eids = torch.arange(num_edges, dtype=torch.long)
     for part_id in range(num_parts):
         part_eids = all_eids[edge_owner == part_id]
@@ -238,6 +248,244 @@ def _build_placement_artifact(
     }
 
 
+def _slice_event_split(time_ptr: torch.Tensor, split_slices: dict[str, list[int]], num_events: int) -> torch.Tensor:
+    event_split = torch.full((int(num_events),), 2, dtype=torch.uint8)
+    split_id = {"train": 0, "val": 1, "test": 2}
+    for name, slices in split_slices.items():
+        for sid in slices:
+            if sid < 0 or sid + 1 >= int(time_ptr.numel()):
+                continue
+            start, end = int(time_ptr[sid]), int(time_ptr[sid + 1])
+            event_split[start:end] = int(split_id.get(name, 2))
+    return event_split
+
+
+def _slice_split_ids(num_slices: int, split_slices: dict[str, list[int]]) -> torch.Tensor:
+    split = torch.full((int(num_slices),), 2, dtype=torch.uint8)
+    split_id = {"train": 0, "val": 1, "test": 2}
+    for name, slices in split_slices.items():
+        sid = int(split_id.get(name, 2))
+        for idx in slices:
+            if 0 <= int(idx) < int(num_slices):
+                split[int(idx)] = sid
+    return split
+
+
+def _is_node_task(task: Any) -> bool:
+    name = str(task or "").lower()
+    return name in {
+        "node_classify",
+        "node_classification",
+        "node_regress",
+        "node_regression",
+        "snapshot_node_classification",
+        "snapshot_node_regression",
+    }
+
+
+def _build_event_owner(
+    *,
+    edge_src: torch.Tensor,
+    edge_dst: torch.Tensor,
+    node_owner: torch.Tensor,
+    node_master: torch.Tensor,
+    hot_mask: torch.Tensor,
+) -> torch.Tensor:
+    src_hot = hot_mask[edge_src]
+    dst_hot = hot_mask[edge_dst]
+    owner = node_owner[edge_dst].long().clone()
+    src_only_hot = src_hot & ~dst_hot
+    dst_only_hot = dst_hot & ~src_hot
+    both_hot = src_hot & dst_hot
+    owner[src_only_hot] = node_owner[edge_dst[src_only_hot]].long()
+    owner[dst_only_hot] = node_owner[edge_src[dst_only_hot]].long()
+    owner[both_hot] = node_master[edge_dst[both_hot]].long()
+    return owner.cpu()
+
+
+def _build_target_owner(
+    *,
+    target_node: torch.Tensor,
+    node_owner: torch.Tensor,
+    node_master: torch.Tensor,
+    hot_mask: torch.Tensor,
+) -> torch.Tensor:
+    owner = node_owner[target_node].long().clone()
+    hot = hot_mask[target_node].bool()
+    owner[hot] = node_master[target_node[hot]].long()
+    return owner.cpu()
+
+
+def _write_canonical_artifacts(
+    *,
+    root: Path,
+    raw_events,
+    artifacts: ChunkPrepareArtifacts,
+    time_ptr: torch.Tensor,
+    split_slices: dict[str, list[int]],
+    event_owner: torch.Tensor,
+    placement: dict[str, Any],
+    num_parts: int,
+) -> None:
+    (root / "events").mkdir(parents=True, exist_ok=True)
+    (root / "indices").mkdir(parents=True, exist_ok=True)
+    (root / "chunks").mkdir(parents=True, exist_ok=True)
+    src = raw_events.src.long().cpu()
+    dst = raw_events.dst.long().cpu()
+    eid = torch.arange(int(raw_events.num_edges), dtype=torch.long)
+    event_split = _slice_event_split(time_ptr.cpu().long(), split_slices, int(raw_events.num_edges))
+    event_dst_chunk = artifacts.assignment.node_to_chunk[dst].long().cpu()
+    canonical_events = {
+        "format": "chunk_canonical_events_v1",
+        "schema_version": CHUNK_ARTIFACT_SCHEMA_VERSION,
+        "src": src,
+        "dst": dst,
+        "ts": raw_events.ts.cpu().contiguous(),
+        "eid": eid,
+        "event_owner": event_owner.long().cpu(),
+        "event_dst_chunk": event_dst_chunk,
+        "event_split": event_split,
+        "time_ptr": time_ptr.long().cpu(),
+    }
+    torch.save(canonical_events, root / "events" / "canonical_events.pth")
+
+    torch.save(placement["master_dist_index"].long().cpu(), root / "indices" / "master_dist_index.pth")
+    for part_id in range(num_parts):
+        torch.save(
+            placement["read_dist_index_by_part"][part_id].long().cpu(),
+            root / "indices" / f"read_dist_index_{part_id:03d}.pth",
+        )
+
+    assignment = artifacts.assignment
+    torch.save(
+        {
+            "format": "chunk_assignment_v1",
+            "schema_version": CHUNK_ARTIFACT_SCHEMA_VERSION,
+            "node_to_chunk": assignment.node_to_chunk.long().cpu(),
+            "chunk_ptr": assignment.chunk_ptr.long().cpu(),
+            "chunk_nodes": assignment.chunk_nodes.long().cpu(),
+            "chunk_to_initial_partition": assignment.chunk_to_initial_partition.long().cpu(),
+            "chunk_to_owner_partition": assignment.chunk_to_owner_partition.long().cpu(),
+            "num_chunks_per_partition": int(assignment.num_chunks_per_partition),
+            "total_chunks": int(assignment.total_chunks),
+        },
+        root / "chunks" / "chunk_assignment.pth",
+    )
+
+
+def _write_target_artifacts(
+    *,
+    root: Path,
+    raw_dataset: dict[str, Any],
+    split_slices: dict[str, list[int]],
+    node_owner: torch.Tensor,
+    node_master: torch.Tensor,
+    hot_mask: torch.Tensor,
+    num_parts: int,
+    enabled: bool,
+) -> dict[str, Any]:
+    (root / "targets").mkdir(parents=True, exist_ok=True)
+    num_slices = int(raw_dataset.get("num_snapshots", 0))
+    empty = {
+        "format": "chunk_node_targets_v1",
+        "schema_version": CHUNK_ARTIFACT_SCHEMA_VERSION,
+        "target_node": torch.empty(0, dtype=torch.long),
+        "target_ts": torch.empty(0, dtype=torch.float32),
+        "target_label": torch.empty(0),
+        "target_owner": torch.empty(0, dtype=torch.long),
+        "target_split": torch.empty(0, dtype=torch.uint8),
+        "target_ptr": torch.zeros(num_slices + 1, dtype=torch.long),
+    }
+    if not enabled:
+        torch.save(empty, root / "targets" / "node_targets.pth")
+        for part_id in range(num_parts):
+            torch.save(
+                {
+                    "format": "chunk_target_pool_v1",
+                    "target_index": torch.empty(0, dtype=torch.long),
+                },
+                root / "targets" / f"target_pool_rank_{part_id:03d}.pth",
+            )
+        return {"enabled": False, "format": empty["format"], "num_targets": 0}
+
+    labels_by_slice: list[torch.Tensor] = []
+    nodes_by_slice: list[torch.Tensor] = []
+    ts_by_slice: list[torch.Tensor] = []
+    split_by_slice = _slice_split_ids(num_slices, split_slices)
+    ptr = [0]
+    for slice_id, item in enumerate(raw_dataset.get("dataset", [])):
+        labels = item.get("y") if isinstance(item, dict) else None
+        if labels is None:
+            ptr.append(ptr[-1])
+            continue
+        label_t = labels if isinstance(labels, torch.Tensor) else torch.as_tensor(labels)
+        label_t = label_t.cpu().contiguous()
+        if label_t.dim() == 0:
+            label_t = label_t.view(1)
+        if label_t.size(0) == 0:
+            ptr.append(ptr[-1])
+            continue
+        nodes = torch.arange(int(label_t.size(0)), dtype=torch.long)
+        labels_by_slice.append(label_t)
+        nodes_by_slice.append(nodes)
+        ts_by_slice.append(torch.full((int(nodes.numel()),), float(slice_id), dtype=torch.float32))
+        ptr.append(ptr[-1] + int(nodes.numel()))
+    while len(ptr) < num_slices + 1:
+        ptr.append(ptr[-1])
+
+    if not nodes_by_slice:
+        torch.save(empty, root / "targets" / "node_targets.pth")
+        for part_id in range(num_parts):
+            torch.save(
+                {
+                    "format": "chunk_target_pool_v1",
+                    "target_index": torch.empty(0, dtype=torch.long),
+                },
+                root / "targets" / f"target_pool_rank_{part_id:03d}.pth",
+            )
+        return {"enabled": True, "format": empty["format"], "num_targets": 0}
+
+    target_node = torch.cat(nodes_by_slice, dim=0).long().cpu()
+    target_label = torch.cat(labels_by_slice, dim=0).cpu().contiguous()
+    target_ts = torch.cat(ts_by_slice, dim=0).cpu().contiguous()
+    target_owner = _build_target_owner(
+        target_node=target_node,
+        node_owner=node_owner.long().cpu(),
+        node_master=node_master.long().cpu(),
+        hot_mask=hot_mask.bool().cpu(),
+    )
+    target_ptr = torch.tensor(ptr, dtype=torch.long)
+    split_ids = []
+    for slice_id in range(num_slices):
+        count = int(target_ptr[slice_id + 1] - target_ptr[slice_id])
+        if count > 0:
+            split_ids.append(torch.full((count,), int(split_by_slice[slice_id]), dtype=torch.uint8))
+    target_split = torch.cat(split_ids, dim=0) if split_ids else torch.empty(0, dtype=torch.uint8)
+    payload = {
+        "format": "chunk_node_targets_v1",
+        "schema_version": CHUNK_ARTIFACT_SCHEMA_VERSION,
+        "target_node": target_node,
+        "target_ts": target_ts,
+        "target_label": target_label,
+        "target_owner": target_owner.long().cpu(),
+        "target_split": target_split.contiguous(),
+        "target_ptr": target_ptr,
+    }
+    torch.save(payload, root / "targets" / "node_targets.pth")
+    all_indices = torch.arange(int(target_node.numel()), dtype=torch.long)
+    for part_id in range(num_parts):
+        keep = target_owner.long() == int(part_id)
+        torch.save(
+            {
+                "format": "chunk_target_pool_v1",
+                "target_index": all_indices[keep].contiguous(),
+                "target_node": target_node[keep].contiguous(),
+            },
+            root / "targets" / f"target_pool_rank_{part_id:03d}.pth",
+        )
+    return {"enabled": True, "format": payload["format"], "num_targets": int(target_node.numel())}
+
+
 def _write_route_lists(root: Path, prefix: str, routes: list[list[Any]] | None) -> list[str]:
     if routes is None:
         return []
@@ -247,6 +495,49 @@ def _write_route_lists(root: Path, prefix: str, routes: list[list[Any]] | None) 
         torch.save(part_routes, route_path)
         written.append(str(route_path.relative_to(root)))
     return written
+
+
+def _write_propagation_routes(
+    *,
+    root: Path,
+    edge_src: torch.Tensor,
+    edge_dst: torch.Tensor,
+    time_ptr: torch.Tensor,
+    node_owner: torch.Tensor,
+    num_parts: int,
+    num_layers: int,
+    allow_empty_fallback: bool = False,
+) -> tuple[list[str], str]:
+    try:
+        routes = build_propagation_routes(
+            edge_src=edge_src,
+            edge_dst=edge_dst,
+            time_ptr=time_ptr,
+            node_owner=node_owner,
+            num_parts=num_parts,
+            num_layers=num_layers,
+        )
+        policy = "prebuilt"
+    except Exception as exc:
+        if not allow_empty_fallback:
+            raise RuntimeError("failed to build DTDG propagation route artifacts") from exc
+        routes = [
+            [
+                [ChunkPropagationRoute.empty(num_parts=num_parts) for _ in range(max(1, int(num_layers)))]
+                for _ in range(max(0, int(time_ptr.numel()) - 1))
+            ]
+            for _ in range(num_parts)
+        ]
+        policy = "prebuilt_empty_fallback"
+
+    written: list[str] = []
+    routes_dir = root / "routes"
+    routes_dir.mkdir(parents=True, exist_ok=True)
+    for part_id, part_routes in enumerate(routes):
+        route_path = routes_dir / f"propagation_routes_{part_id:03d}.pth"
+        torch.save(part_routes, route_path)
+        written.append(str(route_path.relative_to(root)))
+    return written, policy
 
 
 def _attach_packed_memory_route_indices(
@@ -269,7 +560,18 @@ class ChunkPreprocessor(GraphPreprocessor):
     """Preprocessor for chunk graph mode."""
 
     graph_mode = "chunk"
-    artifact_dirs = ("meta", "partitions", "routes", "sampling", "snapshots", "clusters")
+    artifact_dirs = (
+        "meta",
+        "partitions",
+        "routes",
+        "sampling",
+        "snapshots",
+        "clusters",
+        "events",
+        "targets",
+        "indices",
+        "chunks",
+    )
 
     def prepare_raw(self, session_ctx: SessionContext) -> None:
         dataset_root = (
@@ -305,11 +607,39 @@ class ChunkPreprocessor(GraphPreprocessor):
         if strategy == "memory_share":
             strategy = "mem_share"
 
+        # Time slice generation: adaptive (C++ native) or snapshot-based
+        time_slice_strategy = str(chunk_cfg.get("time_slice_strategy", "snapshot"))
+        if time_slice_strategy == "adaptive":
+            from starry_unigraph.backends.chunk.prepare.time_slice import build_time_ptr_ctdg_adaptive
+            time_ptr = build_time_ptr_ctdg_adaptive(
+                src=raw_events.src,
+                dst=raw_events.dst,
+                timestamps=raw_events.ts,
+                target_batch_size=int(chunk_cfg.get("target_batch_size", 200)),
+                graph_feature=float(chunk_cfg.get("graph_feature", 1.0)),
+                alpha=float(chunk_cfg.get("alpha", 1.0)),
+                beta=float(chunk_cfg.get("beta", 0.5)),
+                aggl=float(chunk_cfg.get("aggl", 0.0)),
+                use_cpp=bool(chunk_cfg.get("use_cpp_adaptive_split", True)),
+            )
+        else:
+            time_ptr = _time_ptr_from_snapshots(raw_dataset)
+
+        split_slices = _split_slices(raw_dataset["num_snapshots"], session_ctx.config.get("data", {}).get("split_ratio", {}))
+        train_val_slices = split_slices.get("train", []) + split_slices.get("val", [])
+        if train_val_slices:
+            train_val_end_slice = max(train_val_slices) + 1
+            train_val_event_end = int(time_ptr[min(train_val_end_slice, int(time_ptr.numel()) - 1)].item())
+        else:
+            train_val_event_end = int(time_ptr[-1].item()) if int(time_ptr.numel()) > 0 else int(raw_events.src.numel())
+
         artifacts = prepare_chunks(
             edge_src=raw_events.src,
             edge_dst=raw_events.dst,
             edge_timestamps=raw_events.ts,
-            time_ptr=_time_ptr_from_snapshots(raw_dataset),
+            time_ptr=time_ptr,
+            hot_edge_src=raw_events.src[:train_val_event_end],
+            hot_edge_dst=raw_events.dst[:train_val_event_end],
             num_nodes=int(raw_events.num_nodes),
             num_partitions=num_parts,
             graph_family=str(session_ctx.config.get("data", {}).get("graph_mode", self.graph_mode)),
@@ -344,16 +674,47 @@ class ChunkPreprocessor(GraphPreprocessor):
         root.mkdir(parents=True, exist_ok=True)
         (root / "partitions").mkdir(parents=True, exist_ok=True)
         (root / "sampling").mkdir(parents=True, exist_ok=True)
+        (root / "routes").mkdir(parents=True, exist_ok=True)
 
         edge_ids = torch.arange(int(raw_events.num_edges), dtype=torch.long)
+        split_slices = _split_slices(raw_dataset["num_snapshots"], session_ctx.config.get("data", {}).get("split_ratio", {}))
+        time_ptr = artifacts.time_ptr.long().cpu() if artifacts.time_ptr is not None else _time_ptr_from_snapshots(raw_dataset)
+        event_owner = _build_event_owner(
+            edge_src=raw_events.src.long(),
+            edge_dst=raw_events.dst.long(),
+            node_owner=artifacts.node_owner.long(),
+            node_master=artifacts.node_partition.long(),
+            hot_mask=artifacts.hot_node_mask.bool(),
+        )
         placement = _build_placement_artifact(
             artifacts=artifacts,
             edge_src=raw_events.src.long(),
             edge_dst=raw_events.dst.long(),
             num_edges=int(raw_events.num_edges),
             num_parts=num_parts,
+            event_owner=event_owner,
         )
         _attach_packed_memory_route_indices(artifacts.mem_routes, placement["master_dist_index"])
+        _write_canonical_artifacts(
+            root=root,
+            raw_events=raw_events,
+            artifacts=artifacts,
+            time_ptr=time_ptr,
+            split_slices=split_slices,
+            event_owner=event_owner,
+            placement=placement,
+            num_parts=num_parts,
+        )
+        target_artifact = _write_target_artifacts(
+            root=root,
+            raw_dataset=raw_dataset,
+            split_slices=split_slices,
+            node_owner=placement["node_owner"].long(),
+            node_master=placement["node_master"].long(),
+            hot_mask=placement["replica_mask"].bool(),
+            num_parts=num_parts,
+            enabled=_is_node_task(session_ctx.config.get("model", {}).get("task")),
+        )
         for part_id in range(num_parts):
             placement_view = ChunkPlacement(
                 placement_version=int(placement.get("placement_version", 0)),
@@ -373,6 +734,7 @@ class ChunkPreprocessor(GraphPreprocessor):
                 hot_mask=artifacts.hot_node_mask.bool(),
                 node_to_chunk=artifacts.assignment.node_to_chunk.long(),
                 part_id=part_id,
+                event_owner=event_owner,
                 raw_dataset=raw_dataset,
             )
             part_data.node_to_chunk = None
@@ -399,20 +761,42 @@ class ChunkPreprocessor(GraphPreprocessor):
         torch.save(placement, root / "placement.pth")
         artifacts.rebalance_manifest.save(root / "partitions" / "rebalance_manifest.json")
         mem_route_dirs = _write_route_lists(root, "mem_routes", artifacts.mem_routes)
-        spatial_route_dirs = _write_route_lists(root, "spatial_routes", artifacts.spatial_routes)
+        emit_legacy_spatial = bool(session_ctx.config.get("chunk", {}).get("emit_legacy_spatial_routes", False))
+        spatial_route_dirs = _write_route_lists(root, "spatial_routes", artifacts.spatial_routes) if emit_legacy_spatial else []
+        propagation_route_dirs, propagation_route_policy = _write_propagation_routes(
+            root=root,
+            edge_src=raw_events.src.long(),
+            edge_dst=raw_events.dst.long(),
+            time_ptr=time_ptr,
+            node_owner=artifacts.node_owner.long(),
+            num_parts=num_parts,
+            num_layers=int(session_ctx.config.get("model", {}).get("num_layers", 1)),
+            allow_empty_fallback=bool(session_ctx.config.get("chunk", {}).get("allow_empty_propagation_route_fallback", False)),
+        )
 
-        split_slices = _split_slices(raw_dataset["num_snapshots"], session_ctx.config.get("data", {}).get("split_ratio", {}))
         meta_json = {
             "graph_mode": "chunk",
+            "pipeline": "chunked",
             "num_nodes": raw_stats["num_nodes"],
             "num_edges": raw_stats["num_edges"],
             "num_slices": raw_dataset["num_snapshots"],
             "splits": split_slices,
             "hot_node_count": int(artifacts.hot_node_ids.numel()),
+            "event_assignment_policy": "hot_xor_nonhot_else_dst_or_master",
+            "target_assignment_policy": "hot_target_master_else_node_owner",
+            "target_schema_version": 1,
+            "target_artifact": target_artifact,
+            "negative_sampling_policy": str(session_ctx.config.get("sampler", {}).get("neg_strategy", "random")),
+            "hot_policy": "train_val_degree_topk",
+            "route_schema_version": 1,
+            "dist_index_schema_version": "chunk_dist_index_v1",
+            "chunk_artifact_schema_version": CHUNK_ARTIFACT_SCHEMA_VERSION,
+            "placement_version": int(placement.get("placement_version", 0)),
         }
 
         provider_meta = {
             "graph_mode": self.graph_mode,
+            "pipeline": "chunked",
             "artifact_version": ARTIFACT_VERSION,
             "num_parts": num_parts,
             "num_nodes": raw_stats["num_nodes"],
@@ -424,10 +808,71 @@ class ChunkPreprocessor(GraphPreprocessor):
             "task_type": session_ctx.config["model"]["task"],
             "partition_strategy": artifacts.partition_strategy,
             "hot_node_count": int(artifacts.hot_node_ids.numel()),
+            "event_assignment_policy": "hot_xor_nonhot_else_dst_or_master",
+            "target_assignment_policy": "hot_target_master_else_node_owner",
+            "target_schema_version": 1,
+            "target_artifact": target_artifact,
+            "negative_sampling_policy": str(session_ctx.config.get("sampler", {}).get("neg_strategy", "random")),
+            "hot_policy": "train_val_degree_topk",
+            "route_schema_version": 1,
+            "dist_index_schema_version": "chunk_dist_index_v1",
+            "chunk_artifact_schema_version": CHUNK_ARTIFACT_SCHEMA_VERSION,
+            "placement_version": int(placement.get("placement_version", 0)),
         }
 
         outputs: list[ArtifactOutput] = [
             ArtifactOutput("meta.json", meta_json),
+            ArtifactOutput(
+                "artifact_manifest.json",
+                {
+                    "format": "chunk_artifact_manifest_v1",
+                    "schema_version": CHUNK_ARTIFACT_SCHEMA_VERSION,
+                    "artifact_version": ARTIFACT_VERSION,
+                    "placement_version": int(placement.get("placement_version", 0)),
+                    "policies": {
+                        "event_assignment": "hot_xor_nonhot_else_dst_or_master",
+                        "target_assignment": "hot_target_master_else_node_owner",
+                        "ctdg_spatial_route": "runtime_sampled_remote_read_set",
+                        "dtdg_propagation_route": propagation_route_policy,
+                        "hot": "train_val_degree_topk",
+                    },
+                    "required_files": [
+                        "placement.pth",
+                        "events/canonical_events.pth",
+                        "targets/node_targets.pth",
+                        "indices/master_dist_index.pth",
+                        *[
+                            f"indices/read_dist_index_{part_id:03d}.pth"
+                            for part_id in range(num_parts)
+                        ],
+                        "chunks/chunk_assignment.pth",
+                        *[
+                            f"partitions/part_{part_id:03d}.pth"
+                            for part_id in range(num_parts)
+                        ],
+                        *[
+                            f"sampling/temporal_index_part_{part_id:03d}.pth"
+                            for part_id in range(num_parts)
+                        ],
+                        "routes/manifest.json",
+                        *propagation_route_dirs,
+                    ],
+                    "compatibility": {
+                        "legacy_partition_path": "part_<rank>.pth",
+                        "legacy_route_bundle_path": "<prefix>_<rank>.pth",
+                        "legacy_route_dir_path": "<prefix>_<rank>/slice_*.pth",
+                        "legacy_placement_embeds_chunk_and_index": True,
+                    },
+                    "schemas": {
+                        "events": "chunk_canonical_events_v1",
+                        "targets": "chunk_node_targets_v1",
+                        "chunks": "chunk_assignment_v1",
+                        "sampling": "chunk_temporal_index_v1",
+                        "dist_index": "chunk_dist_index_v1",
+                        "routes": "chunk_routes_v1",
+                    },
+                },
+            ),
             ArtifactOutput("partitions/manifest.json", session_ctx.provider_state["partition_manifest"]),
             ArtifactOutput(
                 "routes/manifest.json",
@@ -437,6 +882,11 @@ class ChunkPreprocessor(GraphPreprocessor):
                     "format": "per_partition_bundle",
                     "mem_route_files": mem_route_dirs,
                     "spatial_route_files": spatial_route_dirs,
+                    "propagation_route_files": propagation_route_dirs,
+                    "route_schema_version": 1,
+                    "ctdg_spatial_route_policy": "runtime_sampled_remote_read_set",
+                    "dtdg_propagation_route_policy": propagation_route_policy,
+                    "dtdg_propagation_route_fallback": "empty_when_build_fails_or_no_remote_boundary",
                 },
             ),
             ArtifactOutput(

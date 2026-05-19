@@ -11,6 +11,12 @@ from starry_unigraph.data.batch_data import BatchData
 from starry_unigraph.data.sample_config import SampleConfig
 from .base import BaseTaskAdapter
 
+try:
+    from sklearn.metrics import average_precision_score, roc_auc_score
+except Exception:  # pragma: no cover
+    average_precision_score = None
+    roc_auc_score = None
+
 
 class EdgePredictAdapter(BaseTaskAdapter):
     """Adapter for temporal edge/link prediction task.
@@ -108,17 +114,18 @@ class EdgePredictAdapter(BaseTaskAdapter):
         pos_score = pos_score.sigmoid().detach().cpu().numpy()
         neg_score = neg_score.sigmoid().detach().cpu().numpy()
 
-        # AUC: fraction of (pos, neg) pairs where pos > neg
         import numpy as np
         pos_score_flat = pos_score.flatten()
         neg_score_flat = neg_score.flatten()
 
-        # All pairwise comparisons
-        auc = (pos_score_flat[:, None] > neg_score_flat[None, :]).mean()
-
-        # AP: average precision (area under precision-recall curve)
-        # Simple approximation: mean of positive scores - mean of negative scores
-        ap = (pos_score_flat.mean() - neg_score_flat.mean()) / 2 + 0.5
+        if average_precision_score is not None and roc_auc_score is not None:
+            scores = np.concatenate([pos_score_flat, neg_score_flat])
+            labels = np.concatenate([np.ones_like(pos_score_flat), np.zeros_like(neg_score_flat)])
+            auc = roc_auc_score(labels, scores)
+            ap = average_precision_score(labels, scores)
+        else:
+            auc = (pos_score_flat[:, None] > neg_score_flat[None, :]).mean()
+            ap = (pos_score_flat.mean() - neg_score_flat.mean()) / 2 + 0.5
 
         return {
             "auc": float(auc),

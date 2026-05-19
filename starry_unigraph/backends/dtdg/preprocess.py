@@ -50,6 +50,25 @@ def validate_artifacts(
         raise FileNotFoundError(f"Missing partition manifest: {partitions}")
     if not routes.exists():
         raise FileNotFoundError(f"Missing route manifest: {routes}")
+    if expected_graph_mode == "chunk":
+        root = prepared.meta_path.parent.parent
+        artifact_manifest = root / "artifact_manifest.json"
+        if not artifact_manifest.exists():
+            raise FileNotFoundError(f"Missing chunk artifact manifest: {artifact_manifest}")
+        manifest = read_artifact_meta(artifact_manifest)
+        if manifest.get("schema_version") != 1:
+            raise RuntimeError(
+                f"Chunk artifact schema mismatch: expected 1, got {manifest.get('schema_version')}"
+            )
+        if manifest.get("artifact_version") != ARTIFACT_VERSION:
+            raise RuntimeError(
+                "Chunk artifact manifest version mismatch: "
+                f"expected {ARTIFACT_VERSION}, got {manifest.get('artifact_version')}"
+            )
+        for rel_path in manifest.get("required_files", []):
+            required = root / str(rel_path)
+            if not required.exists():
+                raise FileNotFoundError(f"Missing required chunk artifact: {required}")
     return meta
 
 
@@ -58,7 +77,19 @@ def load_prepared_from_disk(artifact_root: Path) -> PreparedArtifacts:
     if not meta_path.exists():
         raise RuntimeError("Data not prepared. Call prepare_data() first.")
     provider_meta = read_artifact_meta(meta_path)
-    known_dirs = ("meta", "partitions", "routes", "sampling", "snapshots", "flare", "clusters")
+    known_dirs = (
+        "meta",
+        "partitions",
+        "routes",
+        "sampling",
+        "snapshots",
+        "flare",
+        "clusters",
+        "events",
+        "targets",
+        "indices",
+        "chunks",
+    )
     directories = {
         name: artifact_root / name
         for name in known_dirs
@@ -82,7 +113,7 @@ class BaseDTDGPreprocessor(GraphPreprocessor):
         snaps = int(session_ctx.config["train"]["snaps"])
         raw_events = load_raw_temporal_events(root=dataset_root, dataset_name=dataset_name, config=session_ctx.config)
         slice_config = dict(session_ctx.config.get("data", {}).get("slice_config") or {})
-        slice_config.setdefault("num_windows", snaps)
+        slice_config["num_windows"] = snaps
         raw_dataset = build_snapshot_dataset_from_events(events=raw_events, slice_config=slice_config, config=session_ctx.config)
         if not raw_dataset.get("dataset"):
             raise RuntimeError("DTDG preprocessing requires data.build_snapshot_dataset=true")

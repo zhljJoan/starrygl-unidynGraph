@@ -31,6 +31,7 @@ from .route_builder import (
     assign_memory_route_ptrs,
     build_spatial_routes,
 )
+from .propagation_builder import build_propagation_routes
 from .pipeline import PrepareArtifacts, build_node_partition, prepare
 
 __all__ = [
@@ -51,6 +52,7 @@ __all__ = [
     "build_memory_route_phase1",
     "assign_memory_route_ptrs",
     "build_spatial_routes",
+    "build_propagation_routes",
     "PrepareArtifacts",
     "build_node_partition",
     "prepare",
