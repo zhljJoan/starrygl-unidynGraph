@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: atc-starrygl-lib
+Version: 0.1.0
+Summary: Slim CTDG/DTDG runtime library extracted from StarryUniGraph.
+Requires-Python: >=3.10
+Requires-Dist: torch
