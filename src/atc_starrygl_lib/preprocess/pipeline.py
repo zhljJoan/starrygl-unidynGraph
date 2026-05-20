@@ -27,6 +27,7 @@ def run_preprocess_pipeline(
 ) -> dict[str, Any]:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    partition_data_dst_node_scope = str(dataset_kwargs.pop("partition_data_dst_node_scope", "active"))
     graph = build_dataset(data=data, mode=mode, **dataset_kwargs)
     dist = build_dist_plan(
         src=graph["src"],
@@ -66,6 +67,7 @@ def run_preprocess_pipeline(
         node_label=graph.get("node_label"),
         edge_label=graph.get("edge_label"),
         edge_weight=graph.get("edge_weight"),
+        dst_node_scope=partition_data_dst_node_scope,
     ) if build_partition_data else []
 
     torch.save(graph, out / "graph.pt")

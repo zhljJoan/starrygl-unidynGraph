@@ -21,6 +21,9 @@
   - `python -m pytest tests/test_dtdg_stgraph_loader.py`
 - Run single-process DTDG STGraph smoke:
   - `python tools/dtdg_stgraph_smoke.py --artifact-root /tmp/atc_dtdg_stgraph_smoke --epochs 2`
+- Run the unified config entry:
+  - Single-machine preprocessing: `python tools/atc_run.py prepare --config configs/dtdg_tgcn_node_regression.json --artifact-root /shared/artifacts/wiki`
+  - Multi-GPU train/eval: `torchrun --standalone --nproc_per_node=2 tools/atc_run.py run --no-prepare --config configs/dtdg_tgcn_node_regression.json --artifact-root /shared/artifacts/wiki --epochs 1`
 - Compile-check Python modules:
   - `python -m py_compile src/atc_starrygl_lib/preprocess/*.py`
 - Build native sampler library (when C++ changes):
@@ -53,6 +56,10 @@
 
 ## Configuration & Migration Notes
 - Prefer config-driven behavior (`preprocess.*`) over hardcoded paths.
+- User configs should not expose CTDG/DTDG backend names. `model.*` and `sampling.*` drive `runtime.execution_plan`:
+  - `temporal_sampling`: internal CTDG/MemShare-style sampled execution.
+  - `snapshot_full_graph`: internal DTDG/Flare-style STGraphLoader execution.
+  - Sampling config has priority; a DTDG-family model with neighbor sampling routes to `temporal_sampling`.
 - For event mode, preserve rule: split train/val/test first, then batch per split.
 - Keep `time_ptr_2` compatibility when introducing newer structures like `split_time_ptr`.
 
@@ -96,13 +103,17 @@
   - `tools/dtdg_stgraph_smoke.py` runs a single-process synthetic or `.pth`-backed node-regression smoke through prepare, runtime build, train, val, and test.
 - DTDG edge prediction is partially wired:
   - Backend can emit edge prediction batches with `pos_src`, `pos_dst`, optional `neg_dst`, `src`, `dst`, and `eids`.
-  - `evaluate_edge_prediction()` supports encoder/head evaluation on these batches.
-  - Full endpoint embedding communication for distributed edge prediction still needs validation and likely additional routing work.
+  - `train_edge_prediction_epoch()` / `evaluate_edge_prediction()` support encoder/head training and evaluation on these batches.
+  - Distributed endpoint embedding communication uses route send/recv metadata and preserves gradient propagation through `Route`.
+  - Node regression/classification does not do endpoint lookup; labels/features are read from `partition_data` and attached to dst rows.
+- Unified runtime entry is available:
+  - `tools/atc_run.py prepare` is the single-machine preprocessing entry; copy the resulting artifact directory to workers.
+  - `tools/atc_run.py run --no-prepare` is the multi-GPU train/val/test entry.
+  - `tools/atc_run.py eval` and `tools/atc_run.py predict` reuse the same config/runtime.
+  - `predict` can update CTDG memory between test batches via `runtime.predict_updates_memory`; outputs are emitted before the memory commit.
 
 ## Near-Term Migration Priorities
-- Run CTDG WIKI edge-prediction smoke on the new loop and report AP/AUC.
-- Run DTDG `tools/dtdg_stgraph_smoke.py` on a real snapshot dataset, not only the synthetic default.
-- Validate DTDG STGraphLoader under `torchrun` with multiple ranks:
-  - Check route send/recv sizes, `send_index`, `flare_apply_route()`, and state behavior across sliding windows.
-- Complete DTDG edge prediction endpoint embedding communication based on master/read routing.
+- Consolidate all smoke scripts onto `tools/atc_run.py` after model/task coverage reaches parity.
+- Productionize sampled-block support for DTDG-family temporal-sampling models beyond the current GCN encoder.
+- Replace remaining preprocessing Python per-node/per-update loops in rank memory route construction with vectorized/native builders.
 - Once the new CTDG and DTDG paths are stable, remove unused legacy fallback and any task adapter abstraction that is not carrying real behavior.

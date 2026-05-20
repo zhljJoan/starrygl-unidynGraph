@@ -82,16 +82,16 @@ def test_partition_data_routes_asymmetric_remote_requests() -> None:
             {
                 "rank": 1,
                 "local_node_ids": torch.tensor([2]),
-                "local_edge_ids": torch.empty(0, dtype=torch.long),
+                "local_edge_ids": torch.tensor([1]),
             },
         ],
         dist_plan={
             "node_to_chunk": torch.tensor([0, 0, 1]),
             "node_master": torch.tensor([0, 0, 1]),
         },
-        src=torch.tensor([2]),
-        dst=torch.tensor([0]),
-        time_ptr_2=torch.tensor([[0, 1]]),
+        src=torch.tensor([2, 1]),
+        dst=torch.tensor([0, 2]),
+        time_ptr_2=torch.tensor([[0, 2]]),
     )
 
     p0, p1 = parts
@@ -99,5 +99,49 @@ def test_partition_data_routes_asymmetric_remote_requests() -> None:
     assert p0["route"]["send_sizes"][0] == [0, 0]
     assert p0["route"]["send_index"].tolist() == []
     assert p1["route"]["recv_sizes"][0] == [0, 0]
+    assert p1["route"]["send_sizes"][0] == [1, 0]
+    assert p1["route"]["send_index"].tolist() == [0]
+    assert p0["route"]["recv_src_row"].tolist() == [1]
+
+
+def test_partition_data_full_dst_scope_keeps_provider_endpoint_rows() -> None:
+    parts = build_all_partition_data_artifacts(
+        rank_artifacts=[
+            {
+                "rank": 0,
+                "replica_count": 0,
+                "owned_count": 2,
+                "owned_node_ids": torch.tensor([0, 1]),
+                "local_node_ids": torch.tensor([0, 1]),
+                "local_edge_ids": torch.tensor([0]),
+            },
+            {
+                "rank": 1,
+                "replica_count": 0,
+                "owned_count": 1,
+                "owned_node_ids": torch.tensor([2]),
+                "local_node_ids": torch.tensor([2]),
+                "local_edge_ids": torch.tensor([1]),
+            },
+        ],
+        dist_plan={
+            "node_to_chunk": torch.tensor([0, 0, 1]),
+            "node_master": torch.tensor([0, 0, 1]),
+        },
+        src=torch.tensor([2, 1]),
+        dst=torch.tensor([0, 2]),
+        time_ptr_2=torch.tensor([[0, 2]]),
+        dst_node_scope="full",
+    )
+
+    p0, p1 = parts
+    assert p0["dst_ids"]["data"].tolist() == [0, 1]
+    assert p0["src_ids"]["data"].tolist() == [2]
+    assert p1["dst_ids"]["data"].tolist() == [2]
+    assert p1["src_ids"]["data"].tolist() == [1]
+    assert p0["edge_src"]["data"].tolist() == [2]
+    assert p0["edge_dst"]["data"].tolist() == [0]
+    assert p0["route"]["recv_sizes"][0] == [0, 1]
+    assert p0["route"]["recv_src_row"].tolist() == [2]
     assert p1["route"]["send_sizes"][0] == [1, 0]
     assert p1["route"]["send_index"].tolist() == [0]

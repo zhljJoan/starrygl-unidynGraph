@@ -253,6 +253,7 @@ class RouteContext:
 
     def _recv_post(self, x: Tensor, outs: Tensor, work: dist.Work):
         work.wait()
+        x = x.clone()
         s = 0
         for sz in self.route.send_sizes:
             x[self.route.send_index[s:s + sz]] += outs[s:s + sz]

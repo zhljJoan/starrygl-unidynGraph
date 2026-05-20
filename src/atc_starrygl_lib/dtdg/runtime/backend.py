@@ -63,6 +63,7 @@ class FlareDTDGBackend:
             train_ratio=float(prep_cfg.get("train_ratio", 0.7)),
             val_ratio=float(prep_cfg.get("val_ratio", 0.15)),
             lags=int(prep_cfg.get("lags", 1)),
+            partition_data_dst_node_scope=str(prep_cfg.get("partition_data_dst_node_scope", "full")),
         )
         files = {"graph": out_dir / "graph.pt", "dist": out_dir / "dist.pt", "meta": out_dir / "meta.json"}
         for rank in range(len(result["ranks"])):

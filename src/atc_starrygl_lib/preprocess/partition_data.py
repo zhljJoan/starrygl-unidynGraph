@@ -22,7 +22,9 @@ def build_all_partition_data_artifacts(
     edge_label: Tensor | None = None,
     edge_weight: Tensor | None = None,
     build_gcn_norm: bool = True,
+    dst_node_scope: str = "active",
 ) -> list[dict[str, Any]]:
+    dst_node_scope = _normalize_dst_node_scope(dst_node_scope)
     artifacts = [
         build_partition_data_artifact(
             rank_artifact=rank_artifact,
@@ -37,6 +39,7 @@ def build_all_partition_data_artifacts(
             edge_label=edge_label,
             edge_weight=edge_weight,
             build_gcn_norm=build_gcn_norm,
+            dst_node_scope=dst_node_scope,
         )
         for rank_artifact in rank_artifacts
     ]
@@ -58,7 +61,9 @@ def build_partition_data_artifact(
     edge_label: Tensor | None = None,
     edge_weight: Tensor | None = None,
     build_gcn_norm: bool = True,
+    dst_node_scope: str = "active",
 ) -> dict[str, Any]:
+    dst_node_scope = _normalize_dst_node_scope(dst_node_scope)
     src = src.long().cpu().contiguous()
     dst = dst.long().cpu().contiguous()
     time_ptr_2 = time_ptr_2.long().cpu().contiguous()
@@ -67,6 +72,7 @@ def build_partition_data_artifact(
     edge_keep = torch.zeros(int(src.numel()), dtype=torch.bool)
     edge_keep[local_edge_ids] = True
     tensors = _empty_partition_tensors()
+    full_dst_ids = _full_dst_ids_for_rank(rank_artifact) if dst_node_scope == "full" else None
     for begin, end in time_ptr_2.tolist():
         eids = torch.arange(int(begin), int(end), dtype=torch.long)
         eids = eids[edge_keep[eids]]
@@ -82,11 +88,13 @@ def build_partition_data_artifact(
             edge_label=edge_label,
             edge_weight=edge_weight,
             build_gcn_norm=build_gcn_norm,
+            full_dst_ids=full_dst_ids,
         )
         _append_block(tensors, block)
     return {
         "format": PARTITION_DATA_FORMAT,
         "rank": int(rank_artifact["rank"]),
+        "dst_node_scope": dst_node_scope,
         "src_ids": _td(tensors["src_ids"]),
         "dst_ids": _td(tensors["dst_ids"]),
         "edge_ids": _td(tensors["edge_ids"]),
@@ -113,18 +121,28 @@ def _build_slice_block(
     edge_label: Tensor | None,
     edge_weight: Tensor | None,
     build_gcn_norm: bool,
+    full_dst_ids: Tensor | None = None,
 ) -> dict[str, Any]:
     if eids.numel() == 0:
+        dst_ids = torch.empty(0, dtype=torch.long) if full_dst_ids is None else full_dst_ids.long().cpu().contiguous()
         empty_long = torch.empty(0, dtype=torch.long)
+        node_data: dict[str, Tensor] = _empty_node_data(node_feat, node_label)
+        if full_dst_ids is not None:
+            node_data = {}
+            if node_feat is not None:
+                node_data["x"] = node_feat.cpu().contiguous().index_select(0, dst_ids.long())
+            if node_label is not None:
+                node_data["y"] = node_label.cpu().contiguous().index_select(0, dst_ids.long())
+            node_data["c"] = _local_chunk_for_nodes(dst_ids, dist_plan)
         return {
             "src_ids": empty_long,
-            "dst_ids": empty_long,
+            "dst_ids": dst_ids,
             "edge_ids": empty_long,
             "edge_src": empty_long,
             "edge_dst": empty_long,
-            "edge_ptr": torch.zeros(1, dtype=torch.long),
-            "dst_chunk": empty_long,
-            "node_data": _empty_node_data(node_feat, node_label),
+            "edge_ptr": torch.zeros(int(dst_ids.numel()) + 1, dtype=torch.long),
+            "dst_chunk": _local_chunk_for_nodes(dst_ids, dist_plan) if full_dst_ids is not None else empty_long,
+            "node_data": node_data,
             "edge_data": _empty_edge_data(edge_feat, edge_label, edge_weight, build_gcn_norm),
         }
     s = src.index_select(0, eids)
@@ -139,16 +157,20 @@ def _build_slice_block(
     s = s.index_select(0, order)
     d = d.index_select(0, order)
     gids = gids.index_select(0, order)
-    dst_ids = torch.unique(d, sorted=True)
+    dst_ids = torch.unique(d, sorted=True) if full_dst_ids is None else full_dst_ids.long().cpu().contiguous()
     dst_chunk = dist_plan["node_to_chunk"].long().cpu().index_select(0, dst_ids.long())
-    dst_pos = _index_map(dst_ids)
-    dst_rows = torch.tensor([dst_pos[int(n)] for n in d.tolist()], dtype=torch.long)
+    dst_rows = torch.searchsorted(dst_ids, d.long()).long()
     src_unique = torch.unique(s, sorted=True)
-    dst_set = set(dst_ids.tolist())
-    src_ids = torch.tensor([int(n) for n in src_unique.tolist() if int(n) not in dst_set], dtype=torch.long)
+    dst_lookup = torch.searchsorted(dst_ids, src_unique)
+    src_in_dst = (dst_lookup < int(dst_ids.numel())) & (dst_ids.index_select(0, dst_lookup.clamp_max(max(int(dst_ids.numel()) - 1, 0))) == src_unique)
+    src_ids = src_unique[~src_in_dst].long().contiguous()
     combined = torch.cat([dst_ids, src_ids], dim=0)
-    src_pos = _index_map(combined)
-    src_rows = torch.tensor([src_pos[int(n)] for n in s.tolist()], dtype=torch.long)
+    src_dst_lookup = torch.searchsorted(dst_ids, s.long())
+    src_is_dst = (src_dst_lookup < int(dst_ids.numel())) & (dst_ids.index_select(0, src_dst_lookup.clamp_max(max(int(dst_ids.numel()) - 1, 0))) == s)
+    src_tail_lookup = torch.searchsorted(src_ids, s.long())
+    src_rows = torch.empty_like(s, dtype=torch.long)
+    src_rows[src_is_dst] = src_dst_lookup[src_is_dst]
+    src_rows[~src_is_dst] = int(dst_ids.numel()) + src_tail_lookup[~src_is_dst]
     edge_ptr = torch.zeros(int(dst_ids.numel()) + 1, dtype=torch.long)
     counts = torch.bincount(dst_rows, minlength=int(dst_ids.numel()))
     edge_ptr[1:] = counts.cumsum(0)
@@ -188,41 +210,68 @@ def _attach_master_routes(
 ) -> None:
     world_size = len(artifacts)
     node_master = dist_plan["node_master"].long().cpu()
-    local_rows = [
-        {int(nid): row for row, nid in enumerate(rank_artifact["local_node_ids"].tolist())}
-        for rank_artifact in rank_artifacts
-    ]
     num_slices = _td_len(artifacts[0]["dst_ids"]) if artifacts else 0
     send_sizes = [[[0 for _ in range(world_size)] for _ in range(num_slices)] for _ in range(world_size)]
     recv_sizes = [[[0 for _ in range(world_size)] for _ in range(num_slices)] for _ in range(world_size)]
     send_rows = [[[[] for _ in range(world_size)] for _ in range(num_slices)] for _ in range(world_size)]
-    for requester, artifact in enumerate(artifacts):
-        for sid in range(num_slices):
-            for nid in _td_item(artifact["src_ids"], sid).tolist():
-                nid = int(nid)
-                provider = int(node_master[nid])
+    recv_src_rows = [[[] for _ in range(num_slices)] for _ in range(world_size)]
+    for sid in range(num_slices):
+        provider_dst_ids = [_td_item(artifact["dst_ids"], sid).long() for artifact in artifacts]
+        for requester, artifact in enumerate(artifacts):
+            src_ids = _td_item(artifact["src_ids"], sid).long()
+            if src_ids.numel() == 0:
+                continue
+            requester_dst_count = int(_td_item(artifact["dst_ids"], sid).numel())
+            providers = node_master.index_select(0, src_ids)
+            src_rows = torch.arange(
+                requester_dst_count,
+                requester_dst_count + int(src_ids.numel()),
+                dtype=torch.long,
+            )
+            for provider in range(world_size):
                 if provider == requester:
                     continue
-                try:
-                    provider_row = local_rows[provider][nid]
-                except KeyError as exc:
-                    raise ValueError(f"node {nid} is missing from master rank {provider} local_node_ids") from exc
-                recv_sizes[requester][sid][provider] += 1
-                send_sizes[provider][sid][requester] += 1
-                send_rows[provider][sid][requester].append(provider_row)
+                mask = providers == int(provider)
+                if not bool(mask.any()):
+                    continue
+                remote_nodes = src_ids[mask]
+                dst_ids = provider_dst_ids[provider]
+                if dst_ids.numel() == 0:
+                    continue
+                lookup = torch.searchsorted(dst_ids, remote_nodes)
+                valid = (lookup < int(dst_ids.numel())) & (dst_ids.index_select(0, lookup.clamp_max(int(dst_ids.numel()) - 1)) == remote_nodes)
+                if not bool(valid.any()):
+                    continue
+                provider_rows = lookup[valid].long().contiguous()
+                requester_rows = src_rows[mask][valid].long().contiguous()
+                count = int(provider_rows.numel())
+                recv_sizes[requester][sid][provider] += count
+                send_sizes[provider][sid][requester] += count
+                send_rows[provider][sid][requester].append(provider_rows)
+                recv_src_rows[requester][sid].append(requester_rows)
     for rank, artifact in enumerate(artifacts):
         send_index_parts: list[Tensor] = []
+        recv_src_row_parts: list[Tensor] = []
         send_ptr = [0]
+        recv_src_row_ptr = [0]
         for sid in range(num_slices):
-            flat = [row for rows in send_rows[rank][sid] for row in rows]
-            if flat:
-                send_index_parts.append(torch.tensor(flat, dtype=torch.long))
-            send_ptr.append(send_ptr[-1] + len(flat))
+            flat_parts = [part for rows in send_rows[rank][sid] for part in rows]
+            flat = torch.cat(flat_parts, dim=0) if flat_parts else torch.empty(0, dtype=torch.long)
+            if flat.numel() > 0:
+                send_index_parts.append(flat.long().contiguous())
+            send_ptr.append(send_ptr[-1] + int(flat.numel()))
+            recv_parts = recv_src_rows[rank][sid]
+            recv_rows = torch.cat(recv_parts, dim=0) if recv_parts else torch.empty(0, dtype=torch.long)
+            if recv_rows.numel() > 0:
+                recv_src_row_parts.append(recv_rows.long().contiguous())
+            recv_src_row_ptr.append(recv_src_row_ptr[-1] + int(recv_rows.numel()))
         artifact["route"] = {
             "send_sizes": send_sizes[rank],
             "recv_sizes": recv_sizes[rank],
             "send_index_ptr": torch.tensor(send_ptr, dtype=torch.long),
             "send_index": torch.cat(send_index_parts, dim=0) if send_index_parts else torch.empty(0, dtype=torch.long),
+            "recv_src_row_ptr": torch.tensor(recv_src_row_ptr, dtype=torch.long),
+            "recv_src_row": torch.cat(recv_src_row_parts, dim=0) if recv_src_row_parts else torch.empty(0, dtype=torch.long),
         }
 
 
@@ -266,15 +315,41 @@ def _td_item(td: dict[str, Tensor], index: int) -> Tensor:
     return td["data"][begin:end]
 
 
-def _index_map(values: Tensor) -> dict[int, int]:
-    return {int(value): idx for idx, value in enumerate(values.tolist())}
-
-
 def _local_chunk_for_nodes(node_ids: Tensor, dist_plan: dict[str, Any]) -> Tensor:
     chunks = dist_plan["node_to_chunk"].long().cpu().index_select(0, node_ids.long())
-    unique = torch.unique(chunks, sorted=True)
-    cmap = {int(cid): idx for idx, cid in enumerate(unique.tolist())}
-    return torch.tensor([cmap[int(cid)] for cid in chunks.tolist()], dtype=torch.long)
+    _, compact = torch.unique(chunks, sorted=True, return_inverse=True)
+    return compact.long().cpu()
+
+
+def _normalize_dst_node_scope(value: str) -> str:
+    value = str(value).strip().lower()
+    aliases = {
+        "active": "active",
+        "active_dst": "active",
+        "active-dst": "active",
+        "snapshot": "active",
+        "full": "full",
+        "full_snapshot": "full",
+        "full-snapshot": "full",
+        "owned": "full",
+        "partition": "full",
+    }
+    try:
+        return aliases[value]
+    except KeyError as exc:
+        raise ValueError(f"unsupported dst_node_scope: {value!r}") from exc
+
+
+def _full_dst_ids_for_rank(rank_artifact: dict[str, Any]) -> Tensor:
+    if "owned_node_ids" in rank_artifact:
+        replica = rank_artifact["local_node_ids"][: int(rank_artifact.get("replica_count", 0))].long().cpu()
+        owned = rank_artifact["owned_node_ids"].long().cpu()
+        nodes = torch.cat([replica, owned], dim=0) if replica.numel() else owned
+    else:
+        owned_count = int(rank_artifact.get("owned_count", 0))
+        replica_count = int(rank_artifact.get("replica_count", 0))
+        nodes = rank_artifact["local_node_ids"][: replica_count + owned_count].long().cpu()
+    return torch.unique(nodes, sorted=True).long().contiguous()
 
 
 def _gcn_norm(*, s: Tensor, d: Tensor, edge_weight: Tensor | None) -> Tensor:

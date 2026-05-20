@@ -54,8 +54,9 @@ def evaluate(
     task: Any,
     *,
     split: str = "val",
+    memory_commit: Any = None,
 ) -> dict[str, float]:
-    """Evaluate a CTDG encoder/head pair over session.iter_batches(split)."""
+    """Evaluate CTDG batches, optionally advancing memory after each prediction."""
     encoder.eval()
     head.eval()
 
@@ -67,6 +68,8 @@ def evaluate(
         loss = task.compute_loss(output, batch)
         losses.append(float(loss.detach().item()))
         _append_metrics(metrics, task.compute_metrics(output, batch))
+        if memory_commit is not None:
+            memory_commit(encoder, batch)
 
     out = _mean_metrics(metrics)
     out["loss"] = _mean(losses)
@@ -80,11 +83,18 @@ def predict(
     head: torch.nn.Module,
     *,
     split: str = "test",
+    memory_commit: Any = None,
 ) -> list[tuple[Any, Batch]]:
-    """Return raw head outputs with their source batches."""
+    """Return raw outputs, optionally updating memory after each emitted output."""
     encoder.eval()
     head.eval()
-    return [(head(encode_batch(encoder, batch), batch), batch) for batch in session.iter_batches(split)]
+    outputs: list[tuple[Any, Batch]] = []
+    for batch in session.iter_batches(split):
+        output = head(encode_batch(encoder, batch), batch)
+        outputs.append((output, batch))
+        if memory_commit is not None:
+            memory_commit(encoder, batch)
+    return outputs
 
 
 def encode_batch(encoder: torch.nn.Module, batch: Batch) -> Tensor:

@@ -1,0 +1,31 @@
+{
+  "graph": {
+    "source": "/path/to/snapshot_or_event_data"
+  },
+  "model": {
+    "name": "tgcn",
+    "hidden_dim": 64,
+    "gcn_layers": 1
+  },
+  "task": {
+    "name": "node_regression"
+  },
+  "preprocess": {
+    "use_new_pipeline": true,
+    "partition_algorithm": "chunk_load_balance",
+    "chunks_per_rank": 2,
+    "train_ratio": 0.7,
+    "val_ratio": 0.15,
+    "lags": 1
+  },
+  "runtime": {
+    "chunk_order": "identity",
+    "chunk_decay": [1],
+    "num_full_snapshots": 1,
+    "disable_states": false
+  },
+  "train": {
+    "epochs": 1,
+    "lr": 0.01
+  }
+}

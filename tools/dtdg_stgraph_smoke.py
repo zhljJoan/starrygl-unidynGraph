@@ -324,8 +324,6 @@ def _validate_routes(backend: FlareDTDGBackend, *, split: str, device: torch.dev
             if route is None or route.send_index is None:
                 continue
             rows = int(graph.num_dst_nodes()) if hasattr(graph, "num_dst_nodes") else int(graph.num_nodes())
-            if int(route.send_index.numel()) > 0:
-                rows = max(rows, int(route.send_index.max().item()) + 1)
             x = torch.arange(rows, dtype=torch.float32, device=device).unsqueeze(1)
             y = graph.flare_apply_route(x)
             expected = rows + int(route.recv_len)

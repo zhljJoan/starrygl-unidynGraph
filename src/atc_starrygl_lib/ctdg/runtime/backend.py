@@ -690,11 +690,20 @@ def _materialize_mfgs(output: Any) -> Any:
 def _ensure_dst_prefix_src_lids(*, old_src_lids: torch.Tensor, dst_lids: torch.Tensor, indices: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     if int(old_src_lids.numel()) >= int(dst_lids.numel()) and torch.equal(old_src_lids[: int(dst_lids.numel())], dst_lids):
         return old_src_lids, indices
-    dst_set = set(int(v) for v in dst_lids.tolist())
-    tail = torch.tensor([int(v) for v in old_src_lids.tolist() if int(v) not in dst_set], dtype=torch.long)
+    if old_src_lids.numel() == 0:
+        return dst_lids.long().contiguous(), indices.long().contiguous()
+    if dst_lids.numel() == 0:
+        return old_src_lids.long().contiguous(), indices.long().contiguous()
+    order = torch.argsort(dst_lids, stable=True)
+    sorted_dst = dst_lids.index_select(0, order)
+    lookup = torch.searchsorted(sorted_dst, old_src_lids.long())
+    pos = lookup.clamp_max(max(int(sorted_dst.numel()) - 1, 0))
+    in_dst = (lookup < int(sorted_dst.numel())) & (sorted_dst.index_select(0, pos) == old_src_lids.long())
+    tail = old_src_lids[~in_dst].long().contiguous()
     src_lids = torch.cat([dst_lids, tail], dim=0).long().contiguous()
-    row_map = {int(v): i for i, v in enumerate(src_lids.tolist())}
-    old_to_new = torch.tensor([row_map[int(v)] for v in old_src_lids.tolist()], dtype=torch.long)
+    old_to_new = torch.empty_like(old_src_lids, dtype=torch.long)
+    old_to_new[in_dst] = order.index_select(0, lookup[in_dst]).long()
+    old_to_new[~in_dst] = int(dst_lids.numel()) + torch.arange(int(tail.numel()), dtype=torch.long)
     return src_lids, old_to_new.index_select(0, indices.long()).long().contiguous()
 
 

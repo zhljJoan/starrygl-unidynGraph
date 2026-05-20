@@ -302,12 +302,15 @@ class STGraphLoader:
         block = block.to(self.device)
         _patch_node_data(block, self.data.get("node_data", {}), sid, device=self.device, dst_perm=dst_perm)
         _patch_edge_data(block, self.data.get("edge_data", {}), sid, device=self.device)
-        route = _route_for_slice(self.data.get("route"), sid, group=None)
+        route, recv_src_rows = _route_for_slice(self.data.get("route"), sid, group=None)
         if self.world_size <= 1:
             route = None
+            recv_src_rows = None
         if route is not None and route.send_index is not None:
             route = route.to(device=self.device)
         block.route = route
+        block.flare_route_recv_src_rows = None if recv_src_rows is None else recv_src_rows.to(self.device)
+        block.flare_dst_node_scope = str(self.data.get("dst_node_scope", "active"))
         block.flare_snapshot_id = int(sid)
         _patch_dummy_state_methods(block)
         STGraphWindow.patch_route_methods(block)
@@ -383,9 +386,9 @@ def _patch_edge_data(block: Any, edge_data: dict[str, dict[str, Tensor]], sid: i
         block.edata[key] = _td_item(td, sid).to(device)
 
 
-def _route_for_slice(route_data: dict[str, Any] | None, sid: int, group: Any = None) -> Route | None:
+def _route_for_slice(route_data: dict[str, Any] | None, sid: int, group: Any = None) -> tuple[Route | None, Tensor | None]:
     if not route_data:
-        return None
+        return None, None
     send_ptr = route_data.get("send_index_ptr")
     send_index = route_data.get("send_index")
     if send_ptr is None or send_index is None:
@@ -393,9 +396,15 @@ def _route_for_slice(route_data: dict[str, Any] | None, sid: int, group: Any = N
     else:
         begin, end = int(send_ptr[sid]), int(send_ptr[sid + 1])
         send = send_index[begin:end].long().contiguous()
+    recv_rows = None
+    recv_ptr = route_data.get("recv_src_row_ptr")
+    recv_src_row = route_data.get("recv_src_row")
+    if recv_ptr is not None and recv_src_row is not None:
+        begin, end = int(recv_ptr[sid]), int(recv_ptr[sid + 1])
+        recv_rows = recv_src_row[begin:end].long().contiguous()
     send_sizes = [int(v) for v in route_data["send_sizes"][sid]]
     recv_sizes = [int(v) for v in route_data["recv_sizes"][sid]]
-    return Route(send_sizes=send_sizes, recv_sizes=recv_sizes, send_index=send, group=group)
+    return Route(send_sizes=send_sizes, recv_sizes=recv_sizes, send_index=send, group=group), recv_rows
 
 
 def _patch_dummy_state_methods(graph: Any) -> None:

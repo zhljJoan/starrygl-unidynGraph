@@ -97,6 +97,45 @@ def evaluate_edge_prediction(
     return out
 
 
+def train_edge_prediction_epoch(
+    session: Any,
+    encoder: torch.nn.Module,
+    head: torch.nn.Module,
+    task: Any,
+    optimizer: torch.optim.Optimizer,
+    *,
+    split: str = "train",
+) -> dict[str, float]:
+    """Train DTDG edge prediction; endpoint row lookup is isolated here."""
+    encoder.train()
+    head.train()
+
+    state = None
+    losses: list[float] = []
+    metrics: defaultdict[str, list[float]] = defaultdict(list)
+    for batch in session.iter_batches(split):
+        raw_output = _call_stateful(encoder, batch.graph, state)
+        embeddings, state = _split_model_output(raw_output)
+        if isinstance(embeddings, list):
+            embeddings = embeddings[-1]
+        embeddings = prepare_edge_prediction_embeddings(embeddings, batch)
+        output = head(embeddings, batch)
+        loss = task.compute_loss(output, batch)
+
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+
+        if isinstance(state, torch.Tensor):
+            state = state.detach()
+        losses.append(float(loss.detach().item()))
+        _append_metrics(metrics, task.compute_metrics(output, batch))
+
+    out = _mean_metrics(metrics)
+    out["loss"] = _mean(losses)
+    return out
+
+
 def task_output(raw_output: Any, *, task: Any, training: bool) -> Any:
     raw_pred, _ = _split_model_output(raw_output)
     if training and isinstance(raw_pred, list):
@@ -176,9 +215,10 @@ def _expand_dst_embeddings_to_src_rows(embeddings: torch.Tensor, graph: Any) -> 
 
     route = getattr(graph, "route", None)
     send_index = getattr(route, "send_index", None)
-    if route is not None and send_index is not None and send_index.numel() > 0:
-        if int(send_index.max().item()) < int(embeddings.size(0)):
+    if route is not None and send_index is not None and (send_index.numel() > 0 or int(getattr(route, "recv_len", 0)) > 0):
+        if send_index.numel() == 0 or int(send_index.max().item()) < int(embeddings.size(0)):
             routed = graph.flare_apply_route(embeddings)
+            out = out + routed.sum() * 0.0
             recv_rows = getattr(graph, "flare_route_recv_src_rows", None)
             recv_len = int(getattr(route, "recv_len", 0))
             if isinstance(recv_rows, torch.Tensor) and recv_len > 0:
@@ -187,7 +227,8 @@ def _expand_dst_embeddings_to_src_rows(embeddings: torch.Tensor, graph: Any) -> 
 
     src_ids = graph.srcdata.get("ID") if hasattr(graph, "srcdata") else None
     dst_ids = graph.dstdata.get("ID") if hasattr(graph, "dstdata") else None
-    if isinstance(src_ids, torch.Tensor) and isinstance(dst_ids, torch.Tensor) and num_src > num_dst:
+    use_local_lookup = str(getattr(graph, "flare_dst_node_scope", "active")) != "full"
+    if use_local_lookup and isinstance(src_ids, torch.Tensor) and isinstance(dst_ids, torch.Tensor) and num_src > num_dst:
         local = _dst_row_lookup(src_ids[num_dst:], dst_ids)
         if local.numel() > 0:
             tail_rows = torch.arange(num_dst, num_src, dtype=torch.long, device=out.device)
@@ -198,5 +239,20 @@ def _expand_dst_embeddings_to_src_rows(embeddings: torch.Tensor, graph: Any) -> 
 
 
 def _dst_row_lookup(nodes: torch.Tensor, dst_ids: torch.Tensor) -> torch.Tensor:
-    mapping = {int(nid): row for row, nid in enumerate(dst_ids.detach().cpu().tolist())}
-    return torch.tensor([mapping.get(int(nid), -1) for nid in nodes.detach().cpu().tolist()], dtype=torch.long, device=nodes.device)
+    if nodes.numel() == 0:
+        return torch.empty(0, dtype=torch.long, device=nodes.device)
+    dst_ids = dst_ids.to(device=nodes.device, dtype=torch.long)
+    if dst_ids.numel() == 0:
+        return torch.full((int(nodes.numel()),), -1, dtype=torch.long, device=nodes.device)
+    if int(dst_ids.numel()) <= 1 or bool((dst_ids[1:] >= dst_ids[:-1]).all()):
+        order = None
+        sorted_dst = dst_ids
+    else:
+        order = torch.argsort(dst_ids, stable=True)
+        sorted_dst = dst_ids.index_select(0, order)
+    lookup = torch.searchsorted(sorted_dst, nodes.long())
+    valid_pos = lookup.clamp_max(max(int(sorted_dst.numel()) - 1, 0))
+    valid = (lookup < int(sorted_dst.numel())) & (sorted_dst.index_select(0, valid_pos) == nodes.long())
+    out = torch.full((int(nodes.numel()),), -1, dtype=torch.long, device=nodes.device)
+    out[valid] = lookup[valid].long() if order is None else order.index_select(0, lookup[valid]).long()
+    return out
