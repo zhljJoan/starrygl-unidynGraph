@@ -41,6 +41,10 @@ class Batch:
     roots: Tensor
     timestamps: Optional[Tensor] = None
     graph: Any = None
+    eids: Optional[Tensor] = None
+    src: Optional[Tensor] = None
+    dst: Optional[Tensor] = None
+    ts: Optional[Tensor] = None
     pos_src: Optional[Tensor] = None
     pos_dst: Optional[Tensor] = None
     neg_src: Optional[Tensor] = None

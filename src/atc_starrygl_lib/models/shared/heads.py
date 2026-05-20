@@ -82,7 +82,8 @@ class EdgeRegressHead(nn.Module):
 class NodeClassifyHead(nn.Module):
     """Node classification head.
 
-    If batch.node_ids is set, indexes into embeddings; otherwise uses all rows.
+    CTDG node batches use roots as the predicted nodes, so embedding rows already
+    align with batch.labels and batch.node_ids stores global node ids.
     """
 
     def __init__(self, dim: int, num_classes: int):
@@ -90,8 +91,7 @@ class NodeClassifyHead(nn.Module):
         self.mlp = nn.Linear(dim, num_classes)
 
     def forward(self, embeddings: Tensor, batch: Batch) -> ClassifyOutput:
-        h = embeddings[batch.node_ids] if batch.node_ids is not None else embeddings
-        return ClassifyOutput(logits=self.mlp(h))
+        return ClassifyOutput(logits=self.mlp(embeddings))
 
 
 class NodeRegressHead(nn.Module):
@@ -102,5 +102,4 @@ class NodeRegressHead(nn.Module):
         self.mlp = nn.Linear(dim, out_dim)
 
     def forward(self, embeddings: Tensor, batch: Batch) -> RegressionOutput:
-        h = embeddings[batch.node_ids] if batch.node_ids is not None else embeddings
-        return RegressionOutput(pred=self.mlp(h))
+        return RegressionOutput(pred=self.mlp(embeddings))

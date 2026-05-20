@@ -103,6 +103,33 @@ class GeneralModel(nn.Module):
         async_param: Any = None,
         memory_update_spec: Any = None,
     ) -> tuple[Tensor, Tensor]:
+        out = self.encode(
+            mfgs,
+            async_param=async_param,
+            memory_update_spec=memory_update_spec,
+        )
+
+        pos_score, neg_score = self.edge_predictor(
+            out[metadata['src_pos_index']],
+            out[metadata['dst_pos_index']],
+            h_neg_dst=out[metadata['dst_neg_index']],
+            neg_samples=neg_samples,
+            mode=mode,
+        )
+        return pos_score, neg_score
+
+    def encode(
+        self,
+        mfgs: list,
+        *,
+        async_param: Any = None,
+        memory_update_spec: Any = None,
+    ) -> Tensor:
+        """Encode sampled MFGs into row-indexed node embeddings.
+
+        Task heads consume the returned tensor together with Batch row indices
+        such as pos_src/pos_dst/neg_dst.
+        """
         if self.memory_param['type'] == 'node':
             self.memory_updater(mfgs[0], memory_update_spec if memory_update_spec is not None else async_param)
 
@@ -121,18 +148,10 @@ class GeneralModel(nn.Module):
                 else:
                     out.append(rst)
 
-        out = out[0]
+        emb = out[0]
         if self.gnn_param.get('dyrep'):
-            out = self.memory_updater.last_updated_memory
-
-        pos_score, neg_score = self.edge_predictor(
-            out[metadata['src_pos_index']],
-            out[metadata['dst_pos_index']],
-            h_neg_dst=out[metadata['dst_neg_index']],
-            neg_samples=neg_samples,
-            mode=mode,
-        )
-        return pos_score, neg_score
+            emb = self.memory_updater.last_updated_memory
+        return emb
 
     def forward_batch(self, batch: Batch) -> EdgePredOutput:
         """New-style entry point: accepts Batch, returns EdgePredOutput."""
@@ -140,7 +159,6 @@ class GeneralModel(nn.Module):
         assert batch.neg_src is not None or batch.neg_dst is not None
         # mfgs must be stored in batch.graph by the data loader
         mfgs = batch.graph
-        n = len(mfgs[0][0].dstdata.get('h', mfgs[0][0].srcdata['h']))
         # build compact index metadata from batch edge arrays
         # pos_src/pos_dst/neg_dst are indices into the mfg output node rows
         metadata = {

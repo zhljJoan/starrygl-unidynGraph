@@ -72,6 +72,49 @@ class SampledFeatureRuntime:
 
 
 class CTDGFeatureRuntime(SampledFeatureRuntime):
+    def __init__(
+        self,
+        index: DistIndexTables,
+        feature_store: FeatureStore,
+        comm: DynamicFetchComm,
+        *,
+        world_size: int,
+        edge_dist_index: Tensor | None = None,
+    ) -> None:
+        super().__init__(index=index, feature_store=feature_store, comm=comm, world_size=world_size)
+        self.edge_dist_index = edge_dist_index
+
+    def build_edge_layout_from_sampling(
+        self,
+        output: SamplingOutput,
+        *,
+        already_rank_grouped: bool = False,
+        deduplicate: bool = False,
+    ) -> FeatureReadLayout | None:
+        if output.edge_comm is None or self.edge_dist_index is None:
+            return None
+        return build_feature_read_layout_from_comm(
+            output.edge_comm.edge_gids,
+            output.edge_comm.compute_to_comm,
+            self.edge_dist_index,
+            world_size=self.world_size,
+            time_slices=output.edge_comm.time_slices,
+            deduplicate=deduplicate,
+            already_rank_grouped=already_rank_grouped,
+        )
+
+    def submit_edge_fetch(self, layout: FeatureReadLayout) -> AsyncTensorHandle:
+        return self.comm.submit_row_fetch(
+            layout.read_index,
+            layout.read_ptr,
+            self.feature_store.gather_edge_rows,
+            time_slices=layout.time_slices,
+        )
+
+    def wait_edge_fetch(self, handle: AsyncTensorHandle, layout: FeatureReadLayout) -> Tensor:
+        (features,) = handle.wait()
+        return features.index_select(0, layout.compute_to_feature.to(features.device))
+
     def patch_mfg(self, mfgs: list[Any], features: Tensor, key: str = "h") -> None:
         for block in _flatten(mfgs):
             if hasattr(block, "srcdata"):

@@ -1,0 +1,455 @@
+from pathlib import Path
+
+import torch
+
+from atc_starrygl_lib.core.types import ArtifactBundle, RuntimeContext
+from atc_starrygl_lib.ctdg.runtime.backend import MemShareTemporalSamplingBackend
+
+
+def test_new_pipeline_runtime_reader_iterates_rank_local_event_batches(tmp_path: Path) -> None:
+    graph = {
+        "src": torch.tensor([0, 1, 2, 3, 4], dtype=torch.long),
+        "dst": torch.tensor([5, 6, 7, 8, 9], dtype=torch.long),
+        "ts": torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0], dtype=torch.float32),
+        "edge_ids": torch.tensor([10, 11, 12, 13, 14], dtype=torch.long),
+        "split_time_ptr": {
+            "train": torch.tensor([[0, 2], [2, 4]], dtype=torch.long),
+            "val": torch.tensor([[4, 5]], dtype=torch.long),
+            "test": torch.zeros((0, 2), dtype=torch.long),
+        },
+        "time_ptr_2": torch.tensor([[0, 2], [2, 4], [4, 5]], dtype=torch.long),
+    }
+    rank = {
+        "rank": 0,
+        "local_edge_ids": torch.tensor([0, 2], dtype=torch.long),
+        "split_time_ptr": {
+            "train": torch.tensor([[0, 1], [1, 2]], dtype=torch.long),
+            "val": torch.tensor([[0, 0]], dtype=torch.long),
+            "test": torch.zeros((0, 2), dtype=torch.long),
+        },
+    }
+    torch.save(graph, tmp_path / "graph.pt")
+    torch.save({"world_size": 1}, tmp_path / "dist.pt")
+    torch.save(rank, tmp_path / "rank_000.pt")
+
+    backend = MemShareTemporalSamplingBackend()
+    backend._prepared_by = "new_pipeline"
+    backend.build_runtime(
+        RuntimeContext(config={}, artifact_root=tmp_path, rank=0, world_size=1, device="cpu"),
+        ArtifactBundle(
+            root=tmp_path,
+            graph_mode="ctdg",
+            files={
+                "graph": tmp_path / "graph.pt",
+                "dist": tmp_path / "dist.pt",
+                "rank_000": tmp_path / "rank_000.pt",
+            },
+        ),
+    )
+
+    train = list(backend.iter_batches("train"))
+    assert len(train) == 2
+    assert train[0].eids.tolist() == [10]
+    assert train[0].src.tolist() == [0]
+    assert train[0].dst.tolist() == [5]
+    assert train[0].ts.tolist() == [1.0]
+    assert train[0].roots.tolist() == [0, 5]
+    assert train[0].timestamps.tolist() == [1.0, 1.0]
+    assert train[0].pos_src.tolist() == [0]
+    assert train[0].pos_dst.tolist() == [1]
+    assert train[0].node_ids is None
+    assert train[1].eids.tolist() == [12]
+    assert train[1].src.tolist() == [2]
+    assert train[1].dst.tolist() == [7]
+    assert train[1].timestamps.tolist() == [3.0, 3.0]
+
+    val = list(backend.iter_batches("val"))
+    assert len(val) == 1
+    assert val[0].eids.numel() == 0
+    assert val[0].roots.numel() == 0
+    assert val[0].pos_src.numel() == 0
+    assert val[0].pos_dst.numel() == 0
+
+
+def test_new_pipeline_runtime_reader_iterates_node_label_batches(tmp_path: Path) -> None:
+    graph = {
+        "src": torch.tensor([0], dtype=torch.long),
+        "dst": torch.tensor([1], dtype=torch.long),
+        "ts": torch.tensor([1.0], dtype=torch.float32),
+        "edge_ids": torch.tensor([0], dtype=torch.long),
+        "time_ptr_2": torch.tensor([[0, 1]], dtype=torch.long),
+        "node_label_nodes": torch.tensor([3, 4, 5, 6], dtype=torch.long),
+        "node_label_ts": torch.tensor([10.0, 11.0, 12.0, 13.0], dtype=torch.float32),
+        "node_label": torch.tensor([1, 0, 2, 1], dtype=torch.long),
+        "node_label_split": torch.tensor([0, 0, 1, 2], dtype=torch.uint8),
+    }
+    rank = {
+        "rank": 0,
+        "local_edge_ids": torch.tensor([0], dtype=torch.long),
+        "split_time_ptr": {"train": torch.tensor([[0, 1]], dtype=torch.long)},
+    }
+    torch.save(graph, tmp_path / "graph.pt")
+    torch.save({"world_size": 1}, tmp_path / "dist.pt")
+    torch.save(rank, tmp_path / "rank_000.pt")
+
+    backend = MemShareTemporalSamplingBackend()
+    backend._prepared_by = "new_pipeline"
+    backend.build_runtime(
+        RuntimeContext(config={"task": {"name": "node_prediction", "batch_size": 2}}, artifact_root=tmp_path, rank=0, world_size=1, device="cpu"),
+        ArtifactBundle(
+            root=tmp_path,
+            graph_mode="ctdg",
+            files={
+                "graph": tmp_path / "graph.pt",
+                "dist": tmp_path / "dist.pt",
+                "rank_000": tmp_path / "rank_000.pt",
+            },
+        ),
+    )
+
+    train = list(backend.iter_batches("train"))
+    assert len(train) == 1
+    assert train[0].roots.tolist() == [3, 4]
+    assert train[0].timestamps.tolist() == [10.0, 11.0]
+    assert train[0].node_ids.tolist() == [3, 4]
+    assert train[0].labels.tolist() == [1, 0]
+    assert train[0].pos_src is None
+    assert train[0].pos_dst is None
+
+    val = list(backend.iter_batches("val"))
+    assert len(val) == 1
+    assert val[0].roots.tolist() == [5]
+    assert val[0].labels.tolist() == [2]
+
+
+def test_new_pipeline_runtime_prefetches_sampling_and_patches_features(tmp_path: Path) -> None:
+    graph = {
+        "src": torch.tensor([0, 1], dtype=torch.long),
+        "dst": torch.tensor([2, 3], dtype=torch.long),
+        "ts": torch.tensor([1.0, 2.0], dtype=torch.float32),
+        "edge_ids": torch.tensor([10, 11], dtype=torch.long),
+        "split_time_ptr": {
+            "train": torch.tensor([[0, 1], [1, 2]], dtype=torch.long),
+            "val": torch.zeros((0, 2), dtype=torch.long),
+            "test": torch.zeros((0, 2), dtype=torch.long),
+        },
+        "time_ptr_2": torch.tensor([[0, 1], [1, 2]], dtype=torch.long),
+    }
+    rank = {
+        "rank": 0,
+        "local_edge_ids": torch.tensor([0, 1], dtype=torch.long),
+        "split_time_ptr": {
+            "train": torch.tensor([[0, 1], [1, 2]], dtype=torch.long),
+            "val": torch.zeros((0, 2), dtype=torch.long),
+            "test": torch.zeros((0, 2), dtype=torch.long),
+        },
+    }
+    torch.save(graph, tmp_path / "graph.pt")
+    torch.save({"world_size": 1}, tmp_path / "dist.pt")
+    torch.save(rank, tmp_path / "rank_000.pt")
+
+    sampler = _FakeSampler()
+    feature_runtime = _FakeFeatureRuntime()
+    memory_runtime = _FakeMemoryRuntime()
+    mailbox_runtime = _FakeMailboxRuntime()
+    backend = MemShareTemporalSamplingBackend()
+    backend._prepared_by = "new_pipeline"
+    backend.build_runtime(
+        RuntimeContext(
+            config={
+                "runtime": {
+                    "sampler": sampler,
+                    "feature_runtime": feature_runtime,
+                    "memory_runtime": memory_runtime,
+                    "mailbox_runtime": mailbox_runtime,
+                }
+            },
+            artifact_root=tmp_path,
+            rank=0,
+            world_size=1,
+            device="cpu",
+        ),
+        ArtifactBundle(
+            root=tmp_path,
+            graph_mode="ctdg",
+            files={
+                "graph": tmp_path / "graph.pt",
+                "dist": tmp_path / "dist.pt",
+                "rank_000": tmp_path / "rank_000.pt",
+            },
+        ),
+    )
+
+    batches = list(backend.iter_batches("train"))
+    assert [b.roots.tolist() for b in batches] == [[0, 2], [1, 3]]
+    assert [b.graph[0].srcdata["h"].tolist() for b in batches] == [[[1.0]], [[2.0]]]
+    assert [b.graph[0].edata["f"].tolist() for b in batches] == [[[30.0]], [[31.0]]]
+    assert [b.graph[0].srcdata["mem"].tolist() for b in batches] == [[[10.0]], [[11.0]]]
+    assert [b.graph[0].srcdata["mem_ts"].tolist() for b in batches] == [[100.0], [101.0]]
+    assert [b.graph[0].srcdata["mem_input"].tolist() for b in batches] == [[[20.0, 21.0]], [[21.0, 22.0]]]
+    assert [b.graph[0].srcdata["mail_ts"].tolist() for b in batches] == [[[200.0]], [[201.0]]]
+    assert [b.pos_src.tolist() for b in batches] == [[0], [0]]
+    assert [b.pos_dst.tolist() for b in batches] == [[2], [2]]
+    assert [call["roots"] for call in sampler.calls] == [[0, 2], [1, 3]]
+    assert [call["groups"] for call in sampler.calls] == [
+        {"pos_src": (0, 1), "pos_dst": (1, 2)},
+        {"pos_src": (0, 1), "pos_dst": (1, 2)},
+    ]
+    assert feature_runtime.submitted == [0, 1]
+    assert memory_runtime.submitted == [0, 1]
+    assert mailbox_runtime.submitted == [0, 1]
+
+
+def test_new_pipeline_runtime_builds_default_sampler_and_feature_runtime(monkeypatch, tmp_path: Path) -> None:
+    graph = {
+        "src": torch.tensor([0], dtype=torch.long),
+        "dst": torch.tensor([1], dtype=torch.long),
+        "ts": torch.tensor([1.0], dtype=torch.float32),
+        "edge_ids": torch.tensor([0], dtype=torch.long),
+        "num_nodes": 2,
+        "time_ptr_2": torch.tensor([[0, 1]], dtype=torch.long),
+        "split_time_ptr": {"train": torch.tensor([[0, 1]], dtype=torch.long)},
+    }
+    dist = {
+        "world_size": 1,
+        "edge_owner": torch.tensor([0], dtype=torch.long),
+        "node_to_chunk": torch.tensor([0, 0], dtype=torch.long),
+        "chunk_owner": torch.tensor([0], dtype=torch.long),
+    }
+    rank = {
+        "rank": 0,
+        "local_edge_ids": torch.tensor([0], dtype=torch.long),
+        "read_dist_index": torch.tensor([0, 1], dtype=torch.long),
+    }
+    feature = {
+        "node_feat": torch.tensor([[1.0], [2.0]], dtype=torch.float32),
+        "edge_feat": None,
+    }
+    torch.save(graph, tmp_path / "graph.pt")
+    torch.save(dist, tmp_path / "dist.pt")
+    torch.save(rank, tmp_path / "rank_000.pt")
+    torch.save(feature, tmp_path / "feature_000.pt")
+    built = {}
+
+    class FakeFactory:
+        def __init__(self, graph_name):
+            built["graph_name"] = graph_name
+
+        def build(self, graph_data, config):
+            built["graph_data"] = graph_data
+            built["config"] = config
+            return _FakeSampler()
+
+    monkeypatch.setattr("atc_starrygl_lib.ctdg.runtime.backend.MemShareNativeSamplerFactory", FakeFactory)
+    backend = MemShareTemporalSamplingBackend()
+    backend._prepared_by = "new_pipeline"
+    backend.build_runtime(
+        RuntimeContext(
+            config={
+                "runtime": {
+                    "build_sampler": True,
+                    "build_feature_runtime": True,
+                    "fanouts": [2, 3],
+                    "num_layers": 2,
+                    "policy": "recent",
+                    "sampler_workers": 4,
+                    "graph_name": "wiki",
+                }
+            },
+            artifact_root=tmp_path,
+            rank=0,
+            world_size=1,
+            device="cpu",
+        ),
+        ArtifactBundle(
+            root=tmp_path,
+            graph_mode="ctdg",
+            files={
+                "graph": tmp_path / "graph.pt",
+                "dist": tmp_path / "dist.pt",
+                "rank_000": tmp_path / "rank_000.pt",
+                "feature_000": tmp_path / "feature_000.pt",
+            },
+        ),
+    )
+
+    assert built["graph_name"] == "wiki"
+    assert built["graph_data"].edge_part.tolist() == [0]
+    assert built["graph_data"].node_part.tolist() == [0, 0]
+    assert built["config"].fanouts == (2, 3)
+    assert built["config"].num_layers == 2
+    assert backend._runtime.feature_runtime is not None
+
+
+def test_new_pipeline_runtime_attaches_negative_roots_before_sampling(tmp_path: Path) -> None:
+    graph = {
+        "src": torch.tensor([0], dtype=torch.long),
+        "dst": torch.tensor([2], dtype=torch.long),
+        "ts": torch.tensor([1.0], dtype=torch.float32),
+        "edge_ids": torch.tensor([10], dtype=torch.long),
+        "num_nodes": 4,
+        "split_time_ptr": {"train": torch.tensor([[0, 1]], dtype=torch.long)},
+        "time_ptr_2": torch.tensor([[0, 1]], dtype=torch.long),
+    }
+    rank = {
+        "rank": 0,
+        "local_edge_ids": torch.tensor([0], dtype=torch.long),
+        "split_time_ptr": {"train": torch.tensor([[0, 1]], dtype=torch.long)},
+    }
+    torch.save(graph, tmp_path / "graph.pt")
+    torch.save({"world_size": 1}, tmp_path / "dist.pt")
+    torch.save(rank, tmp_path / "rank_000.pt")
+
+    sampler = _FakeSampler()
+    backend = MemShareTemporalSamplingBackend()
+    backend._prepared_by = "new_pipeline"
+    backend.build_runtime(
+        RuntimeContext(
+            config={
+                "runtime": {
+                    "sampler": sampler,
+                    "negative_sampler": _FixedNegativeSampler(torch.tensor([3], dtype=torch.long)),
+                    "negative_ratio": 1,
+                }
+            },
+            artifact_root=tmp_path,
+            rank=0,
+            world_size=1,
+            device="cpu",
+        ),
+        ArtifactBundle(
+            root=tmp_path,
+            graph_mode="ctdg",
+            files={
+                "graph": tmp_path / "graph.pt",
+                "dist": tmp_path / "dist.pt",
+                "rank_000": tmp_path / "rank_000.pt",
+            },
+        ),
+    )
+
+    batch = next(backend.iter_batches("train"))
+    assert sampler.calls[0]["roots"] == [0, 2, 3]
+    assert sampler.calls[0]["groups"] == {"pos_src": (0, 1), "pos_dst": (1, 2), "neg_dst": (2, 3)}
+    assert batch.neg_dst.tolist() == [2]
+
+
+class _FakeBlock:
+    def __init__(self) -> None:
+        self.srcdata = {"__ID": torch.tensor([0], dtype=torch.long), "ID": torch.tensor([0], dtype=torch.long)}
+        self.edata = {"__ID": torch.tensor([0], dtype=torch.long), "ID": torch.tensor([0], dtype=torch.long)}
+
+
+class _FakeSamplingOutput:
+    def __init__(self, idx: int, groups: dict[str, tuple[int, int]]) -> None:
+        self.idx = idx
+        self.mfgs = [_FakeBlock()]
+        self.node_compute = _FakeNodeCompute(groups)
+        self.edge_compute = _FakeEdgeCompute()
+        self.edge_comm = _FakeEdgeComm()
+
+
+class _FakeNodeCompute:
+    def __init__(self, groups: dict[str, tuple[int, int]]) -> None:
+        self.root_lids = torch.tensor([0, 2, 2, 1], dtype=torch.long)
+        self.groups = groups
+
+
+class _FakeEdgeCompute:
+    def __init__(self) -> None:
+        self.edge_gids = torch.tensor([0], dtype=torch.long)
+        self.edge_ts = None
+
+
+class _FakeEdgeComm:
+    def __init__(self) -> None:
+        self.edge_gids = torch.tensor([0], dtype=torch.long)
+        self.compute_to_comm = torch.tensor([0], dtype=torch.long)
+        self.time_slices = None
+
+
+class _FakeSampler:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def sample(self, request):
+        idx = len(self.calls)
+        groups = dict(request.roots.groups)
+        self.calls.append({"roots": request.roots.nodes.tolist(), "groups": groups})
+        return _FakeSamplingOutput(idx, groups)
+
+
+class _FixedNegativeSampler:
+    def __init__(self, neg_dst: torch.Tensor) -> None:
+        self.neg_dst = neg_dst
+
+    def sample(self, request):
+        from atc_starrygl_lib.sampling.negative import NegativeSamplingResult
+
+        return NegativeSamplingResult(
+            neg_src=request.pos_src.repeat_interleave(int(request.ratio)),
+            neg_dst=self.neg_dst.to(request.pos_src.device),
+            ratio=int(request.ratio),
+        )
+
+
+class _FakeHandle:
+    def __init__(self, idx: int) -> None:
+        self.idx = idx
+
+
+class _FakeFeatureRuntime:
+    def __init__(self) -> None:
+        self.submitted = []
+        self.patched = []
+
+    def build_layout_from_sampling(self, output):
+        return output.idx
+
+    def submit_fetch(self, layout):
+        self.submitted.append(layout)
+        return _FakeHandle(layout)
+
+    def wait_fetch(self, handle, layout):
+        return torch.tensor([[float(handle.idx + 1)]])
+
+    def build_edge_layout_from_sampling(self, output):
+        return output.idx
+
+    def submit_edge_fetch(self, layout):
+        return _FakeHandle(layout)
+
+    def wait_edge_fetch(self, handle, layout):
+        return torch.tensor([[float(handle.idx + 30)]])
+
+
+class _FakeMemoryRuntime:
+    def __init__(self) -> None:
+        self.submitted = []
+
+    def build_read_layout_from_sampling(self, output):
+        return output.idx
+
+    def submit_read(self, layout):
+        self.submitted.append(layout)
+        return _FakeHandle(layout)
+
+    def wait_read(self, handle, layout):
+        idx = float(handle.idx)
+        return torch.tensor([[10.0 + idx]]), torch.tensor([100.0 + idx])
+
+
+class _FakeMailboxRuntime:
+    def __init__(self) -> None:
+        self.submitted = []
+
+    def build_read_layout_from_sampling(self, output):
+        return output.idx
+
+    def submit_read(self, layout):
+        self.submitted.append(layout)
+        return _FakeHandle(layout)
+
+    def wait_read(self, handle, layout):
+        idx = float(handle.idx)
+        return torch.tensor([[[20.0 + idx, 21.0 + idx]]]), torch.tensor([[200.0 + idx]])

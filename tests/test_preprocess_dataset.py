@@ -12,12 +12,20 @@ def test_event_dict_stable_sort_and_reorder() -> None:
         "ts": torch.tensor([2.0, 1.0, 2.0]),
         "edge_feat": torch.tensor([[20.0], [10.0], [30.0]]),
         "edge_weight": torch.tensor([2.0, 1.0, 3.0]),
+        "node_label_nodes": torch.tensor([4, 5]),
+        "node_label_ts": torch.tensor([7.0, 8.0]),
+        "node_label": torch.tensor([1, 0]),
+        "node_label_split": torch.tensor([0, 1], dtype=torch.uint8),
     }
     out = build_dataset(data=data, mode="event", batch_size=2)
     assert out["src"].tolist() == [0, 2, 1]
     assert out["dst"].tolist() == [1, 3, 2]
     assert out["edge_feat"].squeeze(-1).tolist() == [10.0, 20.0, 30.0]
     assert out["edge_weight"].tolist() == [1.0, 2.0, 3.0]
+    assert out["node_label_nodes"].tolist() == [4, 5]
+    assert out["node_label_ts"].tolist() == [7.0, 8.0]
+    assert out["node_label"].tolist() == [1, 0]
+    assert out["node_label_split"].tolist() == [0, 1]
     assert out["time_ptr_2"].tolist() == [[0, 2], [2, 3]]
 
 

@@ -81,6 +81,9 @@ def build_dataset(
         "node_feat": _cpu_opt(graph.get("node_feat")),
         "edge_feat": edge_feat,
         "node_label": _cpu_opt(graph.get("node_label")),
+        "node_label_nodes": _cpu_opt(graph.get("node_label_nodes")),
+        "node_label_ts": _cpu_opt(graph.get("node_label_ts")),
+        "node_label_split": None if graph.get("node_label_split") is None else torch.as_tensor(graph["node_label_split"], dtype=torch.uint8).cpu().contiguous(),
         "edge_label": edge_label,
         "edge_weight": edge_weight,
         "time_ptr_2": time_ptr_2.long().cpu().contiguous(),
@@ -160,7 +163,7 @@ def _from_snapshots(snaps: list[dict[str, Any]], meta: dict[str, Any]) -> dict[s
         "ts": torch.cat(ts_parts, dim=0) if ts_parts else torch.empty(0, dtype=torch.float32),
         "snapshot_ptr": torch.tensor(ptr, dtype=torch.long),
     }
-    for k in ("num_nodes", "node_feat", "node_label", "edge_feat", "edge_label", "edge_weight"):
+    for k in ("num_nodes", "node_feat", "node_label", "node_label_nodes", "node_label_ts", "node_label_split", "edge_feat", "edge_label", "edge_weight"):
         if k in meta:
             out[k] = meta[k]
     return out
