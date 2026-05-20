@@ -5,6 +5,8 @@ from typing import Any
 import torch
 from torch import Tensor
 
+from atc_starrygl_lib.lib import load_native_utils_module
+
 PARTITION_DATA_FORMAT = "atc_partition_data_v1"
 
 
@@ -69,13 +71,70 @@ def build_partition_data_artifact(
     time_ptr_2 = time_ptr_2.long().cpu().contiguous()
     edge_ids = torch.arange(src.numel(), dtype=torch.long) if edge_ids is None else edge_ids.long().cpu().contiguous()
     local_edge_ids = rank_artifact["local_edge_ids"].long().cpu().contiguous()
-    edge_keep = torch.zeros(int(src.numel()), dtype=torch.bool)
-    edge_keep[local_edge_ids] = True
-    tensors = _empty_partition_tensors()
     full_dst_ids = _full_dst_ids_for_rank(rank_artifact) if dst_node_scope == "full" else None
+    native = _build_partition_topology_native(
+        local_edge_ids=local_edge_ids,
+        time_ptr_2=time_ptr_2,
+        src=src,
+        dst=dst,
+        edge_ids=edge_ids,
+        node_to_chunk=dist_plan["node_to_chunk"],
+        edge_weight=edge_weight,
+        build_gcn_norm=build_gcn_norm,
+        full_dst_ids=full_dst_ids,
+    )
+    if native is not None:
+        node_data: dict[str, dict[str, Tensor]] = {"c": _td_from(native["dst_chunk_data"], native["dst_chunk_ptr"])}
+        if node_feat is not None:
+            node_data["x"] = _td_from(
+                node_feat.cpu().contiguous().index_select(0, native["combined_data"].long()),
+                native["combined_ptr"],
+            )
+        if node_label is not None:
+            node_data["y"] = _td_from(
+                node_label.cpu().contiguous().index_select(0, native["dst_data"].long()),
+                native["dst_ptr"],
+            )
+        edge_data: dict[str, dict[str, Tensor]] = {}
+        if edge_feat is not None:
+            edge_data["feat"] = _td_from(
+                edge_feat.cpu().contiguous().index_select(0, native["edge_id_data"].long()),
+                native["edge_id_ptr"],
+            )
+        if edge_label is not None:
+            edge_data["label"] = _td_from(
+                edge_label.cpu().contiguous().index_select(0, native["edge_id_data"].long()),
+                native["edge_id_ptr"],
+            )
+        if edge_weight is not None:
+            edge_data["w"] = _td_from(
+                edge_weight.cpu().contiguous().index_select(0, native["edge_id_data"].long()),
+                native["edge_id_ptr"],
+            )
+        if build_gcn_norm and native.get("gcn_norm_data") is not None:
+            edge_data["gcn_norm"] = _td_from(native["gcn_norm_data"], native["gcn_norm_ptr"])
+        return {
+            "format": PARTITION_DATA_FORMAT,
+            "rank": int(rank_artifact["rank"]),
+            "dst_node_scope": dst_node_scope,
+            "src_ids": _td_from(native["src_data"], native["src_ptr"]),
+            "dst_ids": _td_from(native["dst_data"], native["dst_ptr"]),
+            "edge_ids": _td_from(native["edge_id_data"], native["edge_id_ptr"]),
+            "edge_src": _td_from(native["edge_src_data"], native["edge_src_ptr"]),
+            "edge_dst": _td_from(native["edge_dst_data"], native["edge_dst_ptr"]),
+            "edge_ptr": _td_from(native["edge_ptr_data"], native["edge_ptr_ptr"]),
+            "dst_chunk": _td_from(native["dst_chunk_data"], native["dst_chunk_ptr"]),
+            "node_data": node_data,
+            "edge_data": edge_data,
+            "route": None,
+        }
+
+    tensors = _empty_partition_tensors()
+    local_edge_ids_sorted = torch.sort(local_edge_ids).values
     for begin, end in time_ptr_2.tolist():
-        eids = torch.arange(int(begin), int(end), dtype=torch.long)
-        eids = eids[edge_keep[eids]]
+        left = int(torch.searchsorted(local_edge_ids_sorted, torch.tensor(int(begin), dtype=torch.long)))
+        right = int(torch.searchsorted(local_edge_ids_sorted, torch.tensor(int(end), dtype=torch.long)))
+        eids = local_edge_ids_sorted[left:right]
         block = _build_slice_block(
             eids=eids,
             src=src,
@@ -106,6 +165,80 @@ def build_partition_data_artifact(
         "edge_data": {key: _td(value) for key, value in tensors["edge_data"].items()},
         "route": None,
     }
+
+
+def _build_partition_topology_native(
+    *,
+    local_edge_ids: Tensor,
+    time_ptr_2: Tensor,
+    src: Tensor,
+    dst: Tensor,
+    edge_ids: Tensor,
+    node_to_chunk: Tensor,
+    edge_weight: Tensor | None,
+    build_gcn_norm: bool,
+    full_dst_ids: Tensor | None,
+) -> dict[str, Tensor | None] | None:
+    try:
+        native = load_native_utils_module()
+        weight = (
+            torch.empty(0, dtype=torch.float32)
+            if edge_weight is None
+            else edge_weight.float().cpu().contiguous()
+        )
+        if full_dst_ids is None:
+            out = native.build_partition_topology_with_norm(
+                local_edge_ids,
+                time_ptr_2,
+                src,
+                dst,
+                edge_ids,
+                node_to_chunk.long().cpu().contiguous(),
+                weight,
+                bool(build_gcn_norm),
+            )
+        else:
+            out = native.build_partition_topology_full_with_norm(
+                local_edge_ids,
+                time_ptr_2,
+                src,
+                dst,
+                edge_ids,
+                node_to_chunk.long().cpu().contiguous(),
+                full_dst_ids.long().cpu().contiguous(),
+                weight,
+                bool(build_gcn_norm),
+            )
+    except Exception:
+        return None
+    keys = [
+        "src_data",
+        "src_ptr",
+        "dst_data",
+        "dst_ptr",
+        "edge_id_data",
+        "edge_id_ptr",
+        "event_pos_data",
+        "event_pos_ptr",
+        "edge_src_data",
+        "edge_src_ptr",
+        "edge_dst_data",
+        "edge_dst_ptr",
+        "edge_ptr_data",
+        "edge_ptr_ptr",
+        "dst_chunk_data",
+        "dst_chunk_ptr",
+        "combined_data",
+        "combined_ptr",
+    ]
+    result: dict[str, Tensor | None] = {key: value for key, value in zip(keys, out)}
+    if len(out) >= 20:
+        result["gcn_norm_data"] = out[18]
+        result["gcn_norm_ptr"] = out[19]
+    else:
+        result["gcn_norm_data"] = None
+        result["gcn_norm_ptr"] = None
+    return result
 
 
 def _build_slice_block(
@@ -145,6 +278,42 @@ def _build_slice_block(
             "node_data": node_data,
             "edge_data": _empty_edge_data(edge_feat, edge_label, edge_weight, build_gcn_norm),
         }
+    native_block = _build_slice_block_native(
+        eids=eids,
+        src=src,
+        dst=dst,
+        edge_ids=edge_ids,
+        node_to_chunk=dist_plan["node_to_chunk"],
+        full_dst_ids=full_dst_ids,
+    )
+    if native_block is not None:
+        src_ids = native_block["src_ids"]
+        dst_ids = native_block["dst_ids"]
+        gids = native_block["edge_ids"]
+        combined = torch.cat([dst_ids, src_ids], dim=0)
+        node_data: dict[str, Tensor] = {}
+        if node_feat is not None:
+            node_data["x"] = node_feat.cpu().contiguous().index_select(0, combined.long())
+        if node_label is not None:
+            node_data["y"] = node_label.cpu().contiguous().index_select(0, dst_ids.long())
+        node_data["c"] = _local_chunk_for_nodes(dst_ids, dist_plan)
+        edge_data: dict[str, Tensor] = {}
+        if edge_feat is not None:
+            edge_data["feat"] = edge_feat.cpu().contiguous().index_select(0, gids)
+        if edge_label is not None:
+            edge_data["label"] = edge_label.cpu().contiguous().index_select(0, gids)
+        if edge_weight is not None:
+            edge_data["w"] = edge_weight.cpu().contiguous().index_select(0, gids)
+        if build_gcn_norm:
+            order = _edge_positions_for_gids(edge_ids=edge_ids, gids=gids)
+            edge_data["gcn_norm"] = _gcn_norm(
+                s=src.index_select(0, order),
+                d=dst.index_select(0, order),
+                edge_weight=edge_data.get("w"),
+            )
+        native_block["node_data"] = node_data
+        native_block["edge_data"] = edge_data
+        return native_block
     s = src.index_select(0, eids)
     d = dst.index_select(0, eids)
     gids = edge_ids.index_select(0, eids)
@@ -200,6 +369,49 @@ def _build_slice_block(
         "node_data": node_data,
         "edge_data": edge_data,
     }
+
+
+def _build_slice_block_native(
+    *,
+    eids: Tensor,
+    src: Tensor,
+    dst: Tensor,
+    edge_ids: Tensor,
+    node_to_chunk: Tensor,
+    full_dst_ids: Tensor | None,
+) -> dict[str, Any] | None:
+    try:
+        native = load_native_utils_module()
+        if full_dst_ids is None:
+            out = native.build_slice_topology(eids, src, dst, edge_ids, node_to_chunk)
+        else:
+            out = native.build_slice_topology_full(eids, src, dst, edge_ids, node_to_chunk, full_dst_ids)
+    except Exception:
+        return None
+    src_ids, dst_ids, gids, edge_src, edge_dst, edge_ptr, dst_chunk = out
+    return {
+        "src_ids": src_ids.long().contiguous(),
+        "dst_ids": dst_ids.long().contiguous(),
+        "edge_ids": gids.long().contiguous(),
+        "edge_src": edge_src.long().contiguous(),
+        "edge_dst": edge_dst.long().contiguous(),
+        "edge_ptr": edge_ptr.long().contiguous(),
+        "dst_chunk": dst_chunk.long().contiguous(),
+    }
+
+
+def _edge_positions_for_gids(*, edge_ids: Tensor, gids: Tensor) -> Tensor:
+    if int(edge_ids.numel()) == 0 or int(gids.numel()) == 0:
+        return torch.empty(0, dtype=torch.long)
+    if int(edge_ids.numel()) > int(edge_ids.max().item()) and bool(torch.equal(edge_ids, torch.arange(int(edge_ids.numel()), dtype=edge_ids.dtype))):
+        return gids.long()
+    order = torch.argsort(edge_ids.long(), stable=True)
+    sorted_ids = edge_ids.long().index_select(0, order)
+    pos = torch.searchsorted(sorted_ids, gids.long())
+    valid_pos = pos.clamp_max(max(int(sorted_ids.numel()) - 1, 0))
+    if not bool(((pos < int(sorted_ids.numel())) & (sorted_ids.index_select(0, valid_pos) == gids.long())).all()):
+        raise RuntimeError("edge gids are not all present in edge_ids")
+    return order.index_select(0, pos).long()
 
 
 def _attach_master_routes(
@@ -306,6 +518,10 @@ def _td(items: list[Tensor]) -> dict[str, Tensor]:
     return {"ptr": torch.tensor(ptr, dtype=torch.long), "data": data.contiguous()}
 
 
+def _td_from(data: Tensor, ptr: Tensor) -> dict[str, Tensor]:
+    return {"ptr": ptr.long().cpu().contiguous(), "data": data.cpu().contiguous()}
+
+
 def _td_len(td: dict[str, Tensor]) -> int:
     return int(td["ptr"].numel()) - 1
 
@@ -316,9 +532,7 @@ def _td_item(td: dict[str, Tensor], index: int) -> Tensor:
 
 
 def _local_chunk_for_nodes(node_ids: Tensor, dist_plan: dict[str, Any]) -> Tensor:
-    chunks = dist_plan["node_to_chunk"].long().cpu().index_select(0, node_ids.long())
-    _, compact = torch.unique(chunks, sorted=True, return_inverse=True)
-    return compact.long().cpu()
+    return dist_plan["node_to_chunk"].long().cpu().index_select(0, node_ids.long()).long().cpu()
 
 
 def _normalize_dst_node_scope(value: str) -> str:
