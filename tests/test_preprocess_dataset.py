@@ -82,3 +82,36 @@ def test_read_pth_and_edges_files(tmp_path: Path) -> None:
     edges_file.write_text("2 3 2\n1 2 1\n", encoding="utf-8")
     out_edges = build_dataset(data=edges_file, mode="event", batch_size=10)
     assert out_edges["dst"].tolist() == [2, 3]
+
+
+def test_read_raw_dataset_directory_features_and_labels(tmp_path: Path) -> None:
+    ds_dir = tmp_path / "WIKI"
+    ds_dir.mkdir()
+    (ds_dir / "edges.csv").write_text(
+        "src,dst,time,int_roll,ext_roll\n1,3,2.0,0,0\n0,2,1.0,1,0\n",
+        encoding="utf-8",
+    )
+    torch.save(torch.tensor([[10.0], [20.0]]), ds_dir / "edge_features.pt")
+    (ds_dir / "labels.csv").write_text(
+        "node,time,label,int_roll\n1,2.0,0,0\n0,3.0,1,2\n",
+        encoding="utf-8",
+    )
+
+    out = build_dataset(data=ds_dir, mode="event", batch_size=10)
+
+    assert out["src"].tolist() == [0, 1]
+    assert out["edge_feat"].squeeze(-1).tolist() == [20.0, 10.0]
+    assert out["node_label_nodes"].tolist() == [1, 0]
+    assert out["node_label"].tolist() == [0, 1]
+    assert out["node_label_split"].tolist() == [0, 2]
+
+
+def test_read_weighted_edges_uses_last_column_as_time(tmp_path: Path) -> None:
+    path = tmp_path / "ratings.edges"
+    path.write_text("% bip weighted\n1 2 5.0 20\n1 3 1.0 10\n", encoding="utf-8")
+
+    out = build_dataset(data=path, mode="event", batch_size=10)
+
+    assert out["dst"].tolist() == [3, 2]
+    assert out["ts"].tolist() == [10.0, 20.0]
+    assert out["edge_label"].tolist() == [1.0, 5.0]

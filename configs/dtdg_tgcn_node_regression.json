@@ -1,11 +1,26 @@
 {
   "graph": {
-    "source": "/path/to/snapshot_or_event_data"
+    "root": "/path/to/raw_data_root",
+    "source": "TGL-DATA/WIKI",
+    "node_feat": null,
+    "event_snapshot_bins": 12,
+    "max_events": 20000
   },
   "model": {
     "name": "tgcn",
-    "hidden_dim": 64,
-    "gcn_layers": 1
+    "hidden_dim": 64
+  },
+  "gnn": {
+    "history": 1,
+    "gcn_layers": 1,
+    "full_graph": {
+      "chunk_order": "identity",
+      "disable_states": false
+    },
+    "slice_config": {
+      "chunk_decay": [1],
+      "num_full_snapshots": 1
+    }
   },
   "task": {
     "name": "node_regression"
@@ -19,10 +34,7 @@
     "lags": 1
   },
   "runtime": {
-    "chunk_order": "identity",
-    "chunk_decay": [1],
-    "num_full_snapshots": 1,
-    "disable_states": false
+    "route_check_batches": 2
   },
   "train": {
     "epochs": 1,

@@ -1,6 +1,7 @@
 import torch
 
 from atc_starrygl_lib.core.config import normalize_config
+from atc_starrygl_lib.ctdg.runtime.backend import _native_sampler_policy
 from atc_starrygl_lib.runtime.unified import SampledBlockGCNEncoder
 
 
@@ -19,12 +20,60 @@ def test_config_routes_dtdg_model_with_sampling_to_temporal_sampling() -> None:
     cfg = normalize_config({
         "graph": {"source": "x"},
         "model": {"name": "gcn"},
-        "sampling": {"fanouts": [5, 5]},
+        "gnn": {"sampling": {"fanouts": [5, 5], "policy": "uniform"}},
         "task": {"name": "edge_prediction"},
     })
 
     assert cfg["graph"]["mode"] == "ctdg"
     assert cfg["runtime"]["execution_plan"] == "temporal_sampling"
+    assert cfg["runtime"]["fanouts"] == [5, 5]
+    assert cfg["runtime"]["num_layers"] == 2
+    assert cfg["runtime"]["policy"] == "uniform"
+
+
+def test_config_maps_full_graph_slice_config_and_history() -> None:
+    cfg = normalize_config({
+        "graph": {"source": "x"},
+        "model": {"name": "tgcn"},
+        "gnn": {
+            "history": 2,
+            "slice_config": {"chunk_decay": [1, 2]},
+            "full_graph": {"chunk_order": "identity"},
+        },
+        "task": {"name": "node_regression"},
+    })
+
+    assert cfg["graph"]["mode"] == "dtdg"
+    assert cfg["model"]["history"] == 2
+    assert cfg["runtime"]["num_full_snapshots"] == 2
+    assert cfg["runtime"]["chunk_decay"] == [1, 2]
+    assert cfg["runtime"]["chunk_order"] == "identity"
+
+
+def test_boundary_sampling_config_maps_probability_and_memory_history() -> None:
+    cfg = normalize_config({
+        "graph": {"source": "x"},
+        "model": {"name": "general"},
+        "gnn": {
+            "history": 3,
+            "memory_update": "rnn",
+            "memory_history": 4,
+            "sampling": {
+                "fanouts": [10],
+                "policy": "boundary_recent_sample",
+                "probability": 0.1,
+            },
+        },
+        "task": {"name": "edge_prediction"},
+    })
+
+    assert cfg["graph"]["mode"] == "ctdg"
+    assert cfg["model"]["memory_update"] == "rnn"
+    assert cfg["model"]["memory_history"] == 4
+    assert cfg["runtime"]["policy"] == "boundary_recent_uniform"
+    assert cfg["runtime"]["sample_probability"] == 0.1
+    assert cfg["runtime"]["mailbox_size"] == 4
+    assert _native_sampler_policy(cfg["runtime"]["policy"]) == "boundery_recent_uniform"
 
 
 def test_sampled_block_gcn_encoder_uses_sampled_block_features() -> None:

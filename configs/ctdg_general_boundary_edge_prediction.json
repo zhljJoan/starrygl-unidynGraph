@@ -15,7 +15,8 @@
     "memory_history": 1,
     "sampling": {
       "fanouts": [10],
-      "policy": "uniform"
+      "policy": "boundary_recent_uniform",
+      "probability": 0.1
     }
   },
   "task": {
@@ -29,7 +30,6 @@
     "build_feature": true
   },
   "runtime": {
-    "build_sampler": true,
     "build_feature_runtime": true,
     "build_memory_runtime": true,
     "build_mailbox_runtime": true,

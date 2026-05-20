@@ -509,11 +509,17 @@ def _build_native_sampler(
     config = NativeSamplerConfig(
         fanouts=tuple(int(v) for v in runtime_cfg.get("fanouts", (10,))),
         num_layers=int(runtime_cfg.get("num_layers", 1)),
-        policy=str(runtime_cfg.get("policy", "recent")),
+        policy=_native_sampler_policy(str(runtime_cfg.get("policy", "recent"))),
         workers=int(runtime_cfg.get("sampler_workers", runtime_cfg.get("workers", 1))),
         local_part=int(ctx.rank),
     )
-    return MemShareNativeSamplerFactory(graph_name=str(runtime_cfg.get("graph_name", "ctdg_events"))).build(temporal_graph, config)
+    probability = float(runtime_cfg.get("sample_probability", runtime_cfg.get("boundary_probability", 1.0)))
+    graph_name = str(runtime_cfg.get("graph_name", "ctdg_events"))
+    try:
+        factory = MemShareNativeSamplerFactory(graph_name=graph_name, probability=probability)
+    except TypeError:
+        factory = MemShareNativeSamplerFactory(graph_name=graph_name)
+    return factory.build(temporal_graph, config)
 
 
 def _build_feature_runtime(
@@ -541,6 +547,13 @@ def _build_feature_runtime(
         world_size=int(ctx.world_size),
         edge_dist_index=edge_dist_index,
     )
+
+
+def _native_sampler_policy(policy: str) -> str:
+    policy = str(policy).strip().lower()
+    if policy.startswith("boundary_"):
+        return "boundery_" + policy[len("boundary_"):]
+    return policy
 
 
 def _build_dist_index_tables(*, rank_artifact: dict[str, Any], dist: dict[str, Any]) -> DistIndexTables:

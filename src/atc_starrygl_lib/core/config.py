@@ -39,9 +39,12 @@ def normalize_config(config_or_path: Mapping[str, Any] | str | Path) -> dict[str
     config = load_config(config_or_path)
     graph = _section(config, "graph")
     task = _section(config, "task")
+    gnn = dict(config.get("gnn", {})) if isinstance(config.get("gnn"), Mapping) else {}
     model = _section(config, "model") if isinstance(config.get("model"), Mapping) else {}
-    sampling = dict(config.get("sampling", {})) if isinstance(config.get("sampling"), Mapping) else {}
+    model = _merge_model_gnn(model, gnn)
+    sampling = _merge_sampling_config(config.get("sampling"), gnn.get("sampling"))
     runtime = dict(config.get("runtime", {}))
+    runtime = _merge_runtime_gnn(runtime, gnn=gnn, sampling=sampling, model=model)
     preprocess = dict(config.get("preprocess", {})) if isinstance(config.get("preprocess"), Mapping) else {}
 
     task["name"] = _required_str(task, "name", "task")
@@ -57,6 +60,7 @@ def normalize_config(config_or_path: Mapping[str, Any] | str | Path) -> dict[str
     config["graph"] = graph
     config["task"] = task
     config["model"] = model
+    config["gnn"] = gnn
     config["sampling"] = sampling
     config["runtime"] = runtime
     config["preprocess"] = preprocess
@@ -152,6 +156,83 @@ def _sampling_enabled(config: Mapping[str, Any]) -> bool:
     return False
 
 
+def _merge_model_gnn(model: Mapping[str, Any], gnn: Mapping[str, Any]) -> dict[str, Any]:
+    out = dict(model)
+    for key in (
+        "history",
+        "layers",
+        "num_layers",
+        "gcn_layers",
+        "gnn_arch",
+        "memory_update",
+        "memory_history",
+        "hidden_dim",
+        "hidden_size",
+        "dim_time",
+        "att_head",
+        "dropout",
+        "att_dropout",
+    ):
+        if key in gnn and key not in out:
+            out[key] = gnn[key]
+    return out
+
+
+def _merge_sampling_config(raw_sampling: Any, raw_gnn_sampling: Any) -> dict[str, Any]:
+    sampling = dict(raw_sampling) if isinstance(raw_sampling, Mapping) else {}
+    if isinstance(raw_gnn_sampling, Mapping):
+        merged = dict(raw_gnn_sampling)
+        merged.update(sampling)
+        sampling = merged
+    return sampling
+
+
+def _merge_runtime_gnn(runtime: Mapping[str, Any], *, gnn: Mapping[str, Any], sampling: Mapping[str, Any], model: Mapping[str, Any]) -> dict[str, Any]:
+    out = dict(runtime)
+    if _sampling_enabled(sampling):
+        out.setdefault("build_sampler", True)
+        if "fanouts" in sampling:
+            out.setdefault("fanouts", sampling["fanouts"])
+            try:
+                out.setdefault("num_layers", len(sampling["fanouts"]))  # type: ignore[arg-type]
+            except TypeError:
+                pass
+        if "policy" in sampling:
+            out.setdefault("policy", _normalize_sampling_policy(str(sampling["policy"])))
+        for src, dst in (
+            ("probability", "sample_probability"),
+            ("sample_probability", "sample_probability"),
+            ("boundary_probability", "boundary_probability"),
+            ("boundery_probability", "boundary_probability"),
+            ("sampler_workers", "sampler_workers"),
+            ("workers", "workers"),
+        ):
+            if src in sampling:
+                out.setdefault(dst, sampling[src])
+    full_graph = {}
+    if isinstance(gnn.get("full_graph"), Mapping):
+        full_graph.update(gnn["full_graph"])
+    if isinstance(gnn.get("slice_config"), Mapping):
+        full_graph.update(gnn["slice_config"])
+    if full_graph:
+        aliases = {
+            "chunk_order": "chunk_order",
+            "chunk_decay": "chunk_decay",
+            "decay": "chunk_decay",
+            "num_full_snapshots": "num_full_snapshots",
+            "disable_states": "disable_states",
+            "disable_routes": "disable_routes",
+        }
+        for src, dst in aliases.items():
+            if src in full_graph:
+                out.setdefault(dst, full_graph[src])
+    if "history" in model:
+        out.setdefault("num_full_snapshots", int(model["history"]))
+    if "memory_history" in model:
+        out.setdefault("mailbox_size", int(model["memory_history"]))
+    return out
+
+
 def _graph_mode_for_plan(plan: str) -> str:
     plan = str(plan).strip().lower()
     if plan in {"temporal_sampling", "sampling", "neighbor_sampling", "sampled"}:
@@ -168,6 +249,16 @@ def _execution_plan_for_graph_mode(mode: str) -> str:
     if mode == "dtdg":
         return "snapshot_full_graph"
     raise ConfigError(f"unknown graph mode: {mode!r}")
+
+
+def _normalize_sampling_policy(policy: str) -> str:
+    policy = str(policy).strip().lower()
+    if policy.startswith("boundery_"):
+        policy = "boundary_" + policy[len("boundery_"):]
+    aliases = {
+        "boundary_recent_sample": "boundary_recent_uniform",
+    }
+    return aliases.get(policy, policy)
 
 
 def _required_str(section: Mapping[str, Any], key: str, section_name: str) -> str:

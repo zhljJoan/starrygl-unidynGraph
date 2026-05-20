@@ -103,6 +103,7 @@ def _build_temporal_sampling_model(
             "dim_out": hidden_dim,
             "dim_time": int(model_cfg.get("dim_time", hidden_dim)),
             "memory_update": str(model_cfg.get("memory_update", "gru")),
+            "mailbox_size": int(model_cfg.get("memory_history", ctx.config.get("runtime", {}).get("mailbox_size", 1))),
             "combine_node_feature": bool(model_cfg.get("combine_node_feature", False)),
         },
         "gnn": {
@@ -190,10 +191,12 @@ def _sampled_layers(mfgs: Any) -> list[Any]:
 
 
 def _build_head(*, task_name: str, dim: int, graph: dict[str, Any], model_cfg: dict[str, Any]) -> torch.nn.Module:
-    from atc_starrygl_lib.models.shared import EdgePredictHead, EdgeRegressHead, NodeClassifyHead, NodeRegressHead
+    from atc_starrygl_lib.models.shared import EdgeLabelHead, EdgePredictHead, EdgeRegressHead, NodeClassifyHead, NodeRegressHead
 
     if task_name in {"edge_prediction", "edge_predict", "link_prediction"}:
         return EdgePredictHead(dim)
+    if task_name in {"edge_label_prediction", "edge_classification"}:
+        return EdgeLabelHead(dim, _num_edge_classes(graph, model_cfg))
     if task_name == "edge_regression":
         return EdgeRegressHead(dim, int(model_cfg.get("out_dim", 1)))
     if task_name in {"node_prediction", "node_classification"}:
@@ -244,3 +247,15 @@ def _num_classes(graph: dict[str, Any], model_cfg: dict[str, Any]) -> int:
     if labels is None or torch.as_tensor(labels).numel() == 0:
         return 2
     return int(torch.as_tensor(labels).max().item()) + 1
+
+
+def _num_edge_classes(graph: dict[str, Any], model_cfg: dict[str, Any]) -> int:
+    if "num_classes" in model_cfg:
+        return int(model_cfg["num_classes"])
+    labels = graph.get("edge_label")
+    if labels is None or torch.as_tensor(labels).numel() == 0:
+        return 2
+    labels_t = torch.as_tensor(labels)
+    if labels_t.dtype.is_floating_point and int(labels_t.max().item()) <= 1:
+        return 1
+    return int(labels_t.max().item()) + 1

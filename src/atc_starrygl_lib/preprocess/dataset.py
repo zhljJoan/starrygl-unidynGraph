@@ -98,7 +98,11 @@ def _load_graph_like(data: Any) -> dict[str, Any]:
         if isinstance(data.get("snapshots"), list):
             return _from_snapshots(data["snapshots"], data)
         return _normalize_keys(data)
-    path = Path(data)
+    path = Path(str(data)).expanduser()
+    if path.is_dir():
+        return _load_dataset_dir(path)
+    if path.name == "edges.csv":
+        return _load_dataset_dir(path.parent)
     if path.suffix == ".pth":
         obj = torch.load(path, map_location="cpu")
         if not isinstance(obj, dict):
@@ -106,33 +110,122 @@ def _load_graph_like(data: Any) -> dict[str, Any]:
         if isinstance(obj.get("snapshots"), list):
             return _from_snapshots(obj["snapshots"], obj)
         return _normalize_keys(obj)
-    if path.name == "edges.csv":
+    if path.suffix == ".csv":
         rows = _read_csv_like(path, sep=",")
     elif path.suffix == ".edges":
-        rows = _read_csv_like(path, sep=" ")
+        rows = _read_csv_like(path, sep=r"\s+")
     elif path.name == "edges.txt":
-        rows = _read_csv_like(path, sep=" ")
+        rows = _read_csv_like(path, sep=r"\s+")
     else:
         raise ValueError(f"unsupported dataset source: {path}")
-    return {
-        "src": torch.tensor([r[0] for r in rows], dtype=torch.long),
-        "dst": torch.tensor([r[1] for r in rows], dtype=torch.long),
-        "ts": torch.tensor([r[2] for r in rows], dtype=torch.float32),
-    }
+    return rows
 
 
-def _read_csv_like(path: Path, sep: str) -> list[tuple[int, int, float]]:
+def _load_dataset_dir(path: Path) -> dict[str, Any]:
+    edge_path = path / "edges.csv"
+    if not edge_path.exists():
+        matches = sorted(path.glob("*.edges"))
+        if not matches:
+            raise ValueError(f"dataset directory does not contain edges.csv or *.edges: {path}")
+        edge_path = matches[0]
+    graph = _read_csv_like(edge_path, sep="," if edge_path.suffix == ".csv" else r"\s+")
+    node_feat = _load_first_tensor(path, ("node_features.pt", "node_feat.pt", "nodes.pt"))
+    edge_feat = _load_first_tensor(path, ("edge_features.pt", "edge_feat.pt", "edge_features_e0.pt"))
+    if node_feat is not None:
+        graph["node_feat"] = _feature_tensor(node_feat)
+    if edge_feat is not None:
+        graph["edge_feat"] = _align_edge_tensor(_feature_tensor(edge_feat), int(graph["src"].numel()))
+    labels = path / "labels.csv"
+    if labels.exists():
+        graph.update(_load_node_labels(labels))
+    return graph
+
+
+def _load_first_tensor(path: Path, names: tuple[str, ...]) -> Tensor | None:
+    for name in names:
+        candidate = path / name
+        if candidate.exists():
+            value = torch.load(candidate, map_location="cpu", weights_only=False)
+            if isinstance(value, dict):
+                for key in ("feat", "features", "data", "x"):
+                    if key in value:
+                        value = value[key]
+                        break
+            return torch.as_tensor(value)
+    return None
+
+
+def _feature_tensor(value: Tensor) -> Tensor:
+    tensor = torch.as_tensor(value).cpu().contiguous()
+    if tensor.dtype == torch.bool or not tensor.dtype.is_floating_point:
+        tensor = tensor.float()
+    return tensor
+
+
+def _align_edge_tensor(value: Tensor, num_edges: int) -> Tensor:
+    if int(value.size(0)) == int(num_edges) + 1:
+        value = value[1:]
+    if int(value.size(0)) > int(num_edges):
+        value = value[:num_edges]
+    if int(value.size(0)) < int(num_edges):
+        pad = torch.zeros((int(num_edges) - int(value.size(0)), *value.shape[1:]), dtype=value.dtype)
+        value = torch.cat([value, pad], dim=0)
+    return value.contiguous()
+
+
+def _load_node_labels(path: Path) -> dict[str, Tensor]:
     import pandas as pd
 
-    df = pd.read_csv(path, sep=sep)
-    cols = {c.lower(): c for c in df.columns}
+    df = pd.read_csv(path)
+    cols = {str(c).lower(): c for c in df.columns}
+    node_col = cols.get("node") or cols.get("node_id") or cols.get("nid")
+    label_col = cols.get("label") or cols.get("y")
+    if node_col is None or label_col is None:
+        return {}
+    out: dict[str, Tensor] = {
+        "node_label_nodes": torch.as_tensor(df[node_col].to_numpy(), dtype=torch.long),
+        "node_label": torch.as_tensor(df[label_col].to_numpy()),
+    }
+    time_col = cols.get("time") or cols.get("ts")
+    if time_col is not None:
+        out["node_label_ts"] = torch.as_tensor(df[time_col].to_numpy(), dtype=torch.float32)
+    split_col = cols.get("int_roll")
+    if split_col is not None:
+        out["node_label_split"] = torch.as_tensor(df[split_col].to_numpy(), dtype=torch.uint8).clamp(0, 2)
+    return out
+
+
+def _read_csv_like(path: Path, sep: str) -> dict[str, Tensor]:
+    import pandas as pd
+
+    df = pd.read_csv(path, sep=sep, comment="%", engine="python")
+    cols = {str(c).lower(): c for c in df.columns}
     s_col = cols.get("src") or cols.get("u")
     d_col = cols.get("dst") or cols.get("i")
     t_col = cols.get("ts") or cols.get("time")
+    label_col = cols.get("label") or cols.get("weight") or cols.get("rating")
     if s_col is None or d_col is None or t_col is None:
-        raw = pd.read_csv(path, sep=sep, header=None)
-        return [(int(a), int(b), float(c)) for a, b, c in raw.iloc[:, :3].itertuples(index=False, name=None)]
-    return [(int(a), int(b), float(c)) for a, b, c in df[[s_col, d_col, t_col]].itertuples(index=False, name=None)]
+        raw = pd.read_csv(path, sep=sep, comment="%", header=None, engine="python")
+        graph = {
+            "src": torch.as_tensor(raw.iloc[:, 0].to_numpy(), dtype=torch.long),
+            "dst": torch.as_tensor(raw.iloc[:, 1].to_numpy(), dtype=torch.long),
+            "ts": torch.as_tensor(raw.iloc[:, -1].to_numpy(), dtype=torch.float32),
+        }
+        if raw.shape[1] >= 4:
+            label = torch.as_tensor(raw.iloc[:, -2].to_numpy(), dtype=torch.float32)
+            graph["edge_weight"] = label
+            graph["edge_label"] = label
+        return graph
+    graph = {
+        "src": torch.as_tensor(df[s_col].to_numpy(), dtype=torch.long),
+        "dst": torch.as_tensor(df[d_col].to_numpy(), dtype=torch.long),
+        "ts": torch.as_tensor(df[t_col].to_numpy(), dtype=torch.float32),
+    }
+    if label_col is not None:
+        label = torch.as_tensor(df[label_col].to_numpy(), dtype=torch.float32)
+        graph["edge_weight"] = label
+        graph["edge_label"] = label
+    return graph
 
 
 def _normalize_keys(data: dict[str, Any]) -> dict[str, Any]:

@@ -60,6 +60,11 @@
   - `temporal_sampling`: internal CTDG/MemShare-style sampled execution.
   - `snapshot_full_graph`: internal DTDG/Flare-style STGraphLoader execution.
   - Sampling config has priority; a DTDG-family model with neighbor sampling routes to `temporal_sampling`.
+  - Prefer user-facing `gnn.*` for execution-shape settings:
+    - `gnn.sampling.fanouts`, `gnn.sampling.policy`, and optional `gnn.sampling.probability` for sampled execution.
+    - `gnn.full_graph` / `gnn.slice_config` for full-snapshot settings such as `chunk_order`, `chunk_decay`, and `num_full_snapshots`.
+    - `gnn.history` is the default temporal history and should match full-graph `num_full_snapshots` unless intentionally overridden.
+    - `gnn.memory_update` and `gnn.memory_history` configure CTDG memory update style and mailbox history depth.
 - For event mode, preserve rule: split train/val/test first, then batch per split.
 - Keep `time_ptr_2` compatibility when introducing newer structures like `split_time_ptr`.
 
