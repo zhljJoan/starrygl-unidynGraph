@@ -82,6 +82,14 @@ class MemShareNativeSampler(NativeTemporalSampler):
         t0 = time.perf_counter()
         self._sampler.neighbor_sample_from_nodes(root_nodes, timestamps, None)
         self._profile_stats["neighbor_sample_from_nodes_seconds"] += float(time.perf_counter() - t0)
+        if hasattr(self._sampler, "get_sampling_output_compact"):
+            t0 = time.perf_counter()
+            native = self._sampler.get_sampling_output_compact(root_nodes, timestamps)
+            self._profile_stats["get_sampling_output_seconds"] += float(time.perf_counter() - t0)
+            t0 = time.perf_counter()
+            out = _convert_native_sampling_output(native, request)
+            self._profile_stats["convert_sampling_output_seconds"] += float(time.perf_counter() - t0)
+            return out
         if hasattr(self._sampler, "get_sampling_output"):
             t0 = time.perf_counter()
             native = self._sampler.get_sampling_output(root_nodes, timestamps)
@@ -144,6 +152,8 @@ class MemShareNativeSampler(NativeTemporalSampler):
         self._sampler.reset()
 
     def reset_profile_stats(self) -> None:
+        if self._sampler is not None and hasattr(self._sampler, "reset_profile_stats"):
+            self._sampler.reset_profile_stats()
         self._profile_stats = {
             "neighbor_sample_from_nodes_seconds": 0.0,
             "get_sampling_output_seconds": 0.0,
@@ -152,6 +162,15 @@ class MemShareNativeSampler(NativeTemporalSampler):
 
     def pop_profile_stats(self) -> dict[str, float]:
         out = dict(self._profile_stats)
+        if self._sampler is not None:
+            for key in (
+                "compact_total_seconds",
+                "compact_root_seconds",
+                "compact_index_seconds",
+                "compact_fill_seconds",
+            ):
+                if hasattr(self._sampler, key):
+                    out[key] = float(getattr(self._sampler, key))
         self.reset_profile_stats()
         return out
 

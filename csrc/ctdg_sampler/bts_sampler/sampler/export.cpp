@@ -114,8 +114,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def("neighbor_sample_from_nodes", &ParallelSampler::neighbor_sample_from_nodes)
         .def("sample_dtdg_uniform", &ParallelSampler::sample_dtdg_uniform)
         .def("reset", &ParallelSampler::reset)
+        .def("reset_profile_stats", &ParallelSampler::reset_profile_stats)
         .def("get_ret", [](const ParallelSampler &ps) { return ps.ret; })
         .def("get_sampling_output", &ParallelSampler::get_sampling_output)
+        .def("get_sampling_output_compact", &ParallelSampler::get_sampling_output_compact)
         .def("get_sampling_output_parallel", &ParallelSampler::get_sampling_output_parallel)
         .def("sample_unique", &ParallelSampler::sample_unique)
         .def_readonly("dist_nid",&ParallelSampler::dist_nid,py::return_value_policy::reference)
@@ -123,7 +125,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def_readonly("block_node_list",&ParallelSampler::block_node_list,py::return_value_policy::reference)
         .def_readonly("eid_inv",&ParallelSampler::eid_inv,py::return_value_policy::reference)
         .def_readonly("unq_id",&ParallelSampler::unq_id,py::return_value_policy::reference)
-        .def_readonly("first_block_id",&ParallelSampler::first_block_id,py::return_value_policy::reference);
+        .def_readonly("first_block_id",&ParallelSampler::first_block_id,py::return_value_policy::reference)
+        .def_readonly("compact_total_seconds", &ParallelSampler::compact_total_seconds)
+        .def_readonly("compact_root_seconds", &ParallelSampler::compact_root_seconds)
+        .def_readonly("compact_index_seconds", &ParallelSampler::compact_index_seconds)
+        .def_readonly("compact_fill_seconds", &ParallelSampler::compact_fill_seconds);
 
     py::class_<ParallelTppRComputer>(m, "ParallelTppRComputer")
         .def(py::init<TemporalNeighborBlock &, NodeIDType, EdgeIDType, int,
