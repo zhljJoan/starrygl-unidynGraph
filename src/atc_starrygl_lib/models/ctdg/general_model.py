@@ -7,6 +7,7 @@ import torch.nn as nn
 from torch import Tensor
 
 from atc_starrygl_lib.core.types import Batch, EdgePredOutput
+from atc_starrygl_lib.memory import RuntimeAsyncMemoryUpdater
 from .layers import TransformerAttentionLayer, IdentityNormLayer, JODIETimeEmbedding
 from .memory_updater import GRUMemoryUpdater, RNNMemoryUpdater, TransformerMemoryUpdater
 from ..shared.edge_predictor import EdgePredictor
@@ -23,6 +24,7 @@ class GeneralModel(nn.Module):
         train_param: dict,
         num_nodes: int | None = None,
         mailbox: Any = None,
+        runtime_memory_updater: RuntimeAsyncMemoryUpdater | None = None,
         combined: bool = False,
     ):
         super().__init__()
@@ -56,6 +58,9 @@ class GeneralModel(nn.Module):
                 )
             else:
                 raise NotImplementedError(f"memory_update={upd!r}")
+            if runtime_memory_updater is not None:
+                runtime_memory_updater.base_updater = self.memory_updater
+                self.memory_updater = runtime_memory_updater
             self.dim_node_input = memory_param['dim_out']
 
         self.layers = nn.ModuleDict()
@@ -96,9 +101,10 @@ class GeneralModel(nn.Module):
         neg_samples: int = 1,
         mode: str = 'triplet',
         async_param: Any = None,
+        memory_update_spec: Any = None,
     ) -> tuple[Tensor, Tensor]:
         if self.memory_param['type'] == 'node':
-            self.memory_updater(mfgs[0], async_param)
+            self.memory_updater(mfgs[0], memory_update_spec if memory_update_spec is not None else async_param)
 
         out = []
         for l in range(self.gnn_param['layer']):
@@ -153,6 +159,7 @@ class GeneralModel(nn.Module):
         num_nodes: int,
         config: dict,
         mailbox: Any = None,
+        runtime_memory_updater: RuntimeAsyncMemoryUpdater | None = None,
     ) -> "GeneralModel":
         return cls(
             dim_node=dim_node,
@@ -163,4 +170,5 @@ class GeneralModel(nn.Module):
             train_param=config['train'],
             num_nodes=num_nodes,
             mailbox=mailbox,
+            runtime_memory_updater=runtime_memory_updater,
         )

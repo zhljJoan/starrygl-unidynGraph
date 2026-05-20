@@ -86,6 +86,7 @@ class ParallelSampler
         void sample_unique(     th::Tensor seed, th::Tensor seed_ts,
                                 th::Tensor nid_mapper, th::Tensor eid_mapper,string out_device);
         NativeSamplingOutput get_sampling_output(th::Tensor root_nodes, optional<th::Tensor> root_ts);
+        NativeSamplingOutput get_sampling_output_parallel(th::Tensor root_nodes, optional<th::Tensor> root_ts);
 };
 
 
@@ -482,13 +483,30 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
         AT_ASSERTM(root_ts.value().size(0) == root_nodes.size(0), "root_ts size must match root_nodes");
     }
 
+    py::gil_scoped_release release;
+
     NativeSamplingOutput out;
     out.mfgs.resize(ret.size());
+    out.node_layer_ptr.reserve(ret.size() + 2);
+    out.edge_layer_ptr.reserve(ret.size() + 1);
     out.node_layer_ptr.emplace_back(0);
     out.edge_layer_ptr.emplace_back(0);
 
+    size_t estimated_nodes = static_cast<size_t>(root_nodes.size(0));
+    size_t estimated_edges = 0;
+    for(const TemporalGraphBlock& block : ret){
+        estimated_nodes += block.sample_nodes.size();
+        estimated_edges += block.eid.size();
+    }
+    out.node_gids.reserve(estimated_nodes);
+    out.node_ts.reserve(estimated_nodes);
+    out.edge_gids.reserve(estimated_edges);
+    out.edge_ts.reserve(estimated_edges);
+
     unordered_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> node_lid;
     unordered_map<EdgeIDType, int64_t> edge_lid;
+    node_lid.reserve(estimated_nodes);
+    edge_lid.reserve(estimated_edges);
 
     auto add_node = [&](NodeIDType gid, TimeStampType ts) -> int64_t {
         NodeInstanceKey key{gid, ts};
@@ -537,6 +555,9 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
     }
     out.node_layer_ptr.emplace_back(static_cast<int64_t>(out.node_gids.size()));
 
+    const vector<NodeIDType>* frontier_nodes_ptr = &frontier_nodes;
+    const vector<TimeStampType>* frontier_ts_ptr = &frontier_ts;
+
     for(int64_t layer = 0; layer < static_cast<int64_t>(ret.size()); layer++){
         TemporalGraphBlock& block = ret[layer];
         NativeMFGBlock mfg;
@@ -544,10 +565,13 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
         mfg.dst_begin = layer == 0 ? 0 : out.node_layer_ptr[layer];
         mfg.dst_end = out.node_layer_ptr[layer + 1];
 
-        int64_t num_dst = static_cast<int64_t>(frontier_nodes.size());
+        const vector<NodeIDType>& cur_frontier_nodes = *frontier_nodes_ptr;
+        const vector<TimeStampType>& cur_frontier_ts = *frontier_ts_ptr;
+        int64_t num_dst = static_cast<int64_t>(cur_frontier_nodes.size());
         mfg.dst_lids.reserve(num_dst);
         for(int64_t i = 0; i < num_dst; i++){
-            mfg.dst_lids.emplace_back(add_node(frontier_nodes[i], frontier_ts[i]));
+            TimeStampType ts = cur_frontier_ts.empty() ? 0 : cur_frontier_ts[i];
+            mfg.dst_lids.emplace_back(add_node(cur_frontier_nodes[i], ts));
         }
 
         mfg.csc_indptr.assign(num_dst + 1, 0);
@@ -591,9 +615,326 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
         out.node_layer_ptr.emplace_back(static_cast<int64_t>(out.node_gids.size()));
         out.edge_layer_ptr.emplace_back(static_cast<int64_t>(out.edge_gids.size()));
 
-        frontier_nodes = block.sample_nodes;
-        frontier_ts = block.sample_nodes_ts;
+        frontier_nodes_ptr = &block.sample_nodes;
+        frontier_ts_ptr = &block.sample_nodes_ts;
     }
+    return out;
+}
+
+
+NativeSamplingOutput ParallelSampler::get_sampling_output_parallel(th::Tensor root_nodes, optional<th::Tensor> root_ts)
+{
+    AT_ASSERTM(root_nodes.is_contiguous(), "root_nodes must be contiguous");
+    AT_ASSERTM(root_nodes.dim() == 1, "root_nodes must be one-dimensional");
+    if(root_ts.has_value()){
+        AT_ASSERTM(root_ts.value().is_contiguous(), "root_ts must be contiguous");
+        AT_ASSERTM(root_ts.value().dim() == 1, "root_ts must be one-dimensional");
+        AT_ASSERTM(root_ts.value().size(0) == root_nodes.size(0), "root_ts size must match root_nodes");
+    }
+
+    py::gil_scoped_release release;
+
+    struct FirstEdgeOccurrence
+    {
+        uint64_t pos;
+        TimeStampType ts;
+    };
+    struct NodeOccurrenceEntry
+    {
+        NodeInstanceKey key;
+        uint64_t pos;
+    };
+    struct EdgeOccurrenceEntry
+    {
+        EdgeIDType gid;
+        uint64_t pos;
+        TimeStampType ts;
+    };
+
+    auto update_node_first = [](unordered_map<NodeInstanceKey, uint64_t, NodeInstanceKeyHash>& first,
+                                const NodeInstanceKey& key,
+                                uint64_t pos) {
+        auto it = first.find(key);
+        if(it == first.end()){
+            first.emplace(key, pos);
+        }
+        else if(pos < it->second){
+            it->second = pos;
+        }
+    };
+    auto update_edge_first = [](unordered_map<EdgeIDType, FirstEdgeOccurrence>& first,
+                                EdgeIDType gid,
+                                TimeStampType ts,
+                                uint64_t pos) {
+        auto it = first.find(gid);
+        if(it == first.end()){
+            first.emplace(gid, FirstEdgeOccurrence{pos, ts});
+        }
+        else if(pos < it->second.pos){
+            it->second = FirstEdgeOccurrence{pos, ts};
+        }
+    };
+
+    const int nthreads = std::max(1, threads);
+    const int64_t num_roots = root_nodes.size(0);
+    const int64_t num_layers_i64 = static_cast<int64_t>(ret.size());
+    vector<uint64_t> layer_dst_base(ret.size(), 0);
+    vector<uint64_t> layer_edge_base(ret.size(), 0);
+    vector<uint64_t> layer_end_pos(ret.size(), static_cast<uint64_t>(num_roots));
+    uint64_t next_pos = static_cast<uint64_t>(num_roots);
+    size_t estimated_nodes = static_cast<size_t>(num_roots);
+    size_t estimated_edges = 0;
+    for(int64_t layer = 0; layer < num_layers_i64; layer++){
+        const int64_t num_dst = layer == 0 ? num_roots : static_cast<int64_t>(ret[layer - 1].sample_nodes.size());
+        layer_dst_base[layer] = next_pos;
+        next_pos += static_cast<uint64_t>(num_dst);
+        layer_edge_base[layer] = next_pos;
+        next_pos += static_cast<uint64_t>(ret[layer].src_index.size());
+        layer_end_pos[layer] = next_pos;
+        estimated_nodes += ret[layer].sample_nodes.size();
+        estimated_edges += ret[layer].eid.size();
+    }
+
+    auto root_nodes_data = get_data_ptr<NodeIDType>(root_nodes);
+    TimeStampType* root_ts_data = nullptr;
+    if(root_ts.has_value()){
+        root_ts_data = get_data_ptr<TimeStampType>(root_ts.value());
+    }
+
+    unordered_map<NodeInstanceKey, uint64_t, NodeInstanceKeyHash> global_node_first;
+    unordered_map<EdgeIDType, FirstEdgeOccurrence> global_edge_first;
+    global_node_first.reserve(estimated_nodes);
+    global_edge_first.reserve(estimated_edges);
+
+    for(int64_t i = 0; i < num_roots; i++){
+        TimeStampType ts = root_ts_data == nullptr ? 0 : root_ts_data[i];
+        update_node_first(global_node_first, NodeInstanceKey{root_nodes_data[i], ts}, static_cast<uint64_t>(i));
+    }
+
+    vector<unordered_map<NodeInstanceKey, uint64_t, NodeInstanceKeyHash>> local_node_first(nthreads);
+    vector<unordered_map<EdgeIDType, FirstEdgeOccurrence>> local_edge_first(nthreads);
+    for(int tid = 0; tid < nthreads; tid++){
+        local_node_first[tid].reserve(estimated_nodes / nthreads + 1);
+        local_edge_first[tid].reserve(estimated_edges / nthreads + 1);
+    }
+
+#pragma omp parallel num_threads(nthreads)
+    {
+        const int tid = omp_get_thread_num();
+        auto& node_first = local_node_first[tid];
+        auto& edge_first = local_edge_first[tid];
+#pragma omp for schedule(static)
+        for(int64_t layer = 0; layer < num_layers_i64; layer++){
+            if(layer > 0){
+                TemporalGraphBlock& prev = ret[layer - 1];
+                const uint64_t dst_base = layer_dst_base[layer];
+                for(int64_t i = 0; i < static_cast<int64_t>(prev.sample_nodes.size()); i++){
+                    TimeStampType ts = prev.sample_nodes_ts.empty() ? 0 : prev.sample_nodes_ts[i];
+                    update_node_first(node_first, NodeInstanceKey{prev.sample_nodes[i], ts}, dst_base + static_cast<uint64_t>(i));
+                }
+            }
+
+            TemporalGraphBlock& block = ret[layer];
+            const int64_t num_dst = layer == 0 ? num_roots : static_cast<int64_t>(ret[layer - 1].sample_nodes.size());
+            const uint64_t edge_base = layer_edge_base[layer];
+            const int64_t edge_count = static_cast<int64_t>(block.src_index.size());
+            for(int64_t j = 0; j < edge_count; j++){
+                const int64_t dst_pos = block.src_index[j];
+                if(dst_pos < 0 || dst_pos >= num_dst) continue;
+                const TimeStampType src_ts = block.sample_nodes_ts.empty() ? 0 : block.sample_nodes_ts[j];
+                const uint64_t pos = edge_base + static_cast<uint64_t>(j);
+                update_node_first(node_first, NodeInstanceKey{block.sample_nodes[j], src_ts}, pos);
+                update_edge_first(edge_first, block.eid[j], src_ts, pos);
+            }
+        }
+    }
+
+    for(int tid = 0; tid < nthreads; tid++){
+        for(const auto& item : local_node_first[tid]){
+            update_node_first(global_node_first, item.first, item.second);
+        }
+        for(const auto& item : local_edge_first[tid]){
+            update_edge_first(global_edge_first, item.first, item.second.ts, item.second.pos);
+        }
+    }
+
+    vector<NodeOccurrenceEntry> node_entries;
+    node_entries.reserve(global_node_first.size());
+    for(const auto& item : global_node_first){
+        node_entries.push_back(NodeOccurrenceEntry{item.first, item.second});
+    }
+    std::sort(node_entries.begin(), node_entries.end(), [](const NodeOccurrenceEntry& a, const NodeOccurrenceEntry& b) {
+        if(a.pos != b.pos) return a.pos < b.pos;
+        if(a.key.node != b.key.node) return a.key.node < b.key.node;
+        return a.key.ts < b.key.ts;
+    });
+
+    vector<EdgeOccurrenceEntry> edge_entries;
+    edge_entries.reserve(global_edge_first.size());
+    for(const auto& item : global_edge_first){
+        edge_entries.push_back(EdgeOccurrenceEntry{item.first, item.second.pos, item.second.ts});
+    }
+    std::sort(edge_entries.begin(), edge_entries.end(), [](const EdgeOccurrenceEntry& a, const EdgeOccurrenceEntry& b) {
+        if(a.pos != b.pos) return a.pos < b.pos;
+        return a.gid < b.gid;
+    });
+
+    NativeSamplingOutput out;
+    out.mfgs.resize(ret.size());
+    out.node_gids.resize(node_entries.size());
+    out.node_ts.resize(node_entries.size());
+    out.edge_gids.resize(edge_entries.size());
+    out.edge_ts.resize(edge_entries.size());
+    out.node_layer_ptr.reserve(ret.size() + 2);
+    out.edge_layer_ptr.reserve(ret.size() + 1);
+    out.root_gids.reserve(num_roots);
+    out.root_ts.reserve(num_roots);
+    out.root_lids.reserve(num_roots);
+
+    unordered_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> node_lid;
+    unordered_map<EdgeIDType, int64_t> edge_lid;
+    node_lid.reserve(node_entries.size());
+    edge_lid.reserve(edge_entries.size());
+    for(int64_t i = 0; i < static_cast<int64_t>(node_entries.size()); i++){
+        const NodeInstanceKey& key = node_entries[i].key;
+        node_lid.emplace(key, i);
+        out.node_gids[i] = key.node;
+        out.node_ts[i] = key.ts;
+    }
+    for(int64_t i = 0; i < static_cast<int64_t>(edge_entries.size()); i++){
+        edge_lid.emplace(edge_entries[i].gid, i);
+        out.edge_gids[i] = edge_entries[i].gid;
+        out.edge_ts[i] = edge_entries[i].ts;
+    }
+
+    for(int64_t i = 0; i < num_roots; i++){
+        const TimeStampType ts = root_ts_data == nullptr ? 0 : root_ts_data[i];
+        const NodeIDType gid = root_nodes_data[i];
+        out.root_gids.emplace_back(gid);
+        out.root_ts.emplace_back(ts);
+        out.root_lids.emplace_back(node_lid.at(NodeInstanceKey{gid, ts}));
+    }
+
+    out.node_layer_ptr.emplace_back(0);
+    int64_t node_cursor = 0;
+    auto append_node_layer_ptr = [&](uint64_t end_pos) {
+        while(node_cursor < static_cast<int64_t>(node_entries.size()) && node_entries[node_cursor].pos < end_pos){
+            node_cursor++;
+        }
+        out.node_layer_ptr.emplace_back(node_cursor);
+    };
+    append_node_layer_ptr(static_cast<uint64_t>(num_roots));
+    for(int64_t layer = 0; layer < num_layers_i64; layer++){
+        append_node_layer_ptr(layer_end_pos[layer]);
+    }
+
+    out.edge_layer_ptr.emplace_back(0);
+    int64_t edge_cursor = 0;
+    for(int64_t layer = 0; layer < num_layers_i64; layer++){
+        while(edge_cursor < static_cast<int64_t>(edge_entries.size()) && edge_entries[edge_cursor].pos < layer_end_pos[layer]){
+            edge_cursor++;
+        }
+        out.edge_layer_ptr.emplace_back(edge_cursor);
+    }
+
+    for(int64_t layer = 0; layer < num_layers_i64; layer++){
+        TemporalGraphBlock& block = ret[layer];
+        NativeMFGBlock mfg;
+        mfg.layer = layer;
+        mfg.dst_begin = layer == 0 ? 0 : out.node_layer_ptr[layer];
+        mfg.dst_end = out.node_layer_ptr[layer + 1];
+
+        const vector<NodeIDType>* frontier_nodes_ptr = nullptr;
+        const vector<TimeStampType>* frontier_ts_ptr = nullptr;
+        vector<NodeIDType> root_frontier_nodes;
+        vector<TimeStampType> root_frontier_ts;
+        if(layer == 0){
+            root_frontier_nodes.assign(root_nodes_data, root_nodes_data + num_roots);
+            root_frontier_ts.reserve(num_roots);
+            for(int64_t i = 0; i < num_roots; i++){
+                root_frontier_ts.emplace_back(root_ts_data == nullptr ? 0 : root_ts_data[i]);
+            }
+            frontier_nodes_ptr = &root_frontier_nodes;
+            frontier_ts_ptr = &root_frontier_ts;
+        }
+        else{
+            frontier_nodes_ptr = &ret[layer - 1].sample_nodes;
+            frontier_ts_ptr = &ret[layer - 1].sample_nodes_ts;
+        }
+        const vector<NodeIDType>& frontier_nodes = *frontier_nodes_ptr;
+        const vector<TimeStampType>& frontier_ts = *frontier_ts_ptr;
+        const int64_t num_dst = static_cast<int64_t>(frontier_nodes.size());
+
+        mfg.dst_lids.resize(num_dst);
+#pragma omp parallel for num_threads(nthreads) schedule(static)
+        for(int64_t i = 0; i < num_dst; i++){
+            const TimeStampType ts = frontier_ts.empty() ? 0 : frontier_ts[i];
+            mfg.dst_lids[i] = node_lid.at(NodeInstanceKey{frontier_nodes[i], ts});
+        }
+
+        const int64_t edge_count = static_cast<int64_t>(block.src_index.size());
+        mfg.csc_indptr.assign(num_dst + 1, 0);
+        vector<vector<int64_t>> thread_dst_counts(nthreads, vector<int64_t>(num_dst, 0));
+#pragma omp parallel num_threads(nthreads)
+        {
+            const int tid = omp_get_thread_num();
+            const int64_t begin = edge_count * tid / nthreads;
+            const int64_t end = edge_count * (tid + 1) / nthreads;
+            for(int64_t j = begin; j < end; j++){
+                const int64_t dst_pos = block.src_index[j];
+                if(dst_pos >= 0 && dst_pos < num_dst){
+                    thread_dst_counts[tid][dst_pos] += 1;
+                }
+            }
+        }
+        for(int64_t dst = 0; dst < num_dst; dst++){
+            int64_t count = 0;
+            for(int tid = 0; tid < nthreads; tid++){
+                count += thread_dst_counts[tid][dst];
+            }
+            mfg.csc_indptr[dst + 1] = count;
+        }
+        for(int64_t dst = 0; dst < num_dst; dst++){
+            mfg.csc_indptr[dst + 1] += mfg.csc_indptr[dst];
+        }
+        for(int64_t dst = 0; dst < num_dst; dst++){
+            int64_t base = mfg.csc_indptr[dst];
+            for(int tid = 0; tid < nthreads; tid++){
+                const int64_t count = thread_dst_counts[tid][dst];
+                thread_dst_counts[tid][dst] = base;
+                base += count;
+            }
+        }
+
+        mfg.csc_indices.resize(edge_count);
+        mfg.edge_lids.resize(edge_count);
+        mfg.delta_t.resize(edge_count);
+#pragma omp parallel num_threads(nthreads)
+        {
+            const int tid = omp_get_thread_num();
+            const int64_t begin = edge_count * tid / nthreads;
+            const int64_t end = edge_count * (tid + 1) / nthreads;
+            for(int64_t j = begin; j < end; j++){
+                const int64_t dst_pos = block.src_index[j];
+                if(dst_pos < 0 || dst_pos >= num_dst) continue;
+                const TimeStampType src_ts = block.sample_nodes_ts.empty() ? 0 : block.sample_nodes_ts[j];
+                const int64_t offset = thread_dst_counts[tid][dst_pos]++;
+                mfg.csc_indices[offset] = node_lid.at(NodeInstanceKey{block.sample_nodes[j], src_ts});
+                mfg.edge_lids[offset] = edge_lid.at(block.eid[j]);
+                mfg.delta_t[offset] = block.delta_ts.empty() ? 0 : block.delta_ts[j];
+            }
+        }
+
+        mfg.src_begin = 0;
+        mfg.src_end = static_cast<int64_t>(out.node_gids.size());
+        mfg.src_lids.resize(mfg.src_end - mfg.src_begin);
+#pragma omp parallel for num_threads(nthreads) schedule(static)
+        for(int64_t lid = mfg.src_begin; lid < mfg.src_end; lid++){
+            mfg.src_lids[lid - mfg.src_begin] = lid;
+        }
+        out.mfgs[layer] = std::move(mfg);
+    }
+
     return out;
 }
 
