@@ -5,7 +5,7 @@ import torch
 from atc_starrygl_lib.core.registry import TaskRegistry
 from atc_starrygl_lib.core.types import ArtifactBundle, RegressionOutput, RuntimeContext
 from atc_starrygl_lib.dtdg.runtime import FlareDTDGBackend, STGraphLoader, STGraphWindow
-from atc_starrygl_lib.dtdg.train_loop import evaluate, evaluate_edge_prediction, train_epoch
+from atc_starrygl_lib.dtdg.train_loop import evaluate, evaluate_edge_prediction, prepare_edge_prediction_embeddings, train_epoch
 from atc_starrygl_lib.models.dtdg import TGCN
 from atc_starrygl_lib.models.shared import EdgePredictHead
 from atc_starrygl_lib.preprocess.partition_data import build_all_partition_data_artifacts
@@ -15,6 +15,11 @@ from atc_starrygl_lib.tasks import EdgePredictionTask, NodeRegressionTask, regis
 class _SrcFeatureEncoder(torch.nn.Module):
     def forward(self, graph):
         return graph.srcdata["x"]
+
+
+class _DstFeatureEncoder(torch.nn.Module):
+    def forward(self, graph):
+        return graph.dstdata["x"] if "x" in graph.dstdata else graph.srcdata["x"][: graph.num_dst_nodes()]
 
 
 def _partition_data(num_slices: int = 4, *, self_loop: bool = False) -> dict:
@@ -264,6 +269,46 @@ def test_dtdg_edge_predict_test_loop_runs(tmp_path) -> None:
     assert metrics["loss"] >= 0.0
     assert "ap" in metrics
     assert "auc" in metrics
+
+
+def test_dtdg_edge_predict_expands_dst_only_embeddings(tmp_path) -> None:
+    graph_path = tmp_path / "graph.pt"
+    part_path = tmp_path / "partition_data_000.pt"
+    torch.save({"train_ratio": 0.5, "val_ratio": 0.25}, graph_path)
+    torch.save(_partition_data(), part_path)
+    artifacts = ArtifactBundle(
+        root=tmp_path,
+        graph_mode="dtdg",
+        files={"graph": graph_path, "partition_data_000": part_path},
+    )
+    backend = FlareDTDGBackend()
+    backend.build_runtime(
+        RuntimeContext(
+            config={"task": {"name": "edge_predict"}, "runtime": {"negative_ratio": 1}},
+            artifact_root=tmp_path,
+            rank=0,
+            world_size=1,
+            device="cpu",
+        ),
+        artifacts,
+    )
+    batch = next(backend.iter_batches("test"))
+    dst_embeddings = batch.graph.srcdata["x"][: batch.graph.num_dst_nodes()]
+
+    expanded = prepare_edge_prediction_embeddings(dst_embeddings, batch)
+
+    assert expanded.size(0) == batch.graph.num_src_nodes()
+    assert torch.equal(expanded[batch.pos_dst], dst_embeddings[batch.pos_dst])
+    assert batch.pos_src.max().item() < expanded.size(0)
+
+    metrics = evaluate_edge_prediction(
+        backend,
+        _DstFeatureEncoder(),
+        EdgePredictHead(dim=3),
+        EdgePredictionTask(),
+        split="test",
+    )
+    assert metrics["loss"] >= 0.0
 
 
 def test_edge_predict_task_alias_is_registered() -> None:
