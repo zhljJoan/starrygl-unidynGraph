@@ -22,6 +22,20 @@ def test_new_pipeline_runtime_reader_iterates_rank_local_event_batches(tmp_path:
     rank = {
         "rank": 0,
         "local_edge_ids": torch.tensor([0, 2], dtype=torch.long),
+        "split_event_pos": {
+            "train": {
+                "data": torch.tensor([0, 2], dtype=torch.long),
+                "ptr": torch.tensor([0, 1, 2], dtype=torch.long),
+            },
+            "val": {
+                "data": torch.empty(0, dtype=torch.long),
+                "ptr": torch.tensor([0, 0], dtype=torch.long),
+            },
+            "test": {
+                "data": torch.empty(0, dtype=torch.long),
+                "ptr": torch.tensor([0], dtype=torch.long),
+            },
+        },
         "split_time_ptr": {
             "train": torch.tensor([[0, 1], [1, 2]], dtype=torch.long),
             "val": torch.tensor([[0, 0]], dtype=torch.long),
@@ -342,6 +356,60 @@ def test_new_pipeline_runtime_attaches_negative_roots_before_sampling(tmp_path: 
     assert sampler.calls[0]["roots"] == [0, 2, 3]
     assert sampler.calls[0]["groups"] == {"pos_src": (0, 1), "pos_dst": (1, 2), "neg_dst": (2, 3)}
     assert batch.neg_dst.tolist() == [2]
+    assert batch.neg_weight is None
+
+
+def test_new_pipeline_runtime_attaches_negative_weights(tmp_path: Path) -> None:
+    graph = {
+        "src": torch.tensor([0], dtype=torch.long),
+        "dst": torch.tensor([2], dtype=torch.long),
+        "ts": torch.tensor([1.0], dtype=torch.float32),
+        "edge_ids": torch.tensor([10], dtype=torch.long),
+        "num_nodes": 4,
+        "split_time_ptr": {"train": torch.tensor([[0, 1]], dtype=torch.long)},
+        "time_ptr_2": torch.tensor([[0, 1]], dtype=torch.long),
+    }
+    rank = {
+        "rank": 0,
+        "local_edge_ids": torch.tensor([0], dtype=torch.long),
+        "split_time_ptr": {"train": torch.tensor([[0, 1]], dtype=torch.long)},
+    }
+    torch.save(graph, tmp_path / "graph.pt")
+    torch.save({"world_size": 1}, tmp_path / "dist.pt")
+    torch.save(rank, tmp_path / "rank_000.pt")
+
+    backend = MemShareTemporalSamplingBackend()
+    backend._prepared_by = "new_pipeline"
+    backend.build_runtime(
+        RuntimeContext(
+            config={
+                "runtime": {
+                    "sampler": _FakeSampler(),
+                    "negative_sampler": _FixedNegativeSampler(
+                        torch.tensor([3], dtype=torch.long),
+                        weight=torch.tensor([4.0], dtype=torch.float32),
+                    ),
+                    "negative_ratio": 1,
+                }
+            },
+            artifact_root=tmp_path,
+            rank=0,
+            world_size=1,
+            device="cpu",
+        ),
+        ArtifactBundle(
+            root=tmp_path,
+            graph_mode="ctdg",
+            files={
+                "graph": tmp_path / "graph.pt",
+                "dist": tmp_path / "dist.pt",
+                "rank_000": tmp_path / "rank_000.pt",
+            },
+        ),
+    )
+
+    batch = next(backend.iter_batches("train"))
+    assert batch.neg_weight.tolist() == [4.0]
 
 
 class _FakeBlock:
@@ -390,8 +458,9 @@ class _FakeSampler:
 
 
 class _FixedNegativeSampler:
-    def __init__(self, neg_dst: torch.Tensor) -> None:
+    def __init__(self, neg_dst: torch.Tensor, weight: torch.Tensor | None = None) -> None:
         self.neg_dst = neg_dst
+        self.weight = weight
 
     def sample(self, request):
         from atc_starrygl_lib.sampling.negative import NegativeSamplingResult
@@ -400,6 +469,7 @@ class _FixedNegativeSampler:
             neg_src=request.pos_src.repeat_interleave(int(request.ratio)),
             neg_dst=self.neg_dst.to(request.pos_src.device),
             ratio=int(request.ratio),
+            weight=None if self.weight is None else self.weight.to(request.pos_src.device),
         )
 
 

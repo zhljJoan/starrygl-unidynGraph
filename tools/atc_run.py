@@ -25,6 +25,7 @@ def main() -> None:
     device = _device(args.device, local_rank)
     register_builtin_backends()
     config = _runtime_config(args.config)
+    _apply_runtime_threading(config)
     ctx = build_context(
         config,
         artifact_root=args.artifact_root,
@@ -66,11 +67,15 @@ def main() -> None:
 
 def _train_eval(ctx: Any, session: TrainingSession, *, epochs: int) -> dict[str, Any]:
     model, head = build_model_and_head(ctx, session.backend)
+    _sync_module_state(model)
+    if head is not None:
+        _sync_module_state(head)
     task = session.task
     train_cfg = dict(ctx.config.get("train", {}))
     lr = float(train_cfg.get("lr", ctx.config.get("optimizer", {}).get("lr", 0.01) if isinstance(ctx.config.get("optimizer"), dict) else 0.01))
+    weight_decay = float(train_cfg.get("weight_decay", ctx.config.get("optimizer", {}).get("weight_decay", 0.0) if isinstance(ctx.config.get("optimizer"), dict) else 0.0))
     params = list(model.parameters()) + ([] if head is None else list(head.parameters()))
-    optimizer = torch.optim.Adam(params, lr=lr)
+    optimizer = torch.optim.Adam(params, lr=lr, weight_decay=weight_decay)
     if _gradient_sync_enabled(ctx):
         optimizer = AsyncGradientSyncOptimizer(optimizer, params)
     route_summary = _validate_routes(
@@ -81,15 +86,23 @@ def _train_eval(ctx: Any, session: TrainingSession, *, epochs: int) -> dict[str,
     )
     rows = []
     for epoch in range(int(epochs)):
+        _reset_epoch_state(ctx, session, model)
         t0 = time.perf_counter()
         train_metrics = _train_epoch(ctx, session, model, head, task, optimizer)
         train_metrics = dict(train_metrics)
         train_metrics["seconds"] = float(time.perf_counter() - t0)
-        train_metrics = _reduce_metrics(train_metrics, device=torch.device(ctx.device), time_keys={"seconds"})
+        dtdg_sum_keys = {"loss"} if str(ctx.config["graph"]["mode"]) == "dtdg" else set()
+        train_time_keys = {key for key in train_metrics if key.endswith("seconds")}
+        train_sum_keys = set(dtdg_sum_keys)
+        if "stage_batches" in train_metrics:
+            train_sum_keys.add("stage_batches")
+        if "backend_batches" in train_metrics:
+            train_sum_keys.add("backend_batches")
+        train_metrics = _reduce_metrics(train_metrics, device=torch.device(ctx.device), time_keys=train_time_keys, sum_keys=train_sum_keys)
         val_metrics = _eval_with_model(ctx, session, model, head, task, split="val")
-        val_metrics = _reduce_metrics(val_metrics, device=torch.device(ctx.device))
+        val_metrics = _reduce_metrics(val_metrics, device=torch.device(ctx.device), sum_keys=dtdg_sum_keys)
         test_metrics = _eval_with_model(ctx, session, model, head, task, split="test")
-        test_metrics = _reduce_metrics(test_metrics, device=torch.device(ctx.device))
+        test_metrics = _reduce_metrics(test_metrics, device=torch.device(ctx.device), sum_keys=dtdg_sum_keys)
         row = {"epoch": epoch, "train": train_metrics, "val": val_metrics, "test": test_metrics}
         rows.append(row)
         if int(ctx.rank) == 0:
@@ -98,6 +111,18 @@ def _train_eval(ctx: Any, session: TrainingSession, *, epochs: int) -> dict[str,
     if route_summary["checked"] > 0:
         out["route"] = route_summary
     return out
+
+
+def _reset_epoch_state(ctx: Any, session: TrainingSession, model: torch.nn.Module) -> None:
+    runtime_cfg = dict(ctx.config.get("runtime", {}))
+    if not bool(runtime_cfg.get("reset_memory_each_epoch", False)):
+        return
+    if hasattr(session.backend, "reset_state"):
+        session.backend.reset_state()
+    module = model.module if hasattr(model, "module") else model
+    updater = getattr(module, "memory_updater", None)
+    if updater is not None and hasattr(updater, "reset_state"):
+        updater.reset_state()
 
 
 def _train_epoch(ctx: Any, session: TrainingSession, model: torch.nn.Module, head: torch.nn.Module | None, task: Any, optimizer: torch.optim.Optimizer) -> dict[str, float]:
@@ -122,6 +147,9 @@ def _train_epoch(ctx: Any, session: TrainingSession, model: torch.nn.Module, hea
 
 def _eval(ctx: Any, session: TrainingSession, *, split: str) -> dict[str, float]:
     model, head = build_model_and_head(ctx, session.backend)
+    _sync_module_state(model)
+    if head is not None:
+        _sync_module_state(head)
     return _eval_with_model(ctx, session, model, head, session.task, split=split)
 
 
@@ -147,6 +175,9 @@ def _eval_with_model(ctx: Any, session: TrainingSession, model: torch.nn.Module,
 
 def _predict(ctx: Any, session: TrainingSession, *, split: str) -> dict[str, int]:
     model, head = build_model_and_head(ctx, session.backend)
+    _sync_module_state(model)
+    if head is not None:
+        _sync_module_state(head)
     if str(ctx.config["graph"]["mode"]) != "ctdg":
         count = sum(1 for _ in session.iter_batches(split))
         return {"batches": count}
@@ -169,6 +200,13 @@ def _gradient_sync_enabled(ctx: Any) -> bool:
     runtime_cfg = ctx.config.get("runtime", {})
     raw = runtime_cfg.get("gradient_sync", runtime_cfg.get("sync_gradients", "async"))
     return str(raw).strip().lower() not in {"0", "false", "none", "off", "disabled"}
+
+
+def _sync_module_state(module: torch.nn.Module) -> None:
+    if not dist.is_available() or not dist.is_initialized() or dist.get_world_size() <= 1:
+        return
+    for tensor in list(module.parameters()) + list(module.buffers()):
+        dist.broadcast(tensor.data, src=0)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -200,15 +238,41 @@ def _runtime_config(config_path: str) -> dict[str, Any]:
     if source is not None:
         path = _resolve_input_source(source, graph=graph, config_dir=config_dir)
         if str(graph.get("mode")) == "dtdg" and (path.is_dir() or path.suffix.lower() in {".csv", ".edges"}):
+            degree_xy = bool(graph.get("degree_xy", graph.get("generate_degree_xy", True)))
             graph["source"] = _event_source_to_snapshot_graph(
                 path,
                 num_snapshots=int(graph.get("event_snapshot_bins", graph.get("num_snapshots", 16))),
                 max_events=int(graph.get("max_events", 0)),
+                snapshot_lags=int(graph.get("event_snapshot_lags", graph.get("snapshot_lags", 0))),
+                compact_nodes=bool(graph.get("compact_nodes", True)),
+                degree_xy=degree_xy,
+                node_feat_source=str(graph.get("node_feat_source", graph.get("x_source", "snapshot_degree" if degree_xy else "file"))),
+                node_label_source=str(graph.get("node_label_source", graph.get("y_source", "snapshot_next_in_degree" if degree_xy else "file"))),
             )
         else:
             graph["source"] = str(path)
     config["graph"] = graph
     return config
+
+
+def _apply_runtime_threading(config: dict[str, Any]) -> None:
+    runtime_cfg = dict(config.get("runtime", {}))
+    thread_env = {
+        "OMP_NUM_THREADS": runtime_cfg.get("omp_num_threads"),
+        "MKL_NUM_THREADS": runtime_cfg.get("mkl_num_threads"),
+        "OPENBLAS_NUM_THREADS": runtime_cfg.get("openblas_num_threads"),
+        "NUMEXPR_NUM_THREADS": runtime_cfg.get("numexpr_num_threads"),
+    }
+    for key, value in thread_env.items():
+        if value is None:
+            continue
+        os.environ[str(key)] = str(int(value))
+    torch_threads = runtime_cfg.get("torch_num_threads")
+    if torch_threads is not None:
+        torch.set_num_threads(int(torch_threads))
+    interop_threads = runtime_cfg.get("torch_num_interop_threads")
+    if interop_threads is not None:
+        torch.set_num_interop_threads(int(interop_threads))
 
 
 def _resolve_input_source(source: Any, *, graph: dict[str, Any], config_dir: Path) -> Path:
@@ -234,7 +298,17 @@ def _resolve_input_source(source: Any, *, graph: dict[str, Any], config_dir: Pat
     return path
 
 
-def _event_source_to_snapshot_graph(path: Path, *, num_snapshots: int, max_events: int) -> dict[str, Any]:
+def _event_source_to_snapshot_graph(
+    path: Path,
+    *,
+    num_snapshots: int,
+    max_events: int,
+    snapshot_lags: int = 0,
+    compact_nodes: bool = True,
+    degree_xy: bool = True,
+    node_feat_source: str = "snapshot_degree",
+    node_label_source: str = "snapshot_next_in_degree",
+) -> dict[str, Any]:
     from atc_starrygl_lib.preprocess.dataset import build_dataset
 
     if num_snapshots <= 0:
@@ -243,35 +317,147 @@ def _event_source_to_snapshot_graph(path: Path, *, num_snapshots: int, max_event
     src = graph["src"].long()
     dst = graph["dst"].long()
     ts = graph["ts"].float()
+    edge_weight = graph.get("edge_weight")
+    if edge_weight is not None:
+        edge_weight = torch.as_tensor(edge_weight, dtype=torch.float32).cpu().contiguous()
     if max_events > 0:
         keep = slice(0, int(max_events))
         src = src[keep]
         dst = dst[keep]
         ts = ts[keep]
-    num_nodes = int(torch.cat([src, dst]).max().item()) + 1 if src.numel() else 0
+        if edge_weight is not None:
+            edge_weight = edge_weight[keep]
+    if bool(compact_nodes) and src.numel() > 0:
+        nodes = torch.cat([src, dst]).long()
+        unique, inverse = torch.unique(nodes, sorted=True, return_inverse=True)
+        src = inverse[: int(src.numel())].long()
+        dst = inverse[int(src.numel()) :].long()
+        num_nodes = int(unique.numel())
+    else:
+        num_nodes = int(torch.cat([src, dst]).max().item()) + 1 if src.numel() else 0
 
     snapshots = []
+    snapshot_edges: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]] = []
     boundaries = torch.linspace(0, int(src.numel()), steps=int(num_snapshots) + 1, dtype=torch.long)
-    for sid in range(int(num_snapshots)):
+    window_width = max(1, int(snapshot_lags) + 1)
+    snapshot_count = max(0, int(num_snapshots) - max(0, int(snapshot_lags)))
+    for sid in range(snapshot_count):
         begin = int(boundaries[sid])
-        end = int(boundaries[sid + 1])
-        snapshots.append({"src": src[begin:end], "dst": dst[begin:end], "ts": ts[begin:end]})
+        end = int(boundaries[sid + window_width])
+        s = src[begin:end]
+        d = dst[begin:end]
+        w = None if edge_weight is None else edge_weight[begin:end]
+        snapshot_edges.append((s, d, w))
+        snapshots.append({"src": s, "dst": d, "ts": ts[begin:end]})
 
     node_feat = graph.get("node_feat")
-    if node_feat is None or int(torch.as_tensor(node_feat).size(0)) < num_nodes:
+    if bool(compact_nodes) and node_feat is not None:
+        raise ValueError("compact_nodes=True is incompatible with file node features; set graph.compact_nodes=false")
+    feat_source = str(node_feat_source).lower()
+    label_source = str(node_label_source).lower()
+    if feat_source in {"none", "off", "false"}:
+        node_feat = None
+    elif degree_xy and feat_source in {"snapshot_degree", "degree", "snapshot_x", "flare_degree"}:
+        node_feat = torch.stack([
+            _snapshot_degree_features(src=s, dst=d, edge_weight=w, num_nodes=num_nodes)
+            for s, d, w in snapshot_edges
+        ], dim=0).contiguous()
+        feat_source = "snapshot_degree"
+    elif feat_source in {"file", "label_file", "input", "input_file"}:
+        if node_feat is None:
+            raise ValueError("graph.degree_xy=false requires input node features for DTDG x")
+        node_feat = torch.as_tensor(node_feat, dtype=torch.float32)[:num_nodes].contiguous()
+        feat_source = "file_node_feat"
+    elif node_feat is None or int(torch.as_tensor(node_feat).size(0)) < num_nodes:
         node_feat = _build_node_features(src=src, dst=dst, num_nodes=num_nodes)
+        feat_source = "global_degree"
     else:
         node_feat = torch.as_tensor(node_feat, dtype=torch.float32)[:num_nodes].contiguous()
-    indeg = torch.bincount(dst, minlength=num_nodes).float()
-    node_label = torch.log1p(indeg).unsqueeze(1)
-    if node_label.numel() > 0 and float(node_label.max().item()) > 0.0:
-        node_label = node_label / node_label.max()
+        feat_source = "file_node_feat"
+    node_label = None
+    if label_source not in {"none", "off", "false"}:
+        if degree_xy and label_source in {"snapshot_next_in_degree", "next_snapshot_in_degree", "snapshot_y", "flare_y"}:
+            labels = [
+                _snapshot_log_in_degree(src=snapshot_edges[sid + 1][0], dst=snapshot_edges[sid + 1][1], edge_weight=snapshot_edges[sid + 1][2], num_nodes=num_nodes)
+                for sid in range(max(0, len(snapshot_edges) - 1))
+            ]
+            node_label = torch.stack(labels, dim=0).contiguous() if labels else torch.empty((0, num_nodes, 1), dtype=torch.float32)
+            snapshots = snapshots[: int(node_label.size(0))]
+            if isinstance(node_feat, torch.Tensor) and node_feat.dim() >= 3:
+                node_feat = node_feat[: int(node_label.size(0))].contiguous()
+            label_source = "snapshot_next_in_degree"
+        elif degree_xy and label_source in {"snapshot_in_degree", "snapshot_degree", "degree"}:
+            node_label = torch.stack([
+                _snapshot_log_in_degree(src=s, dst=d, edge_weight=w, num_nodes=num_nodes)
+                for s, d, w in snapshot_edges
+            ], dim=0).contiguous()
+            label_source = "snapshot_in_degree"
+        elif label_source in {"file", "label_file", "input", "input_file"}:
+            node_label = graph.get("node_label")
+            if node_label is None:
+                raise ValueError("graph.degree_xy=false requires an input node label file for DTDG y")
+            node_label = torch.as_tensor(node_label, dtype=torch.float32)
+            if node_label.dim() == 1:
+                node_label = node_label.unsqueeze(1)
+            node_label = node_label[:num_nodes].contiguous()
+            label_source = "file_node_label"
+        else:
+            indeg = torch.bincount(dst, minlength=num_nodes).float()
+            node_label = torch.log1p(indeg).unsqueeze(1)
+            if node_label.numel() > 0 and float(node_label.max().item()) > 0.0:
+                node_label = node_label / node_label.max()
+            label_source = "global_in_degree"
+    edge_weight_out = None
+    if edge_weight is not None and snapshots:
+        edge_weight_parts = []
+        for sid in range(len(snapshots)):
+            begin = int(boundaries[sid])
+            end = int(boundaries[sid + window_width])
+            edge_weight_parts.append(edge_weight[begin:end])
+        edge_weight_out = torch.cat(edge_weight_parts, dim=0).contiguous() if edge_weight_parts else None
     return {
         "snapshots": snapshots,
         "num_nodes": num_nodes,
         "node_feat": node_feat,
         "node_label": node_label,
+        "edge_weight": edge_weight_out,
+        "edge_label": edge_weight_out,
+        "node_feat_time_varying": isinstance(node_feat, torch.Tensor) and node_feat.dim() >= 3,
+        "node_label_time_varying": isinstance(node_label, torch.Tensor) and node_label.dim() >= 3,
+        "node_feat_source": feat_source,
+        "node_label_source": None if node_label is None else label_source,
     }
+
+
+def _snapshot_degree_features(
+    *,
+    src: torch.Tensor,
+    dst: torch.Tensor,
+    edge_weight: torch.Tensor | None,
+    num_nodes: int,
+) -> torch.Tensor:
+    weight = torch.ones(int(src.numel()), dtype=torch.float32) if edge_weight is None else edge_weight.float()
+    indeg = torch.zeros(int(num_nodes), dtype=torch.float32)
+    outdeg = torch.zeros(int(num_nodes), dtype=torch.float32)
+    if src.numel() > 0:
+        indeg.scatter_add_(0, dst.cpu().long(), weight.cpu())
+        outdeg.scatter_add_(0, src.cpu().long(), weight.cpu())
+    return torch.stack([indeg, outdeg], dim=1).contiguous()
+
+
+def _snapshot_log_in_degree(
+    *,
+    src: torch.Tensor,
+    dst: torch.Tensor,
+    edge_weight: torch.Tensor | None,
+    num_nodes: int,
+) -> torch.Tensor:
+    del src
+    weight = torch.ones(int(dst.numel()), dtype=torch.float32) if edge_weight is None else edge_weight.float()
+    indeg = torch.zeros(int(num_nodes), dtype=torch.float32)
+    if dst.numel() > 0:
+        indeg.scatter_add_(0, dst.cpu().long(), weight.cpu())
+    return torch.log1p(indeg).unsqueeze(1).contiguous()
 
 
 def _build_node_features(*, src: torch.Tensor, dst: torch.Tensor, num_nodes: int) -> torch.Tensor:
@@ -286,10 +472,17 @@ def _build_node_features(*, src: torch.Tensor, dst: torch.Tensor, num_nodes: int
     return torch.stack([node_id / denom, indeg, outdeg], dim=1).contiguous()
 
 
-def _reduce_metrics(metrics: dict[str, float], *, device: torch.device, time_keys: set[str] | None = None) -> dict[str, float]:
+def _reduce_metrics(
+    metrics: dict[str, float],
+    *,
+    device: torch.device,
+    time_keys: set[str] | None = None,
+    sum_keys: set[str] | None = None,
+) -> dict[str, float]:
     if not dist.is_initialized() or not metrics:
         return metrics
     time_keys = set() if time_keys is None else set(time_keys)
+    sum_keys = set() if sum_keys is None else set(sum_keys)
     out: dict[str, float] = {}
     for key in sorted(metrics):
         value = torch.tensor(float(metrics[key]), dtype=torch.float64, device=device)
@@ -298,6 +491,9 @@ def _reduce_metrics(metrics: dict[str, float], *, device: torch.device, time_key
             out[key] = float(value.item())
             continue
         dist.all_reduce(value, op=dist.ReduceOp.SUM)
+        if key in sum_keys:
+            out[key] = float(value.item())
+            continue
         out[key] = float(value.item() / float(dist.get_world_size()))
     return out
 

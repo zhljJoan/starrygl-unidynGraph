@@ -19,8 +19,10 @@ def build_all_partition_data_artifacts(
     time_ptr_2: Tensor,
     edge_ids: Tensor | None = None,
     node_feat: Tensor | None = None,
+    node_feat_time_varying: bool = False,
     edge_feat: Tensor | None = None,
     node_label: Tensor | None = None,
+    node_label_time_varying: bool = False,
     edge_label: Tensor | None = None,
     edge_weight: Tensor | None = None,
     build_gcn_norm: bool = True,
@@ -36,8 +38,10 @@ def build_all_partition_data_artifacts(
             time_ptr_2=time_ptr_2,
             edge_ids=edge_ids,
             node_feat=node_feat,
+            node_feat_time_varying=node_feat_time_varying,
             edge_feat=edge_feat,
             node_label=node_label,
+            node_label_time_varying=node_label_time_varying,
             edge_label=edge_label,
             edge_weight=edge_weight,
             build_gcn_norm=build_gcn_norm,
@@ -58,8 +62,10 @@ def build_partition_data_artifact(
     time_ptr_2: Tensor,
     edge_ids: Tensor | None = None,
     node_feat: Tensor | None = None,
+    node_feat_time_varying: bool = False,
     edge_feat: Tensor | None = None,
     node_label: Tensor | None = None,
+    node_label_time_varying: bool = False,
     edge_label: Tensor | None = None,
     edge_weight: Tensor | None = None,
     build_gcn_norm: bool = True,
@@ -87,12 +93,22 @@ def build_partition_data_artifact(
         node_data: dict[str, dict[str, Tensor]] = {"c": _td_from(native["dst_chunk_data"], native["dst_chunk_ptr"])}
         if node_feat is not None:
             node_data["x"] = _td_from(
-                node_feat.cpu().contiguous().index_select(0, native["combined_data"].long()),
+                _select_node_tensor_for_slices(
+                    node_feat,
+                    native["combined_data"].long(),
+                    native["combined_ptr"].long(),
+                    time_varying=bool(node_feat_time_varying),
+                ),
                 native["combined_ptr"],
             )
         if node_label is not None:
             node_data["y"] = _td_from(
-                node_label.cpu().contiguous().index_select(0, native["dst_data"].long()),
+                _select_node_tensor_for_slices(
+                    node_label,
+                    native["dst_data"].long(),
+                    native["dst_ptr"].long(),
+                    time_varying=bool(node_label_time_varying),
+                ),
                 native["dst_ptr"],
             )
         edge_data: dict[str, dict[str, Tensor]] = {}
@@ -131,7 +147,7 @@ def build_partition_data_artifact(
 
     tensors = _empty_partition_tensors()
     local_edge_ids_sorted = torch.sort(local_edge_ids).values
-    for begin, end in time_ptr_2.tolist():
+    for sid, (begin, end) in enumerate(time_ptr_2.tolist()):
         left = int(torch.searchsorted(local_edge_ids_sorted, torch.tensor(int(begin), dtype=torch.long)))
         right = int(torch.searchsorted(local_edge_ids_sorted, torch.tensor(int(end), dtype=torch.long)))
         eids = local_edge_ids_sorted[left:right]
@@ -140,10 +156,13 @@ def build_partition_data_artifact(
             src=src,
             dst=dst,
             edge_ids=edge_ids,
+            sid=sid,
             dist_plan=dist_plan,
             node_feat=node_feat,
+            node_feat_time_varying=node_feat_time_varying,
             edge_feat=edge_feat,
             node_label=node_label,
+            node_label_time_varying=node_label_time_varying,
             edge_label=edge_label,
             edge_weight=edge_weight,
             build_gcn_norm=build_gcn_norm,
@@ -247,10 +266,13 @@ def _build_slice_block(
     src: Tensor,
     dst: Tensor,
     edge_ids: Tensor,
+    sid: int,
     dist_plan: dict[str, Any],
     node_feat: Tensor | None,
+    node_feat_time_varying: bool,
     edge_feat: Tensor | None,
     node_label: Tensor | None,
+    node_label_time_varying: bool,
     edge_label: Tensor | None,
     edge_weight: Tensor | None,
     build_gcn_norm: bool,
@@ -263,9 +285,9 @@ def _build_slice_block(
         if full_dst_ids is not None:
             node_data = {}
             if node_feat is not None:
-                node_data["x"] = node_feat.cpu().contiguous().index_select(0, dst_ids.long())
+                node_data["x"] = _select_node_tensor(node_feat, dst_ids.long(), sid=sid, time_varying=bool(node_feat_time_varying))
             if node_label is not None:
-                node_data["y"] = node_label.cpu().contiguous().index_select(0, dst_ids.long())
+                node_data["y"] = _select_node_tensor(node_label, dst_ids.long(), sid=sid, time_varying=bool(node_label_time_varying))
             node_data["c"] = _local_chunk_for_nodes(dst_ids, dist_plan)
         return {
             "src_ids": empty_long,
@@ -293,9 +315,9 @@ def _build_slice_block(
         combined = torch.cat([dst_ids, src_ids], dim=0)
         node_data: dict[str, Tensor] = {}
         if node_feat is not None:
-            node_data["x"] = node_feat.cpu().contiguous().index_select(0, combined.long())
+            node_data["x"] = _select_node_tensor(node_feat, combined.long(), sid=sid, time_varying=bool(node_feat_time_varying))
         if node_label is not None:
-            node_data["y"] = node_label.cpu().contiguous().index_select(0, dst_ids.long())
+            node_data["y"] = _select_node_tensor(node_label, dst_ids.long(), sid=sid, time_varying=bool(node_label_time_varying))
         node_data["c"] = _local_chunk_for_nodes(dst_ids, dist_plan)
         edge_data: dict[str, Tensor] = {}
         if edge_feat is not None:
@@ -345,9 +367,9 @@ def _build_slice_block(
     edge_ptr[1:] = counts.cumsum(0)
     node_data: dict[str, Tensor] = {}
     if node_feat is not None:
-        node_data["x"] = node_feat.cpu().contiguous().index_select(0, combined.long())
+        node_data["x"] = _select_node_tensor(node_feat, combined.long(), sid=sid, time_varying=bool(node_feat_time_varying))
     if node_label is not None:
-        node_data["y"] = node_label.cpu().contiguous().index_select(0, dst_ids.long())
+        node_data["y"] = _select_node_tensor(node_label, dst_ids.long(), sid=sid, time_varying=bool(node_label_time_varying))
     node_data["c"] = _local_chunk_for_nodes(dst_ids, dist_plan)
     edge_data: dict[str, Tensor] = {}
     if edge_feat is not None:
@@ -522,6 +544,40 @@ def _td_from(data: Tensor, ptr: Tensor) -> dict[str, Tensor]:
     return {"ptr": ptr.long().cpu().contiguous(), "data": data.cpu().contiguous()}
 
 
+def _select_node_tensor_for_slices(
+    value: Tensor,
+    node_ids: Tensor,
+    ptr: Tensor,
+    *,
+    time_varying: bool,
+) -> Tensor:
+    value = value.cpu().contiguous()
+    node_ids = node_ids.long().cpu().contiguous()
+    ptr = ptr.long().cpu().contiguous()
+    if not time_varying:
+        return value.index_select(0, node_ids)
+    parts = [
+        _select_node_tensor(value, _td_item({"data": node_ids, "ptr": ptr}, sid), sid=sid, time_varying=True)
+        for sid in range(int(ptr.numel()) - 1)
+    ]
+    if parts:
+        return torch.cat(parts, dim=0).contiguous()
+    return torch.empty((0, *_node_value_shape(value, time_varying=True)), dtype=value.dtype)
+
+
+def _select_node_tensor(value: Tensor, node_ids: Tensor, *, sid: int, time_varying: bool) -> Tensor:
+    value = value.cpu().contiguous()
+    node_ids = node_ids.long().cpu().contiguous()
+    source = value[min(int(sid), int(value.size(0)) - 1)] if time_varying else value
+    return source.index_select(0, node_ids)
+
+
+def _node_value_shape(value: Tensor, *, time_varying: bool) -> tuple[int, ...]:
+    if not time_varying:
+        return tuple(value.shape[1:])
+    return tuple(value.shape[2:])
+
+
 def _td_len(td: dict[str, Tensor]) -> int:
     return int(td["ptr"].numel()) - 1
 
@@ -580,9 +636,11 @@ def _gcn_norm(*, s: Tensor, d: Tensor, edge_weight: Tensor | None) -> Tensor:
 def _empty_node_data(node_feat: Tensor | None, node_label: Tensor | None) -> dict[str, Tensor]:
     out: dict[str, Tensor] = {"c": torch.empty(0, dtype=torch.long)}
     if node_feat is not None:
-        out["x"] = torch.empty((0, *node_feat.shape[1:]), dtype=node_feat.dtype)
+        feat_shape = tuple(node_feat.shape[2:]) if node_feat.dim() >= 3 else tuple(node_feat.shape[1:])
+        out["x"] = torch.empty((0, *feat_shape), dtype=node_feat.dtype)
     if node_label is not None:
-        out["y"] = torch.empty((0, *node_label.shape[1:]), dtype=node_label.dtype)
+        label_shape = tuple(node_label.shape[2:]) if node_label.dim() >= 3 else tuple(node_label.shape[1:])
+        out["y"] = torch.empty((0, *label_shape), dtype=node_label.dtype)
     return out
 
 

@@ -95,6 +95,8 @@ def _build_temporal_sampling_model(
         raise RuntimeError("CTDG GeneralModel requires build_memory_runtime and build_mailbox_runtime")
     dim_node = _node_feature_dim(graph, model_cfg)
     dim_edge = _edge_feature_dim(graph, model_cfg)
+    if dim_edge <= 0:
+        dim_edge = int(getattr(runtime, "edge_feat_dim", 0))
     hidden_dim = int(model_cfg.get("hidden_dim", model_cfg.get("hidden_size", 16)))
     model_config = {
         "sample": {"history": int(model_cfg.get("history", 1))},
@@ -120,9 +122,8 @@ def _build_temporal_sampling_model(
     }
     committer = AsyncMemoryCommitter(runtime.memory_runtime, runtime.mailbox_runtime)
     updater = RuntimeAsyncMemoryUpdater(
+        torch.nn.Identity(),
         committer=committer,
-        memory_dim=hidden_dim,
-        mailbox_msg_dim=hidden_dim * 2 + dim_edge,
     )
     model = GeneralModel.from_config(
         dim_node=dim_node,
@@ -235,8 +236,12 @@ def _task_output_dim(graph: dict[str, Any], model_cfg: dict[str, Any], task_name
     if task_name in {"node_prediction", "node_classification"}:
         return _num_classes(graph, model_cfg)
     labels = graph.get("node_label")
-    if labels is not None and torch.as_tensor(labels).dim() > 1:
-        return int(torch.as_tensor(labels).size(-1))
+    if labels is not None:
+        label_t = torch.as_tensor(labels)
+        if bool(graph.get("node_label_time_varying", False)):
+            return int(label_t.size(-1)) if label_t.dim() > 2 else 1
+        if label_t.dim() > 1:
+            return int(label_t.size(-1))
     return int(model_cfg.get("out_dim", 1))
 
 

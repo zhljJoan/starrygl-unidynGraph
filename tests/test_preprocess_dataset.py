@@ -51,6 +51,21 @@ def test_event_split_then_batch_with_per_split_configs() -> None:
     assert out["time_ptr_2"].tolist() == [[0, 2], [2, 4], [4, 6], [6, 7], [7, 8], [8, 9], [9, 10]]
 
 
+def test_event_can_generate_deterministic_random_node_features() -> None:
+    data = {
+        "src": torch.tensor([0, 1]),
+        "dst": torch.tensor([1, 2]),
+        "ts": torch.tensor([0.0, 1.0]),
+        "num_nodes": 4,
+    }
+
+    first = build_dataset(data=data, mode="event", random_node_feat_dim=3, random_node_feat_seed=7)
+    second = build_dataset(data=data, mode="event", random_node_feat_dim=3, random_node_feat_seed=7)
+
+    assert first["node_feat"].shape == (4, 3)
+    assert torch.equal(first["node_feat"], second["node_feat"])
+
+
 def test_snapshot_list_build_overlapped_windows() -> None:
     data = {
         "snapshots": [
@@ -62,6 +77,46 @@ def test_snapshot_list_build_overlapped_windows() -> None:
     out = build_dataset(data=data, mode="snapshot", lags=2)
     assert out["snapshot_ptr"].tolist() == [0, 2, 3, 5]
     assert out["time_ptr_2"].tolist() == [[0, 2], [0, 3], [2, 5]]
+
+
+def test_flare_dataset_list_keeps_time_varying_node_tensors() -> None:
+    data = {
+        "num_nodes": 3,
+        "node_feat_source": "degree",
+        "node_label_source": "log_in_degree",
+        "dataset": [
+            {
+                "edge_index": torch.tensor([[0, 1], [1, 2]]),
+                "edge_weight": torch.tensor([2.0, 3.0]),
+                "x": torch.tensor([[0.0, 1.0], [2.0, 0.0], [3.0, 1.0]]),
+                "y": torch.tensor([0.0, 1.0, 2.0]),
+            },
+            {
+                "edge_index": torch.tensor([[2], [0]]),
+                "edge_weight": torch.tensor([4.0]),
+                "x": torch.tensor([[4.0, 1.0], [0.0, 0.0], [0.0, 4.0]]),
+                "y": torch.tensor([3.0, 0.0, 1.0]),
+            },
+            {
+                "edge_index": torch.tensor([[0], [2]]),
+                "edge_weight": torch.tensor([5.0]),
+                "x": torch.ones(3, 2),
+                "y": None,
+            },
+        ],
+    }
+
+    out = build_dataset(data=data, mode="snapshot", lags=1)
+
+    assert out["snapshot_ptr"].tolist() == [0, 2, 3]
+    assert out["time_ptr_2"].tolist() == [[0, 2], [2, 3]]
+    assert out["node_feat_time_varying"] is True
+    assert out["node_label_time_varying"] is True
+    assert out["node_feat_source"] == "degree"
+    assert out["node_label_source"] == "log_in_degree"
+    assert out["node_feat"].shape == (2, 3, 2)
+    assert out["node_label"].shape == (2, 3)
+    assert out["edge_weight"].tolist() == [2.0, 3.0, 4.0]
 
 
 def test_read_pth_and_edges_files(tmp_path: Path) -> None:
@@ -104,6 +159,23 @@ def test_read_raw_dataset_directory_features_and_labels(tmp_path: Path) -> None:
     assert out["node_label_nodes"].tolist() == [1, 0]
     assert out["node_label"].tolist() == [0, 1]
     assert out["node_label_split"].tolist() == [0, 2]
+
+
+def test_edges_csv_ext_roll_drives_event_split(tmp_path: Path) -> None:
+    ds_dir = tmp_path / "WIKI"
+    ds_dir.mkdir()
+    (ds_dir / "edges.csv").write_text(
+        "src,dst,time,ext_roll\n1,3,2.0,2\n0,2,1.0,1\n",
+        encoding="utf-8",
+    )
+
+    out = build_dataset(data=ds_dir, mode="event", batch_size=10)
+
+    assert out["src"].tolist() == [0, 1]
+    assert out["split"].tolist() == [1, 2]
+    assert out["split_time_ptr"]["train"].tolist() == []
+    assert out["split_time_ptr"]["val"].tolist() == [[0, 1]]
+    assert out["split_time_ptr"]["test"].tolist() == [[1, 2]]
 
 
 def test_read_weighted_edges_uses_last_column_as_time(tmp_path: Path) -> None:

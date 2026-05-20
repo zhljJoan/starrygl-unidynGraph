@@ -86,6 +86,9 @@ class MemoryRuntime:
     def submit_read(self, layout: MemoryReadLayout) -> AsyncTensorHandle:
         return self.fetch_comm.submit_row_fetch(layout.read_index, layout.read_ptr, self._gather_memory_payload)
 
+    def reset_state(self) -> None:
+        self.store.reset_zeros()
+
     def read(self, layout: MemoryReadLayout) -> MemoryReadHandle:
         return MemoryReadHandle(runtime=self, layout=layout, handle=self.submit_read(layout))
 

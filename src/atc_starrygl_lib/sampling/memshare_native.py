@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import time
 from typing import Any, Optional
 
 import torch
@@ -45,6 +46,7 @@ class MemShareNativeSampler(NativeTemporalSampler):
     config: NativeSamplerConfig
     probability: float = 1.0
     _sampler: Any = field(default=None, init=False, repr=False)
+    _profile_stats: dict[str, float] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not is_bts_sampler_available():
@@ -69,6 +71,7 @@ class MemShareNativeSampler(NativeTemporalSampler):
             node_part.to(torch.int32).contiguous(),
             float(self.probability),
         )
+        self.reset_profile_stats()
 
     def sample(self, request: TemporalSamplingRequest) -> SamplingOutput:
         root_nodes = request.roots.nodes.long().cpu().contiguous()
@@ -76,16 +79,26 @@ class MemShareNativeSampler(NativeTemporalSampler):
         timestamps = None
         if root_ts is not None and root_ts.numel() > 0:
             timestamps = root_ts.cpu().to(torch.int64).contiguous()
+        t0 = time.perf_counter()
         self._sampler.neighbor_sample_from_nodes(root_nodes, timestamps, None)
+        self._profile_stats["neighbor_sample_from_nodes_seconds"] += float(time.perf_counter() - t0)
         if hasattr(self._sampler, "get_sampling_output"):
+            t0 = time.perf_counter()
             native = self._sampler.get_sampling_output(root_nodes, timestamps)
-            return _convert_native_sampling_output(native, request)
+            self._profile_stats["get_sampling_output_seconds"] += float(time.perf_counter() - t0)
+            t0 = time.perf_counter()
+            out = _convert_native_sampling_output(native, request)
+            self._profile_stats["convert_sampling_output_seconds"] += float(time.perf_counter() - t0)
+            return out
+        t0 = time.perf_counter()
         blocks = list(self._sampler.get_ret())
+        self._profile_stats["get_sampling_output_seconds"] += float(time.perf_counter() - t0)
+        t0 = time.perf_counter()
         node_compute = _build_compat_node_compute(blocks, root_nodes, timestamps, request)
         edge_compute = _build_compat_edge_compute(blocks)
         node_comm = _build_compat_node_comm(node_compute)
         edge_comm = None if edge_compute is None else _build_compat_edge_comm(edge_compute)
-        return SamplingOutput(
+        out = SamplingOutput(
             mfgs=blocks,
             node_compute=node_compute,
             edge_compute=edge_compute,
@@ -93,6 +106,8 @@ class MemShareNativeSampler(NativeTemporalSampler):
             edge_comm=edge_comm,
             metadata={"native": "memshare_bts", **(request.meta or {})},
         )
+        self._profile_stats["convert_sampling_output_seconds"] += float(time.perf_counter() - t0)
+        return out
 
     def sample_dtdg_uniform(
         self,
@@ -127,6 +142,18 @@ class MemShareNativeSampler(NativeTemporalSampler):
 
     def reset(self) -> None:
         self._sampler.reset()
+
+    def reset_profile_stats(self) -> None:
+        self._profile_stats = {
+            "neighbor_sample_from_nodes_seconds": 0.0,
+            "get_sampling_output_seconds": 0.0,
+            "convert_sampling_output_seconds": 0.0,
+        }
+
+    def pop_profile_stats(self) -> dict[str, float]:
+        out = dict(self._profile_stats)
+        self.reset_profile_stats()
+        return out
 
 
 @dataclass(frozen=True)

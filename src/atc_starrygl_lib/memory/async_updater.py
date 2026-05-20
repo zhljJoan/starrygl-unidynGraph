@@ -172,6 +172,15 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         self.last_updated_nid: Tensor | None = None
         self.last_commit_handle: AsyncCommitHandle | None = None
 
+    def reset_state(self) -> None:
+        self.last_updated_memory = None
+        self.last_updated_ts = None
+        self.last_updated_nid = None
+        self.last_commit_handle = None
+        for name in ("last_updated_memory", "last_updated_ts", "last_updated_nid"):
+            if hasattr(self.base_updater, name):
+                setattr(self.base_updater, name, None)
+
     def forward(self, mfg: Any, spec: AsyncMemoryUpdateSpec | None = None) -> Tensor | None:
         updated = self._run_base_updater(mfg)
         nid = getattr(self.base_updater, "last_updated_nid", None)
@@ -199,7 +208,12 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         updated = self.last_updated_memory
         updated_ts = self.last_updated_ts
 
-        memory_nodes = spec.memory_nodes if spec.memory_nodes is not None else nid
+        if spec.memory_nodes is not None:
+            memory_nodes = spec.memory_nodes
+        elif spec.src is not None and spec.dst is not None:
+            memory_nodes = torch.cat([spec.src, spec.dst], dim=0)
+        else:
+            memory_nodes = nid
         memory_values = _safe_index(nid, memory_nodes, updated)
         memory_ts = _safe_index(nid, memory_nodes, updated_ts.reshape(-1, 1)).reshape(-1)
         if memory_values is None or memory_ts is None:
@@ -209,9 +223,9 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         mailbox_msg = None
         mailbox_ts = None
         if spec.update_mailbox and spec.src is not None and spec.dst is not None and spec.ts is not None:
-            mailbox_nodes = spec.dst if mailbox_nodes is None else mailbox_nodes
+            mailbox_nodes = torch.cat([spec.src, spec.dst], dim=0) if mailbox_nodes is None else mailbox_nodes
             mailbox_msg = _build_mailbox_messages(nid, updated, spec.src, spec.dst, spec.edge_feat)
-            mailbox_ts = spec.ts
+            mailbox_ts = torch.cat([spec.ts, spec.ts], dim=0)
 
         return self.committer.submit(
             memory_nodes,
@@ -285,9 +299,15 @@ def _build_mailbox_messages(
     dst_mem = _safe_index(nid, dst, updated)
     if src_mem is None or dst_mem is None:
         raise RuntimeError("src/dst nodes are not covered by updated node ids")
-    if edge_feat is None:
-        return torch.cat([src_mem, dst_mem], dim=-1)
-    return torch.cat([src_mem, dst_mem, edge_feat.to(src_mem.device, dtype=src_mem.dtype)], dim=-1)
+    src_mem = src_mem.reshape(int(src_mem.size(0)), -1)
+    dst_mem = dst_mem.reshape(int(dst_mem.size(0)), -1)
+    src_mail = torch.cat([src_mem, dst_mem], dim=-1)
+    dst_mail = torch.cat([dst_mem, src_mem], dim=-1)
+    if edge_feat is not None:
+        edge = edge_feat.to(src_mem.device, dtype=src_mem.dtype).reshape(int(edge_feat.size(0)), -1)
+        src_mail = torch.cat([src_mail, edge], dim=-1)
+        dst_mail = torch.cat([dst_mail, edge], dim=-1)
+    return torch.cat([src_mail, dst_mail], dim=0)
 
 
 def _safe_index(nid: Tensor, query: Tensor, values: Tensor) -> Tensor | None:

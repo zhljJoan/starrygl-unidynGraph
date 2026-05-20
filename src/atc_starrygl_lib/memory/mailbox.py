@@ -49,14 +49,24 @@ class MailboxStore:
         row = rows.long().to(self.mailbox.device)
         return self.mailbox.index_select(0, row).to(rows.device), self.mailbox_ts.index_select(0, row).to(rows.device)
 
+    def reset_zeros(self) -> None:
+        self.mailbox.zero_()
+        self.mailbox_ts.zero_()
+        self.next_pos.zero_()
+
     def append_rows(self, rows: Tensor, msg: Tensor, ts: Tensor, *, reduce: str = "max_ts") -> None:
         row = rows.long().to(self.mailbox.device)
         message = msg.to(device=self.mailbox.device, dtype=self.mailbox.dtype)
         ts_in = ts.to(device=self.mailbox_ts.device, dtype=self.mailbox_ts.dtype).reshape(-1)
         if row.numel() != message.size(0) or row.numel() != ts_in.numel():
             raise ValueError("rows, msg, and ts must have aligned leading dimensions")
-        if message.dim() != 2 or message.size(1) != self.mailbox.size(2):
+        if message.dim() != 2:
             raise ValueError("msg must be [N, msg_dim]")
+        if message.size(1) < self.mailbox.size(2):
+            pad = message.new_zeros((int(message.size(0)), int(self.mailbox.size(2) - message.size(1))))
+            message = torch.cat([message, pad], dim=1)
+        elif message.size(1) > self.mailbox.size(2):
+            message = message[:, : int(self.mailbox.size(2))].contiguous()
         if reduce == "max_ts" and row.numel() > 1:
             row, message, ts_in = _latest_by_row(row, message, ts_in)
         if reduce == "max_ts":

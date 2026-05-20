@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import torch
 
-from atc_starrygl_lib.core.types import Batch
+from atc_starrygl_lib.core.types import Batch, EdgePredOutput
 from atc_starrygl_lib.ctdg.train_loop import CTDGMemoryCommitHook, evaluate, train_epoch
 from atc_starrygl_lib.models.shared import EdgePredictHead
 from atc_starrygl_lib.tasks import EdgePredictionTask
@@ -31,6 +31,29 @@ def test_ctdg_train_epoch_uses_encode_head_and_task_loss() -> None:
     assert "ap" in result
 
 
+def test_edge_prediction_task_uses_negative_weights() -> None:
+    task = EdgePredictionTask()
+    batch = Batch(
+        split="train",
+        roots=torch.tensor([0, 1, 2], dtype=torch.long),
+        neg_weight=torch.tensor([2.0, 0.5], dtype=torch.float32),
+    )
+    output = EdgePredOutput(
+        pos_score=torch.tensor([0.3], dtype=torch.float32),
+        neg_score=torch.tensor([-0.2, 0.7], dtype=torch.float32),
+    )
+
+    loss = task.compute_loss(output, batch)
+
+    expected = torch.nn.functional.binary_cross_entropy_with_logits(
+        torch.tensor([0.3, -0.2, 0.7], dtype=torch.float32),
+        torch.tensor([1.0, 0.0, 0.0], dtype=torch.float32),
+        weight=torch.tensor([1.0, 2.0, 0.5], dtype=torch.float32),
+        reduction="sum",
+    ) / 3.5
+    assert torch.allclose(loss, expected)
+
+
 def test_ctdg_evaluate_does_not_require_task_adapter_wrapper() -> None:
     batch = Batch(
         split="val",
@@ -52,6 +75,7 @@ def test_ctdg_evaluate_does_not_require_task_adapter_wrapper() -> None:
 
 def test_ctdg_train_epoch_can_commit_memory_after_step() -> None:
     graph = _FakeBlock(edge_feat=torch.tensor([[5.0]], dtype=torch.float32))
+    batch_edge_feat = torch.tensor([[7.0]], dtype=torch.float32)
     batch = Batch(
         split="train",
         roots=torch.tensor([0, 1, 2], dtype=torch.long),
@@ -59,6 +83,7 @@ def test_ctdg_train_epoch_can_commit_memory_after_step() -> None:
         src=torch.tensor([10], dtype=torch.long),
         dst=torch.tensor([11], dtype=torch.long),
         ts=torch.tensor([3.0], dtype=torch.float32),
+        edge_feat=batch_edge_feat,
         pos_src=torch.tensor([0], dtype=torch.long),
         pos_dst=torch.tensor([1], dtype=torch.long),
         neg_dst=torch.tensor([2], dtype=torch.long),
@@ -77,7 +102,7 @@ def test_ctdg_train_epoch_can_commit_memory_after_step() -> None:
     assert spec.src.tolist() == [10]
     assert spec.dst.tolist() == [11]
     assert spec.ts.tolist() == [3.0]
-    assert spec.edge_feat.tolist() == [[5.0]]
+    assert spec.edge_feat.tolist() == [[7.0]]
     assert updater.handles[0].applied
 
 

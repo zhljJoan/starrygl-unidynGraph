@@ -187,6 +187,8 @@ def _split_snapshot_indices(num_snapshots: int, split: str, graph: dict[str, Any
         val_ratio = float(graph.get("val_ratio", val_ratio))
     train_end = int(num_snapshots * train_ratio)
     val_end = train_end + int(num_snapshots * val_ratio)
+    if split == "all":
+        return range(0, num_snapshots)
     if split == "train":
         return range(0, train_end)
     if split == "val":

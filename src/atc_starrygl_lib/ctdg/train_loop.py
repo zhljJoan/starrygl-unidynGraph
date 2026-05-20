@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import time
 from typing import Any, Iterable
 
 import torch
@@ -26,23 +27,63 @@ def train_epoch(
 
     losses: list[float] = []
     metrics: defaultdict[str, list[float]] = defaultdict(list)
-    for batch in session.iter_batches(split):
+    stage = {
+        "batch_wait_seconds": 0.0,
+        "encode_seconds": 0.0,
+        "head_loss_seconds": 0.0,
+        "backward_seconds": 0.0,
+        "optimizer_step_seconds": 0.0,
+        "memory_commit_seconds": 0.0,
+        "metrics_seconds": 0.0,
+        "batches": 0.0,
+    }
+    backend = getattr(session, "backend", None)
+    if backend is not None and hasattr(backend, "reset_profile_stats"):
+        backend.reset_profile_stats()
+    iterator = iter(session.iter_batches(split))
+    while True:
+        t_commit_wait = time.perf_counter()
+        _wait_pending_memory_commit(memory_commit)
+        stage["memory_commit_seconds"] += float(time.perf_counter() - t_commit_wait)
+        t_wait = time.perf_counter()
+        try:
+            batch = next(iterator)
+        except StopIteration:
+            break
+        stage["batch_wait_seconds"] += float(time.perf_counter() - t_wait)
+        t_encode = time.perf_counter()
         emb = encode_batch(encoder, batch)
+        stage["encode_seconds"] += float(time.perf_counter() - t_encode)
+        t_head = time.perf_counter()
         output = head(emb, batch)
         loss = task.compute_loss(output, batch)
+        stage["head_loss_seconds"] += float(time.perf_counter() - t_head)
 
         optimizer.zero_grad(set_to_none=True)
+        t_backward = time.perf_counter()
         loss.backward()
+        stage["backward_seconds"] += float(time.perf_counter() - t_backward)
+        t_step = time.perf_counter()
         optimizer.step()
+        stage["optimizer_step_seconds"] += float(time.perf_counter() - t_step)
 
         if memory_commit is not None:
             memory_commit(encoder, batch)
 
         losses.append(float(loss.detach().item()))
+        t_metrics = time.perf_counter()
         _append_metrics(metrics, task.compute_metrics(output, batch))
+        stage["metrics_seconds"] += float(time.perf_counter() - t_metrics)
+        stage["batches"] += 1.0
+    t_commit_wait = time.perf_counter()
+    _wait_pending_memory_commit(memory_commit)
+    stage["memory_commit_seconds"] += float(time.perf_counter() - t_commit_wait)
 
     out = _mean_metrics(metrics)
     out["loss"] = _mean(losses)
+    out.update({f"stage_{k}": float(v) for k, v in stage.items()})
+    if backend is not None and hasattr(backend, "pop_profile_stats"):
+        out.update(backend.pop_profile_stats())
     return out
 
 
@@ -62,7 +103,13 @@ def evaluate(
 
     losses: list[float] = []
     metrics: defaultdict[str, list[float]] = defaultdict(list)
-    for batch in session.iter_batches(split):
+    iterator = iter(session.iter_batches(split))
+    while True:
+        _wait_pending_memory_commit(memory_commit)
+        try:
+            batch = next(iterator)
+        except StopIteration:
+            break
         emb = encode_batch(encoder, batch)
         output = head(emb, batch)
         loss = task.compute_loss(output, batch)
@@ -70,6 +117,7 @@ def evaluate(
         _append_metrics(metrics, task.compute_metrics(output, batch))
         if memory_commit is not None:
             memory_commit(encoder, batch)
+    _wait_pending_memory_commit(memory_commit)
 
     out = _mean_metrics(metrics)
     out["loss"] = _mean(losses)
@@ -89,11 +137,18 @@ def predict(
     encoder.eval()
     head.eval()
     outputs: list[tuple[Any, Batch]] = []
-    for batch in session.iter_batches(split):
+    iterator = iter(session.iter_batches(split))
+    while True:
+        _wait_pending_memory_commit(memory_commit)
+        try:
+            batch = next(iterator)
+        except StopIteration:
+            break
         output = head(encode_batch(encoder, batch), batch)
         outputs.append((output, batch))
         if memory_commit is not None:
             memory_commit(encoder, batch)
+    _wait_pending_memory_commit(memory_commit)
     return outputs
 
 
@@ -106,7 +161,7 @@ def encode_batch(encoder: torch.nn.Module, batch: Batch) -> Tensor:
 class CTDGMemoryCommitHook:
     """Explicit post-step memory/mailbox writeback hook for CTDG training."""
 
-    def __init__(self, updater: Any = None, *, wait_apply: bool = True) -> None:
+    def __init__(self, updater: Any = None, *, wait_apply: bool = False) -> None:
         self.updater = updater
         self.wait_apply = bool(wait_apply)
         self.last_handle = None
@@ -115,11 +170,12 @@ class CTDGMemoryCommitHook:
         updater = self.updater or _find_memory_updater(encoder)
         if updater is None:
             return
+        edge_feat = _positive_edge_feature(batch)
         spec = AsyncMemoryUpdateSpec.from_edges(
             batch.src,
             batch.dst,
             batch.ts,
-            edge_feat=_first_edge_feature(batch.graph),
+            edge_feat=edge_feat,
             wait_apply=self.wait_apply,
         ) if batch.src is not None and batch.dst is not None and batch.ts is not None else AsyncMemoryUpdateSpec(
             wait_apply=self.wait_apply,
@@ -132,6 +188,12 @@ class CTDGMemoryCommitHook:
             return
         self.last_handle = handle
         if self.wait_apply and handle is not None and hasattr(handle, "wait_apply"):
+            handle.wait_apply()
+
+    def wait_pending(self) -> None:
+        handle = self.last_handle
+        self.last_handle = None
+        if handle is not None and hasattr(handle, "wait_apply"):
             handle.wait_apply()
 
 
@@ -167,15 +229,33 @@ def _find_memory_updater(module: torch.nn.Module) -> Any:
     return None
 
 
+def _wait_pending_memory_commit(memory_commit: Any) -> None:
+    if memory_commit is not None and hasattr(memory_commit, "wait_pending"):
+        memory_commit.wait_pending()
+
+
 def _first_edge_feature(graph: Any) -> Tensor | None:
     block = _first_block(graph)
     edata = getattr(block, "edata", None)
-    if not isinstance(edata, dict):
+    if edata is None:
         return None
-    feature = edata.get("f")
-    if feature is None:
-        feature = edata.get("feat")
+    feature = edata.get("f") if hasattr(edata, "get") else (edata["f"] if "f" in edata else None)
+    if feature is None and "feat" in edata:
+        feature = edata["feat"]
     return feature
+
+
+def _positive_edge_feature(batch: Batch) -> Tensor | None:
+    if batch.edge_feat is not None:
+        return batch.edge_feat
+    feature = _first_edge_feature(batch.graph)
+    if feature is None or batch.src is None:
+        return feature
+    if int(feature.size(0)) == int(batch.src.numel()):
+        return feature
+    if feature.dim() <= 1:
+        return None
+    return feature.new_zeros((int(batch.src.numel()), int(feature.size(-1))))
 
 
 def _first_block(graph: Any) -> Any:

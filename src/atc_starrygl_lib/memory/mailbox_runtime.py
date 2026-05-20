@@ -85,6 +85,9 @@ class MailboxRuntime:
     def submit_read(self, layout: MailboxReadLayout) -> AsyncTensorHandle:
         return self.fetch_comm.submit_row_fetch(layout.read_index, layout.read_ptr, self._gather_mailbox_payload)
 
+    def reset_state(self) -> None:
+        self.store.reset_zeros()
+
     def read(self, layout: MailboxReadLayout) -> MailboxReadHandle:
         return MailboxReadHandle(runtime=self, layout=layout, handle=self.submit_read(layout))
 

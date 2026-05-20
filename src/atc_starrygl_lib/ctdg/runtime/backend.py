@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Iterator
@@ -12,7 +13,7 @@ from atc_starrygl_lib.comm.dynamic import DynamicFetchComm, DynamicPushComm
 from atc_starrygl_lib.memory import MailboxRuntime, MailboxStore, MemoryRuntime, MemoryStore
 from atc_starrygl_lib.runtime.index import DistIndexTables
 from atc_starrygl_lib.sampling import MemShareNativeSamplerFactory, NativeSamplerConfig, TemporalGraphData
-from atc_starrygl_lib.sampling.negative import NegativeSampler, NegativeSamplingRequest, RandomNegativeSampler
+from atc_starrygl_lib.sampling.negative import NegativeSampler, NegativeSamplingRequest, PoolNegativeSampler, RandomNegativeSampler
 from atc_starrygl_lib.sampling.temporal import RootSet, TemporalSamplingRequest
 
 
@@ -74,6 +75,13 @@ class MemShareTemporalSamplingBackend:
             val_ratio=float(prep_cfg.get("val_ratio", 0.15)),
             batch_size=prep_cfg.get("batch_size"),
             num_windows=prep_cfg.get("num_windows"),
+            hot_ratio=float(prep_cfg.get("hot_ratio", 0.0)),
+            hot_topk=int(prep_cfg.get("hot_topk", 0)),
+            node_count_weight=float(prep_cfg.get("node_count_weight", 1.0)),
+            speed_beta=float(prep_cfg.get("speed_beta", 0.5)),
+            speed_topk_type=str(prep_cfg.get("speed_topk_type", "degree")),
+            random_node_feat_dim=int(graph_cfg.get("random_node_feat_dim", prep_cfg.get("random_node_feat_dim", 0))),
+            random_node_feat_seed=int(graph_cfg.get("random_node_feat_seed", prep_cfg.get("random_node_feat_seed", 0))),
         )
         next_prep = dict(prep_cfg)
         next_prep["time_ptr_2"] = dataset["time_ptr_2"].tolist()
@@ -102,6 +110,11 @@ class MemShareTemporalSamplingBackend:
             val_ratio=float(prep_cfg.get("val_ratio", 0.15)),
             batch_size=prep_cfg.get("batch_size"),
             num_windows=prep_cfg.get("num_windows"),
+            hot_ratio=float(prep_cfg.get("hot_ratio", 0.0)),
+            hot_topk=int(prep_cfg.get("hot_topk", 0)),
+            node_count_weight=float(prep_cfg.get("node_count_weight", 1.0)),
+            speed_beta=float(prep_cfg.get("speed_beta", 0.5)),
+            speed_topk_type=str(prep_cfg.get("speed_topk_type", "degree")),
         )
         files = {
             "graph": out_dir / "graph.pt",
@@ -117,8 +130,13 @@ class MemShareTemporalSamplingBackend:
         return ArtifactBundle(root=out_dir, graph_mode="ctdg", files=files, meta=dict(result["meta"]))
 
     def build_runtime(self, ctx: RuntimeContext, artifacts: ArtifactBundle) -> None:
-        if self._prepared_by == "new_pipeline":
+        if self._prepared_by == "new_pipeline" or (
+            artifacts.files.get("graph") is not None
+            and artifacts.files.get("dist") is not None
+            and artifacts.files.get(f"rank_{int(ctx.rank):03d}") is not None
+        ):
             self._runtime = _CTDGArtifactRuntime.from_artifacts(ctx, artifacts)
+            self._prepared_by = "new_pipeline"
             return
         from starry_unigraph.backends.ctdg.runtime.session import CTDGSession
         from starry_unigraph.types import SessionContext
@@ -143,6 +161,25 @@ class MemShareTemporalSamplingBackend:
         for old_batch in iterator:
             yield _coerce_ctdg_batch(old_batch, split)
 
+    def reset_state(self) -> None:
+        if self._prepared_by == "new_pipeline":
+            if self._runtime is not None:
+                self._runtime.reset_state()
+            return
+        runtime = getattr(self._session, "online_runtime", None)
+        mailbox = getattr(runtime, "mailbox", None)
+        if mailbox is not None and hasattr(mailbox, "reset"):
+            mailbox.reset()
+
+    def reset_profile_stats(self) -> None:
+        if self._prepared_by == "new_pipeline" and self._runtime is not None:
+            self._runtime.reset_profile_stats()
+
+    def pop_profile_stats(self) -> dict[str, float]:
+        if self._prepared_by == "new_pipeline" and self._runtime is not None:
+            return self._runtime.pop_profile_stats()
+        return {}
+
 
 def _coerce_ctdg_batch(old_batch: object, split: str) -> Batch:
     pos_src = getattr(old_batch, "pos_src", None)
@@ -160,6 +197,7 @@ def _coerce_ctdg_batch(old_batch: object, split: str) -> Batch:
         pos_dst=pos_dst,
         neg_src=getattr(old_batch, "neg_src", None),
         neg_dst=getattr(old_batch, "neg_dst", None),
+        neg_weight=getattr(old_batch, "neg_weight", None),
         node_ids=getattr(old_batch, "node_ids", None),
     )
 
@@ -181,12 +219,16 @@ class _CTDGArtifactRuntime:
         mailbox_runtime: Any = None,
         negative_sampler: NegativeSampler | None = None,
         negative_ratio: int = 0,
+        negative_dst_pool: torch.Tensor | None = None,
+        local_negative_dst_pool: torch.Tensor | None = None,
+        remote_negative_dst_pool: torch.Tensor | None = None,
         prefetch_batches: bool = True,
     ) -> None:
         self.graph = graph
         self.dist = dist
         self.rank_artifact = rank_artifact
         self.feature_artifact = feature_artifact
+        self.edge_feat_dim = _feature_dim(None if feature_artifact is None else feature_artifact.get("edge_feat"))
         self.device = device
         self.task_name = task_name
         self.node_batch_size = int(node_batch_size)
@@ -196,8 +238,19 @@ class _CTDGArtifactRuntime:
         self.mailbox_runtime = mailbox_runtime
         self.negative_sampler = negative_sampler
         self.negative_ratio = int(negative_ratio)
+        self.negative_dst_pool = None if negative_dst_pool is None else negative_dst_pool.long().cpu().contiguous()
+        self.local_negative_dst_pool = None if local_negative_dst_pool is None else local_negative_dst_pool.long().cpu().contiguous()
+        self.remote_negative_dst_pool = None if remote_negative_dst_pool is None else remote_negative_dst_pool.long().cpu().contiguous()
         self.prefetch_batches = bool(prefetch_batches)
         self.local_edge_ids = rank_artifact["local_edge_ids"].long().cpu().contiguous()
+        self.graph_src = graph["src"].long().cpu().contiguous()
+        self.graph_dst = graph["dst"].long().cpu().contiguous()
+        self.graph_ts = torch.as_tensor(graph["ts"]).cpu().contiguous()
+        self.graph_eids = graph.get("edge_ids", torch.arange(int(self.graph_src.numel()), dtype=torch.long)).long().cpu().contiguous()
+        self.graph_edge_feat = None if graph.get("edge_feat") is None else torch.as_tensor(graph["edge_feat"]).cpu().contiguous()
+        self.graph_edge_label = None if graph.get("edge_label") is None else torch.as_tensor(graph["edge_label"]).cpu().contiguous()
+        self._profile_stats: dict[str, float] = {}
+        self.reset_profile_stats()
 
     @classmethod
     def from_artifacts(cls, ctx: RuntimeContext, artifacts: ArtifactBundle) -> "_CTDGArtifactRuntime":
@@ -245,7 +298,14 @@ class _CTDGArtifactRuntime:
         negative_sampler = runtime_cfg.get("negative_sampler")
         negative_ratio = int(runtime_cfg.get("negative_ratio", 0))
         if negative_sampler is None and negative_ratio > 0:
-            negative_sampler = RandomNegativeSampler()
+            negative_sampler = _build_negative_sampler(runtime_cfg)
+        negative_dst_pool = _negative_dst_pool(graph=graph, runtime_cfg=runtime_cfg)
+        local_negative_dst_pool, remote_negative_dst_pool = _rank_negative_dst_pools(
+            graph=graph,
+            dist=dist,
+            rank=int(ctx.rank),
+            runtime_cfg=runtime_cfg,
+        )
         return cls(
             graph=graph,
             dist=dist,
@@ -260,6 +320,9 @@ class _CTDGArtifactRuntime:
             mailbox_runtime=mailbox_runtime,
             negative_sampler=negative_sampler,
             negative_ratio=negative_ratio,
+            negative_dst_pool=negative_dst_pool,
+            local_negative_dst_pool=local_negative_dst_pool,
+            remote_negative_dst_pool=remote_negative_dst_pool,
             prefetch_batches=bool(runtime_cfg.get("prefetch_batches", True)),
         )
 
@@ -268,10 +331,62 @@ class _CTDGArtifactRuntime:
             batches = self._iter_node_batches(str(split))
             yield from self._maybe_sample_batches(batches)
             return
-        yield from self._maybe_sample_batches(self._iter_edge_batches(str(split)))
+        if self.sampler is not None:
+            yield from self._maybe_sample_edge_batches(str(split))
+            return
+        yield from self._iter_edge_batches(str(split))
 
-    def _iter_edge_batches(self, split: str) -> Iterator[Batch]:
+    def reset_state(self) -> None:
+        if self.memory_runtime is not None and hasattr(self.memory_runtime, "reset_state"):
+            self.memory_runtime.reset_state()
+        if self.mailbox_runtime is not None and hasattr(self.mailbox_runtime, "reset_state"):
+            self.mailbox_runtime.reset_state()
+        if self.sampler is not None and hasattr(self.sampler, "reset"):
+            self.sampler.reset()
+
+    def reset_profile_stats(self) -> None:
+        if self.sampler is not None and hasattr(self.sampler, "reset_profile_stats"):
+            self.sampler.reset_profile_stats()
+        self._profile_stats = {
+            "backend_batch_build_seconds": 0.0,
+            "backend_negative_attach_seconds": 0.0,
+            "backend_sampling_seconds": 0.0,
+            "backend_sampling_request_seconds": 0.0,
+            "backend_sampling_native_seconds": 0.0,
+            "backend_submit_reads_seconds": 0.0,
+            "backend_root_remap_seconds": 0.0,
+            "backend_submit_node_feature_seconds": 0.0,
+            "backend_submit_edge_feature_seconds": 0.0,
+            "backend_submit_memory_seconds": 0.0,
+            "backend_submit_mailbox_seconds": 0.0,
+            "backend_materialize_seconds": 0.0,
+            "backend_wait_patch_seconds": 0.0,
+            "backend_wait_node_feature_seconds": 0.0,
+            "backend_wait_edge_feature_seconds": 0.0,
+            "backend_wait_memory_seconds": 0.0,
+            "backend_wait_mailbox_seconds": 0.0,
+            "backend_patch_inputs_seconds": 0.0,
+            "backend_batches": 0.0,
+        }
+
+    def pop_profile_stats(self) -> dict[str, float]:
+        out = dict(self._profile_stats)
+        if self.sampler is not None and hasattr(self.sampler, "pop_profile_stats"):
+            out.update({f"backend_{k}": float(v) for k, v in self.sampler.pop_profile_stats().items()})
+        self.reset_profile_stats()
+        return out
+
+    def _iter_edge_event_positions(self, split: str) -> Iterator[torch.Tensor]:
         split = str(split)
+        packed = self.rank_artifact.get("split_event_pos", {}).get(split)
+        if isinstance(packed, dict):
+            data = torch.as_tensor(packed.get("data"), dtype=torch.long).cpu().contiguous()
+            ptr = torch.as_tensor(packed.get("ptr"), dtype=torch.long).cpu().contiguous()
+            for index in range(max(int(ptr.numel()) - 1, 0)):
+                begin = int(ptr[index])
+                end = int(ptr[index + 1])
+                yield data[begin:end].long().contiguous()
+            return
         global_windows = _split_windows(self.graph, split)
         local_windows = self.rank_artifact.get("split_time_ptr", {}).get(split)
         if local_windows is None:
@@ -282,6 +397,11 @@ class _CTDGArtifactRuntime:
                 event_pos = _window_local_event_positions(self.local_edge_ids, begin=begin, end=end)
             else:
                 event_pos = torch.empty(0, dtype=torch.long)
+            yield event_pos
+
+    def _iter_edge_batches(self, split: str) -> Iterator[Batch]:
+        split = str(split)
+        for event_pos in self._iter_edge_event_positions(split):
             yield self._batch_from_event_positions(split=split, event_pos=event_pos)
 
     def _iter_node_batches(self, split: str) -> Iterator[Batch]:
@@ -341,10 +461,40 @@ class _CTDGArtifactRuntime:
                 yield self._patch_sampled_batch(current_future.result())
             yield self._patch_sampled_batch(future.result())
 
+    def _maybe_sample_edge_batches(self, split: str) -> Iterator[Batch]:
+        if self.sampler is None:
+            yield from self._iter_edge_batches(split)
+            return
+        positions = self._iter_edge_event_positions(split)
+        if not self.prefetch_batches:
+            for event_pos in positions:
+                yield self._patch_sampled_batch(self._prepare_sampled_edge_batch(split, event_pos))
+            return
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            iterator = iter(positions)
+            try:
+                first = next(iterator)
+            except StopIteration:
+                return
+            future = executor.submit(self._prepare_sampled_edge_batch, split, first)
+            for next_event_pos in iterator:
+                current_future = future
+                future = executor.submit(self._prepare_sampled_edge_batch, split, next_event_pos)
+                yield self._patch_sampled_batch(current_future.result())
+            yield self._patch_sampled_batch(future.result())
+
+    def _prepare_sampled_edge_batch(self, split: str, event_pos: torch.Tensor) -> tuple[Batch, Any]:
+        batch = self._batch_from_event_positions(split=split, event_pos=event_pos)
+        batch = self._attach_negative(batch)
+        return self._sample_batch(batch)
+
     def _attach_negative(self, batch: Batch) -> Batch:
+        t0 = time.perf_counter()
         if self.negative_sampler is None or self.negative_ratio <= 0:
+            self._profile_stats["backend_negative_attach_seconds"] += float(time.perf_counter() - t0)
             return batch
         if batch.src is None or batch.dst is None or batch.ts is None:
+            self._profile_stats["backend_negative_attach_seconds"] += float(time.perf_counter() - t0)
             return batch
         result = self.negative_sampler.sample(
             NegativeSamplingRequest(
@@ -353,6 +503,9 @@ class _CTDGArtifactRuntime:
                 num_nodes=int(self.graph["num_nodes"]),
                 ratio=int(self.negative_ratio),
                 split=batch.split,
+                dst_pool=self.negative_dst_pool,
+                local_dst_pool=self.local_negative_dst_pool,
+                remote_dst_pool=self.remote_negative_dst_pool,
             )
         )
         neg_roots = result.neg_dst.to(batch.roots.device).long().contiguous()
@@ -364,39 +517,76 @@ class _CTDGArtifactRuntime:
             dtype=torch.long,
             device=batch.roots.device,
         )
+        if result.weight is not None:
+            batch.neg_weight = result.weight.to(batch.roots.device, dtype=torch.float32).contiguous()
         neg_ts = batch.ts.repeat_interleave(int(result.ratio)).to(batch.timestamps.device)
         batch.timestamps = torch.cat([batch.timestamps, neg_ts], dim=0).contiguous()
+        self._profile_stats["backend_negative_attach_seconds"] += float(time.perf_counter() - t0)
         return batch
 
     def _sample_and_patch(self, batch: Batch) -> Batch:
         return self._patch_sampled_batch(self._sample_batch(batch))
 
     def _sample_batch(self, batch: Batch) -> tuple[Batch, Any]:
+        t_total = time.perf_counter()
+        t_req = time.perf_counter()
         request = _sampling_request_from_batch(batch)
-        return batch, self.sampler.sample(request)
+        self._profile_stats["backend_sampling_request_seconds"] += float(time.perf_counter() - t_req)
+        t_native = time.perf_counter()
+        out = batch, self.sampler.sample(request)
+        native_seconds = float(time.perf_counter() - t_native)
+        self._profile_stats["backend_sampling_native_seconds"] += native_seconds
+        self._profile_stats["backend_sampling_seconds"] += float(time.perf_counter() - t_total)
+        return out
 
     def _patch_sampled_batch(self, sampled: tuple[Batch, Any]) -> Batch:
         batch, output = sampled
+        t_submit = time.perf_counter()
+        t_remap = time.perf_counter()
         _remap_batch_root_indices(batch, output)
+        self._profile_stats["backend_root_remap_seconds"] += float(time.perf_counter() - t_remap)
         reads = self._submit_runtime_reads(output)
+        self._profile_stats["backend_submit_reads_seconds"] += float(time.perf_counter() - t_submit)
+        t_mat = time.perf_counter()
         batch.graph = _materialize_mfgs(output)
+        batch.graph = _move_mfgs_to_device(batch.graph, self.device)
+        self._profile_stats["backend_materialize_seconds"] += float(time.perf_counter() - t_mat)
+        t_wait = time.perf_counter()
         self._wait_and_patch_runtime_reads(batch.graph, reads)
+        self._profile_stats["backend_wait_patch_seconds"] += float(time.perf_counter() - t_wait)
+        self._profile_stats["backend_batches"] += 1.0
         return batch
 
     def _submit_runtime_reads(self, output: Any) -> dict[str, tuple[Any, Any, Any]]:
         reads: dict[str, tuple[Any, Any, Any]] = {}
         if self.feature_runtime is not None:
+            t0 = time.perf_counter()
             layout = self.feature_runtime.build_layout_from_sampling(output)
+            self._profile_stats["backend_submit_node_feature_seconds"] += float(time.perf_counter() - t0)
+            t0 = time.perf_counter()
             edge_layout = self.feature_runtime.build_edge_layout_from_sampling(output)
+            self._profile_stats["backend_submit_edge_feature_seconds"] += float(time.perf_counter() - t0)
+            t0 = time.perf_counter()
             reads["node_feature"] = (self.feature_runtime, layout, self.feature_runtime.submit_fetch(layout))
+            self._profile_stats["backend_submit_node_feature_seconds"] += float(time.perf_counter() - t0)
             if edge_layout is not None:
+                t0 = time.perf_counter()
                 reads["edge_feature"] = (self.feature_runtime, edge_layout, self.feature_runtime.submit_edge_fetch(edge_layout))
+                self._profile_stats["backend_submit_edge_feature_seconds"] += float(time.perf_counter() - t0)
         if self.memory_runtime is not None:
+            t0 = time.perf_counter()
             layout = self.memory_runtime.build_read_layout_from_sampling(output)
+            self._profile_stats["backend_submit_memory_seconds"] += float(time.perf_counter() - t0)
+            t0 = time.perf_counter()
             reads["memory"] = (self.memory_runtime, layout, self.memory_runtime.submit_read(layout))
+            self._profile_stats["backend_submit_memory_seconds"] += float(time.perf_counter() - t0)
         if self.mailbox_runtime is not None:
+            t0 = time.perf_counter()
             layout = self.mailbox_runtime.build_read_layout_from_sampling(output)
+            self._profile_stats["backend_submit_mailbox_seconds"] += float(time.perf_counter() - t0)
+            t0 = time.perf_counter()
             reads["mailbox"] = (self.mailbox_runtime, layout, self.mailbox_runtime.submit_read(layout))
+            self._profile_stats["backend_submit_mailbox_seconds"] += float(time.perf_counter() - t0)
         return reads
 
     def _wait_and_patch_runtime_reads(self, mfgs: Any, reads: dict[str, tuple[Any, Any, Any]]) -> None:
@@ -408,37 +598,49 @@ class _CTDGArtifactRuntime:
         mailbox_ts = None
         if "node_feature" in reads:
             runtime, layout, handle = reads["node_feature"]
+            t0 = time.perf_counter()
             feature = runtime.wait_fetch(handle, layout)
+            self._profile_stats["backend_wait_node_feature_seconds"] += float(time.perf_counter() - t0)
         if "edge_feature" in reads:
             runtime, layout, handle = reads["edge_feature"]
+            t0 = time.perf_counter()
             edge_feature = runtime.wait_edge_fetch(handle, layout)
+            self._profile_stats["backend_wait_edge_feature_seconds"] += float(time.perf_counter() - t0)
         if "memory" in reads:
             runtime, layout, handle = reads["memory"]
+            t0 = time.perf_counter()
             memory, memory_ts = runtime.wait_read(handle, layout)
+            self._profile_stats["backend_wait_memory_seconds"] += float(time.perf_counter() - t0)
         if "mailbox" in reads:
             runtime, layout, handle = reads["mailbox"]
+            t0 = time.perf_counter()
             mailbox, mailbox_ts = runtime.wait_read(handle, layout)
+            self._profile_stats["backend_wait_mailbox_seconds"] += float(time.perf_counter() - t0)
+        t0 = time.perf_counter()
         _patch_first_layer_inputs(
             mfgs,
             node_feat=feature,
             edge_feat=edge_feature,
+            edge_feat_dim=self.edge_feat_dim,
             memory=memory,
             memory_ts=memory_ts,
             mailbox=mailbox,
             mailbox_ts=mailbox_ts,
         )
+        self._profile_stats["backend_patch_inputs_seconds"] += float(time.perf_counter() - t0)
 
     def _batch_from_event_positions(self, *, split: str, event_pos: torch.Tensor) -> Batch:
-        graph = self.graph
-        src = graph["src"].long().cpu().index_select(0, event_pos)
-        dst = graph["dst"].long().cpu().index_select(0, event_pos)
-        ts = graph["ts"].cpu().index_select(0, event_pos)
-        eids = graph.get("edge_ids", torch.arange(int(graph["src"].numel()), dtype=torch.long)).long().cpu().index_select(0, event_pos)
+        t0 = time.perf_counter()
+        src = self.graph_src.index_select(0, event_pos)
+        dst = self.graph_dst.index_select(0, event_pos)
+        ts = self.graph_ts.index_select(0, event_pos)
+        eids = self.graph_eids.index_select(0, event_pos)
+        edge_feat = _select_optional(self.graph_edge_feat, event_pos)
         num_edges = int(src.numel())
         roots = torch.cat([src, dst], dim=0).long().contiguous()
         root_ts = torch.cat([ts, ts], dim=0).contiguous()
-        labels = _select_optional(graph.get("edge_label"), event_pos)
-        return Batch(
+        labels = _select_optional(self.graph_edge_label, event_pos)
+        batch = Batch(
             split=split,
             roots=roots.to(self.device),
             timestamps=root_ts.to(self.device),
@@ -447,10 +649,13 @@ class _CTDGArtifactRuntime:
             src=src.to(self.device),
             dst=dst.to(self.device),
             ts=ts.to(self.device),
+            edge_feat=None if edge_feat is None else edge_feat.to(self.device),
             pos_src=torch.arange(num_edges, dtype=torch.long, device=self.device),
             pos_dst=torch.arange(num_edges, num_edges * 2, dtype=torch.long, device=self.device),
             labels=None if labels is None else labels.to(self.device),
         )
+        self._profile_stats["backend_batch_build_seconds"] += float(time.perf_counter() - t0)
+        return batch
 
 
 def _load_torch_artifact(path: Path | None) -> dict[str, Any]:
@@ -482,6 +687,57 @@ def _select_optional(tensor: Any, event_pos: torch.Tensor) -> torch.Tensor | Non
     if tensor is None:
         return None
     return torch.as_tensor(tensor).cpu().index_select(0, event_pos).contiguous()
+
+
+def _negative_dst_pool(*, graph: dict[str, Any], runtime_cfg: dict[str, Any]) -> torch.Tensor | None:
+    policy = str(runtime_cfg.get("negative_dst_pool", runtime_cfg.get("negative_pool", "all_nodes"))).strip().lower()
+    if policy in {"global_dst", "dst", "all_dst", "global-dst"}:
+        return torch.unique(graph["dst"].long().cpu(), sorted=True).contiguous()
+    if policy in {"none", "all_nodes", "all-nodes", "nodes"}:
+        return None
+    raw = runtime_cfg.get("dst_pool")
+    if raw is not None:
+        return torch.as_tensor(raw, dtype=torch.long).cpu().contiguous()
+    raise ValueError(f"unsupported negative dst pool policy: {policy!r}")
+
+
+def _build_negative_sampler(runtime_cfg: dict[str, Any]) -> NegativeSampler:
+    policy = str(runtime_cfg.get("negative_sampler_policy", runtime_cfg.get("negative_policy", "uniform"))).strip().lower()
+    if policy in {"local_remote", "rank_local_remote", "partition_local_remote"}:
+        p = runtime_cfg.get("negative_train_local_dst_prob", runtime_cfg.get("train_local_dst_prob", runtime_cfg.get("negative_local_probability", None)))
+        remote_p = runtime_cfg.get("negative_train_remote_dst_prob", runtime_cfg.get("train_remote_dst_prob", None))
+        return PoolNegativeSampler(
+            train_local_dst_prob=None if p is None else float(p),
+            train_remote_dst_prob=0.0 if remote_p is None else float(remote_p),
+            test_policy=str(runtime_cfg.get("negative_test_policy", "global")),
+        )
+    return RandomNegativeSampler()
+
+
+def _rank_negative_dst_pools(
+    *,
+    graph: dict[str, Any],
+    dist: dict[str, Any],
+    rank: int,
+    runtime_cfg: dict[str, Any],
+) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+    policy = str(runtime_cfg.get("negative_sampler_policy", runtime_cfg.get("negative_policy", "uniform"))).strip().lower()
+    if policy not in {"local_remote", "rank_local_remote", "partition_local_remote"}:
+        return None, None
+    node_to_chunk = dist.get("node_to_chunk")
+    chunk_owner = dist.get("chunk_owner")
+    if node_to_chunk is not None and chunk_owner is not None:
+        node_part = chunk_owner.long().cpu().index_select(0, node_to_chunk.long().cpu())
+    else:
+        node_part = dist.get("node_owner")
+        if node_part is None:
+            return None, None
+        node_part = node_part.long().cpu()
+    dst = torch.unique(graph["dst"].long().cpu(), sorted=True)
+    dst_part = node_part.index_select(0, dst)
+    local = dst[dst_part == int(rank)].long().contiguous()
+    remote = dst[dst_part != int(rank)].long().contiguous()
+    return local, remote
 
 
 def _build_native_sampler(
@@ -588,8 +844,14 @@ def _build_memory_runtime(
         ts = torch.zeros((int(memory.size(0)),), dtype=torch.float32, device=memory.device)
     else:
         ts = torch.as_tensor(init_ts, dtype=torch.float32, device=memory.device).reshape(-1).contiguous()
+    master = dist.get("master_dist_index")
+    if master is None:
+        master = rank_artifact["read_dist_index"]
     return MemoryRuntime(
-        index=_build_dist_index_tables(rank_artifact=rank_artifact, dist=dist),
+        index=DistIndexTables(
+            master_dist_index=master.long().cpu().contiguous(),
+            read_dist_index=master.long().cpu().contiguous(),
+        ),
         store=MemoryStore(memory, ts),
         fetch_comm=DynamicFetchComm(torch.device(ctx.device)),
         push_comm=DynamicPushComm(torch.device(ctx.device)),
@@ -627,8 +889,14 @@ def _build_mailbox_runtime(
     else:
         mailbox_ts = torch.as_tensor(init_ts, dtype=torch.float32, device=mailbox.device).contiguous()
     next_pos = torch.zeros((int(mailbox.size(0)),), dtype=torch.long, device=mailbox.device)
+    master = dist.get("master_dist_index")
+    if master is None:
+        master = rank_artifact["read_dist_index"]
     return MailboxRuntime(
-        index=_build_dist_index_tables(rank_artifact=rank_artifact, dist=dist),
+        index=DistIndexTables(
+            master_dist_index=master.long().cpu().contiguous(),
+            read_dist_index=master.long().cpu().contiguous(),
+        ),
         store=MailboxStore(mailbox, mailbox_ts, next_pos),
         fetch_comm=DynamicFetchComm(torch.device(ctx.device)),
         push_comm=DynamicPushComm(torch.device(ctx.device)),
@@ -700,6 +968,18 @@ def _materialize_mfgs(output: Any) -> Any:
     return blocks
 
 
+def _move_mfgs_to_device(mfgs: Any, device: torch.device) -> Any:
+    if mfgs is None:
+        return None
+    if isinstance(mfgs, list):
+        return [_move_mfgs_to_device(item, device) for item in mfgs]
+    if isinstance(mfgs, tuple):
+        return tuple(_move_mfgs_to_device(item, device) for item in mfgs)
+    if hasattr(mfgs, "to"):
+        return mfgs.to(device)
+    return mfgs
+
+
 def _ensure_dst_prefix_src_lids(*, old_src_lids: torch.Tensor, dst_lids: torch.Tensor, indices: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     if int(old_src_lids.numel()) >= int(dst_lids.numel()) and torch.equal(old_src_lids[: int(dst_lids.numel())], dst_lids):
         return old_src_lids, indices
@@ -725,6 +1005,7 @@ def _patch_first_layer_inputs(
     *,
     node_feat: torch.Tensor | None,
     edge_feat: torch.Tensor | None,
+    edge_feat_dim: int = 0,
     memory: torch.Tensor | None,
     memory_ts: torch.Tensor | None,
     mailbox: torch.Tensor | None,
@@ -756,10 +1037,19 @@ def _patch_first_layer_inputs(
     if edge_feat is not None:
         for block in _flatten_mfg_blocks(mfgs):
             edata = getattr(block, "edata", None)
-            if not isinstance(edata, dict) or "__ID" not in edata:
+            if edata is None or "__ID" not in edata:
                 continue
             idx = edata["__ID"].long()
             edata["f"] = edge_feat.index_select(0, idx.to(edge_feat.device)).to(idx.device)
+    if edge_feat_dim > 0:
+        for block in _flatten_mfg_blocks(mfgs):
+            edata = getattr(block, "edata", None)
+            if edata is not None and "f" not in edata:
+                edata["f"] = torch.zeros(
+                    (int(block.num_edges()), int(edge_feat_dim)),
+                    dtype=torch.float32,
+                    device=block.device,
+                )
 
 
 def _flatten_mfg_blocks(mfgs: Any) -> list[Any]:
@@ -771,6 +1061,15 @@ def _flatten_mfg_blocks(mfgs: Any) -> list[Any]:
             out.extend(_flatten_mfg_blocks(item))
         return out
     return [mfgs]
+
+
+def _feature_dim(feature: Any) -> int:
+    if feature is None:
+        return 0
+    tensor = torch.as_tensor(feature)
+    if tensor.dim() == 0:
+        return 0
+    return int(tensor.size(-1)) if tensor.dim() > 1 else 1
 
 
 def _sampling_request_from_batch(batch: Batch) -> TemporalSamplingRequest:

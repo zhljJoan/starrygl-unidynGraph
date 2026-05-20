@@ -45,10 +45,12 @@ class Batch:
     src: Optional[Tensor] = None
     dst: Optional[Tensor] = None
     ts: Optional[Tensor] = None
+    edge_feat: Optional[Tensor] = None
     pos_src: Optional[Tensor] = None
     pos_dst: Optional[Tensor] = None
     neg_src: Optional[Tensor] = None
     neg_dst: Optional[Tensor] = None
+    neg_weight: Optional[Tensor] = None
     labels: Optional[Tensor] = None
     node_ids: Optional[Tensor] = None
 

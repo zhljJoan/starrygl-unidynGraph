@@ -26,8 +26,14 @@ def build_dataset(
     test_batch_size: int | None = None,
     test_num_windows: int | None = None,
     lags: int = 1,
+    random_node_feat_dim: int = 0,
+    random_node_feat_seed: int = 0,
 ) -> dict[str, Any]:
     graph = _load_graph_like(data)
+    if graph.get("split") is None:
+        roll = graph.get("ext_roll", graph.get("int_roll"))
+        if roll is not None:
+            graph["split"] = torch.as_tensor(roll, dtype=torch.long).clamp(0, 2).to(torch.uint8)
     src = graph["src"].long().cpu().contiguous()
     dst = graph["dst"].long().cpu().contiguous()
     ts = graph["ts"].float().cpu().contiguous()
@@ -43,7 +49,13 @@ def build_dataset(
     edge_label = _reorder_opt(graph.get("edge_label"), order)
     edge_weight = _reorder_opt(graph.get("edge_weight"), order)
 
-    split = _event_split(num_edges=num_edges, train_ratio=train_ratio, val_ratio=val_ratio)
+    split = _reorder_split(
+        graph,
+        order=order,
+        num_edges=num_edges,
+        train_ratio=train_ratio,
+        val_ratio=val_ratio,
+    )
     snapshot_ptr = graph.get("snapshot_ptr")
     if snapshot_ptr is not None:
         snapshot_ptr = snapshot_ptr.long().cpu().contiguous()
@@ -70,6 +82,11 @@ def build_dataset(
         raise ValueError(f"unsupported mode: {mode}")
 
     num_nodes = int(graph.get("num_nodes", torch.cat([src, dst]).max().item() + 1 if num_edges > 0 else 0))
+    node_feat = _cpu_opt(graph.get("node_feat"))
+    if node_feat is None and int(random_node_feat_dim) > 0:
+        gen = torch.Generator()
+        gen.manual_seed(int(random_node_feat_seed))
+        node_feat = torch.randn((num_nodes, int(random_node_feat_dim)), generator=gen, dtype=torch.float32)
 
     return {
         "format": DATASET_FORMAT,
@@ -78,9 +95,15 @@ def build_dataset(
         "ts": ts,
         "edge_ids": edge_ids,
         "num_nodes": num_nodes,
-        "node_feat": _cpu_opt(graph.get("node_feat")),
+        "train_ratio": float(train_ratio),
+        "val_ratio": float(val_ratio),
+        "node_feat": node_feat,
+        "node_feat_time_varying": bool(graph.get("node_feat_time_varying", False)),
+        "node_feat_source": graph.get("node_feat_source"),
         "edge_feat": edge_feat,
         "node_label": _cpu_opt(graph.get("node_label")),
+        "node_label_time_varying": bool(graph.get("node_label_time_varying", False)),
+        "node_label_source": graph.get("node_label_source"),
         "node_label_nodes": _cpu_opt(graph.get("node_label_nodes")),
         "node_label_ts": _cpu_opt(graph.get("node_label_ts")),
         "node_label_split": None if graph.get("node_label_split") is None else torch.as_tensor(graph["node_label_split"], dtype=torch.uint8).cpu().contiguous(),
@@ -95,6 +118,8 @@ def build_dataset(
 
 def _load_graph_like(data: Any) -> dict[str, Any]:
     if isinstance(data, dict):
+        if isinstance(data.get("dataset"), list):
+            return _from_flare_snapshots(data["dataset"], data)
         if isinstance(data.get("snapshots"), list):
             return _from_snapshots(data["snapshots"], data)
         return _normalize_keys(data)
@@ -107,6 +132,8 @@ def _load_graph_like(data: Any) -> dict[str, Any]:
         obj = torch.load(path, map_location="cpu")
         if not isinstance(obj, dict):
             raise ValueError(".pth payload must be dict")
+        if isinstance(obj.get("dataset"), list):
+            return _from_flare_snapshots(obj["dataset"], obj)
         if isinstance(obj.get("snapshots"), list):
             return _from_snapshots(obj["snapshots"], obj)
         return _normalize_keys(obj)
@@ -225,18 +252,76 @@ def _read_csv_like(path: Path, sep: str) -> dict[str, Tensor]:
         label = torch.as_tensor(df[label_col].to_numpy(), dtype=torch.float32)
         graph["edge_weight"] = label
         graph["edge_label"] = label
+    for name in ("ext_roll", "int_roll"):
+        col = cols.get(name)
+        if col is not None:
+            graph[name] = torch.as_tensor(df[col].to_numpy(), dtype=torch.long)
     return graph
 
 
 def _normalize_keys(data: dict[str, Any]) -> dict[str, Any]:
     out = dict(data)
+    if isinstance(out.get("dataset"), dict):
+        nested = dict(out["dataset"])
+        for key in ("num_nodes", "num_edges", "num_snapshots"):
+            if key in out and key not in nested:
+                nested[key] = out[key]
+        out = nested
+    edge_index = out.get("edge_index")
+    if edge_index is not None and ("src" not in out or "dst" not in out):
+        edges = torch.as_tensor(edge_index)
+        if edges.dim() != 2:
+            raise ValueError("edge_index must be a rank-2 tensor")
+        if int(edges.size(0)) < 2 and int(edges.size(1)) >= 2:
+            edges = edges.t()
+        out["src"] = edges[0].long()
+        out["dst"] = edges[1].long()
+        if "ts" not in out and int(edges.size(0)) >= 3:
+            out["ts"] = edges[2].float()
     if "src" not in out and "u" in out:
         out["src"] = out["u"]
     if "dst" not in out and "i" in out:
         out["dst"] = out["i"]
     if "ts" not in out and "time" in out:
         out["ts"] = out["time"]
+    if "ts" not in out and "src" in out:
+        out["ts"] = torch.arange(int(torch.as_tensor(out["src"]).numel()), dtype=torch.float32)
+    if "node_feat" not in out and "x" in out:
+        out["node_feat"] = out["x"]
+    if "edge_feat" not in out and "efeat" in out:
+        out["edge_feat"] = out["efeat"]
+    if "split" not in out:
+        roll = out.get("ext_roll", out.get("int_roll"))
+        if roll is not None:
+            roll_t = torch.as_tensor(roll, dtype=torch.long).clamp(0, 2)
+            out["split"] = roll_t.to(torch.uint8)
     return out
+
+
+def _reorder_split(
+    graph: dict[str, Any],
+    *,
+    order: Tensor,
+    num_edges: int,
+    train_ratio: float,
+    val_ratio: float,
+) -> Tensor:
+    if graph.get("split") is not None:
+        return torch.as_tensor(graph["split"], dtype=torch.uint8).cpu().index_select(0, order).contiguous()
+    masks = []
+    for name in ("train_mask", "val_mask", "test_mask"):
+        value = graph.get(name)
+        if value is None:
+            masks = []
+            break
+        masks.append(torch.as_tensor(value, dtype=torch.bool).cpu().index_select(0, order))
+    if masks:
+        split = torch.full((int(num_edges),), 2, dtype=torch.uint8)
+        split[masks[0]] = 0
+        split[masks[1]] = 1
+        split[masks[2]] = 2
+        return split
+    return _event_split(num_edges=num_edges, train_ratio=train_ratio, val_ratio=val_ratio)
 
 
 def _from_snapshots(snaps: list[dict[str, Any]], meta: dict[str, Any]) -> dict[str, Any]:
@@ -256,10 +341,81 @@ def _from_snapshots(snaps: list[dict[str, Any]], meta: dict[str, Any]) -> dict[s
         "ts": torch.cat(ts_parts, dim=0) if ts_parts else torch.empty(0, dtype=torch.float32),
         "snapshot_ptr": torch.tensor(ptr, dtype=torch.long),
     }
-    for k in ("num_nodes", "node_feat", "node_label", "node_label_nodes", "node_label_ts", "node_label_split", "edge_feat", "edge_label", "edge_weight"):
+    for k in (
+        "num_nodes",
+        "node_feat",
+        "node_feat_time_varying",
+        "node_feat_source",
+        "node_label",
+        "node_label_time_varying",
+        "node_label_source",
+        "node_label_nodes",
+        "node_label_ts",
+        "node_label_split",
+        "edge_feat",
+        "edge_label",
+        "edge_weight",
+    ):
         if k in meta:
             out[k] = meta[k]
     return out
+
+
+def _from_flare_snapshots(snaps: list[dict[str, Any]], meta: dict[str, Any]) -> dict[str, Any]:
+    normalized: list[dict[str, Any]] = []
+    node_feat_parts: list[Tensor] = []
+    node_label_parts: list[Tensor] = []
+    all_have_feat = True
+    all_have_label = True
+    usable_snaps = [snap for snap in snaps if snap.get("y", snap.get("node_label")) is not None]
+    if not usable_snaps:
+        usable_snaps = snaps
+    for sid, snap in enumerate(usable_snaps):
+        edge_index = torch.as_tensor(snap["edge_index"])
+        if edge_index.dim() != 2:
+            raise ValueError("snapshot edge_index must be rank-2")
+        if int(edge_index.size(0)) < 2 and int(edge_index.size(1)) >= 2:
+            edge_index = edge_index.t()
+        num_edges = int(edge_index.size(1))
+        normalized.append({
+            "src": edge_index[0].long(),
+            "dst": edge_index[1].long(),
+            "ts": torch.full((num_edges,), float(sid), dtype=torch.float32),
+        })
+        feat = snap.get("node_feat", snap.get("x"))
+        label = snap.get("node_label", snap.get("y"))
+        if feat is None:
+            all_have_feat = False
+        elif all_have_feat:
+            node_feat_parts.append(_feature_tensor(torch.as_tensor(feat)))
+        if label is None:
+            all_have_label = False
+        elif all_have_label:
+            node_label_parts.append(torch.as_tensor(label).cpu().contiguous())
+
+    out = _from_snapshots(normalized, meta)
+    edge_weights = [torch.as_tensor(snap["edge_weight"]).cpu().contiguous() for snap in usable_snaps if snap.get("edge_weight") is not None]
+    if len(edge_weights) == len(usable_snaps):
+        out["edge_weight"] = torch.cat(edge_weights, dim=0) if edge_weights else torch.empty(0, dtype=torch.float32)
+        out["edge_label"] = out["edge_weight"]
+    if all_have_feat and len(node_feat_parts) == len(usable_snaps) and _same_shape(node_feat_parts):
+        out["node_feat"] = torch.stack(node_feat_parts, dim=0).contiguous()
+        out["node_feat_time_varying"] = True
+        out["node_feat_source"] = meta.get("node_feat_source", meta.get("x_source", "snapshot_x"))
+    if all_have_label and len(node_label_parts) == len(usable_snaps) and _same_shape(node_label_parts):
+        out["node_label"] = torch.stack(node_label_parts, dim=0).contiguous()
+        out["node_label_time_varying"] = True
+        out["node_label_source"] = meta.get("node_label_source", meta.get("y_source", "snapshot_y"))
+    if "num_nodes" not in out and meta.get("num_nodes") is not None:
+        out["num_nodes"] = int(meta["num_nodes"])
+    return out
+
+
+def _same_shape(items: list[Tensor]) -> bool:
+    if not items:
+        return False
+    shape = tuple(items[0].shape)
+    return all(tuple(item.shape) == shape for item in items)
 
 
 def _event_split(*, num_edges: int, train_ratio: float, val_ratio: float) -> Tensor:

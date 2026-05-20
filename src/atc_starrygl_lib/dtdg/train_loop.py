@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import Any, Iterable
 
 import torch
+import torch.distributed as dist
 
 from atc_starrygl_lib.core.types import Batch, ClassifyOutput, RegressionOutput
 
@@ -24,7 +25,7 @@ def train_epoch(
     for batch in session.iter_batches(split):
         raw_output = model(batch.graph)
         output = task_output(raw_output, task=task, training=True)
-        loss = task.compute_loss(output, batch)
+        loss = task.compute_loss(output, batch) * _part_loss_scale(session, batch)
 
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
@@ -52,11 +53,15 @@ def evaluate(
     state = None
     losses: list[float] = []
     metrics: defaultdict[str, list[float]] = defaultdict(list)
-    for batch in session.iter_batches(split):
+    target_ids = set(_snapshot_ids_for_split(session, split))
+    state_split = "all" if target_ids else split
+    for batch in session.iter_batches(state_split):
         raw_output = model(batch.graph, state)
         raw_pred, state = _split_model_output(raw_output)
+        if target_ids and _batch_snapshot_id(batch) not in target_ids:
+            continue
         output = task_output(raw_pred, task=task, training=False)
-        loss = task.compute_loss(output, batch)
+        loss = task.compute_loss(output, batch) * _part_loss_scale(session, batch)
         losses.append(float(loss.detach().item()))
         _append_metrics(metrics, task.compute_metrics(output, batch))
 
@@ -88,7 +93,7 @@ def evaluate_edge_prediction(
             embeddings = embeddings[-1]
         embeddings = prepare_edge_prediction_embeddings(embeddings, batch)
         output = head(embeddings, batch)
-        loss = task.compute_loss(output, batch)
+        loss = task.compute_loss(output, batch) * _part_loss_scale(session, batch)
         losses.append(float(loss.detach().item()))
         _append_metrics(metrics, task.compute_metrics(output, batch))
 
@@ -120,7 +125,7 @@ def train_edge_prediction_epoch(
             embeddings = embeddings[-1]
         embeddings = prepare_edge_prediction_embeddings(embeddings, batch)
         output = head(embeddings, batch)
-        loss = task.compute_loss(output, batch)
+        loss = task.compute_loss(output, batch) * _part_loss_scale(session, batch)
 
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
@@ -197,6 +202,41 @@ def _mean(values: Iterable[float]) -> float:
     if not values:
         return 0.0
     return float(sum(values) / len(values))
+
+
+def _part_loss_scale(session: Any, batch: Batch) -> float:
+    ctx = getattr(session, "ctx", None)
+    cfg = getattr(ctx, "config", {}) if ctx is not None else {}
+    runtime_cfg = cfg.get("runtime", {}) if isinstance(cfg, dict) else {}
+    mode = str(runtime_cfg.get("dtdg_loss_scale", runtime_cfg.get("part_loss_scale", "world_size"))).lower()
+    if mode in {"none", "1", "false", "off"}:
+        return 1.0
+    if mode in {"world", "world_size", "dyna"}:
+        world_size = int(getattr(ctx, "world_size", 1) if ctx is not None else 1)
+        if dist.is_available() and dist.is_initialized():
+            world_size = dist.get_world_size()
+        return 1.0 / max(1, world_size)
+    return float(runtime_cfg.get("part_loss_scale_value", 1.0))
+
+
+def _snapshot_ids_for_split(session: Any, split: str) -> range:
+    backend = getattr(session, "backend", session)
+    loader = getattr(backend, "_loader", None)
+    graph = getattr(backend, "_graph", None)
+    if loader is None or split == "train":
+        return range(0, 0)
+    try:
+        from atc_starrygl_lib.dtdg.runtime.backend import _split_snapshot_indices
+
+        return _split_snapshot_indices(len(loader), split, graph)
+    except Exception:
+        return range(0, 0)
+
+
+def _batch_snapshot_id(batch: Batch) -> int:
+    graph = batch.graph
+    latest = getattr(graph, "latest_graph", graph)
+    return int(getattr(latest, "flare_snapshot_id", -1))
 
 
 def _required_embedding_rows(batch: Batch) -> int:

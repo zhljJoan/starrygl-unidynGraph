@@ -71,6 +71,37 @@ def test_partition_data_uses_active_dst_per_slice() -> None:
     assert p0["dst_ids"]["data"].tolist() == [1, 2]
 
 
+def test_partition_data_selects_time_varying_node_data_per_slice() -> None:
+    parts = build_all_partition_data_artifacts(
+        rank_artifacts=[{
+            "rank": 0,
+            "local_node_ids": torch.tensor([0, 1, 2]),
+            "local_edge_ids": torch.tensor([0, 1]),
+        }],
+        dist_plan={
+            "node_to_chunk": torch.tensor([0, 0, 0]),
+            "node_master": torch.tensor([0, 0, 0]),
+        },
+        src=torch.tensor([0, 1]),
+        dst=torch.tensor([1, 2]),
+        time_ptr_2=torch.tensor([[0, 1], [1, 2]]),
+        node_feat=torch.tensor([
+            [[0.0], [10.0], [20.0]],
+            [[1.0], [11.0], [21.0]],
+        ]),
+        node_feat_time_varying=True,
+        node_label=torch.tensor([
+            [0.0, 100.0, 200.0],
+            [1.0, 101.0, 201.0],
+        ]),
+        node_label_time_varying=True,
+    )
+
+    p0 = parts[0]
+    assert p0["node_data"]["x"]["data"].squeeze(-1).tolist() == [10.0, 0.0, 21.0, 11.0]
+    assert p0["node_data"]["y"]["data"].tolist() == [100.0, 201.0]
+
+
 def test_partition_data_routes_asymmetric_remote_requests() -> None:
     parts = build_all_partition_data_artifacts(
         rank_artifacts=[

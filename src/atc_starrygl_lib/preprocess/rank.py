@@ -68,6 +68,11 @@ def build_all_rank_artifacts(
             "local_chunk_ptr": layout["local_chunk_ptr"],
             "local_chunk_nodes": layout["local_chunk_nodes"],
             "time_ptr_2": time_ptr_2,
+            "split_event_pos": _build_local_split_event_pos(
+                local_edge_ids=layout["local_edge_ids"],
+                split_time_ptr=split_time_ptr_cpu,
+                time_ptr_2=time_ptr_2,
+            ),
             "split_time_ptr": _build_local_split_time_ptr(
                 local_edge_ids=layout["local_edge_ids"],
                 split_time_ptr=split_time_ptr_cpu,
@@ -119,6 +124,46 @@ def _build_local_split_time_ptr(
     return out
 
 
+def _build_local_split_event_pos(
+    *,
+    local_edge_ids: Tensor,
+    split_time_ptr: dict[str, Tensor] | None,
+    time_ptr_2: Tensor,
+) -> dict[str, dict[str, Tensor]]:
+    local_edge_ids = torch.sort(local_edge_ids.long().cpu().contiguous()).values
+    if split_time_ptr is None:
+        names = ("train", "val", "test")
+        windows = {
+            "train": time_ptr_2,
+            "val": torch.zeros((0, 2), dtype=torch.long),
+            "test": torch.zeros((0, 2), dtype=torch.long),
+        }
+    else:
+        names = tuple(split_time_ptr.keys())
+        windows = split_time_ptr
+    out: dict[str, dict[str, Tensor]] = {}
+    for name in names:
+        win = windows[name].long().cpu().contiguous()
+        if win.numel() == 0 or local_edge_ids.numel() == 0:
+            out[name] = {
+                "data": torch.empty(0, dtype=torch.long),
+                "ptr": torch.zeros(int(win.size(0)) + 1, dtype=torch.long),
+            }
+            continue
+        left = torch.searchsorted(local_edge_ids, win[:, 0].contiguous())
+        right = torch.searchsorted(local_edge_ids, win[:, 1].contiguous())
+        parts = [local_edge_ids[int(begin):int(end)] for begin, end in zip(left.tolist(), right.tolist())]
+        counts = (right - left).long()
+        ptr = torch.zeros(int(counts.numel()) + 1, dtype=torch.long)
+        if counts.numel() > 0:
+            ptr[1:] = counts.cumsum(0)
+        out[name] = {
+            "data": torch.cat(parts, dim=0).long().contiguous() if parts else torch.empty(0, dtype=torch.long),
+            "ptr": ptr.long().contiguous(),
+        }
+    return out
+
+
 def build_rank_layout(
     *,
     dist_plan: dict[str, Any],
@@ -137,6 +182,14 @@ def build_rank_layout(
         replica = dist_plan["replica_node_ids_by_part"][rank].long().cpu().contiguous()
         owned = dist_plan["owned_node_ids_by_part"][rank].long().cpu().contiguous()
         shadow = dist_plan["shadow_node_ids_by_part"][rank].long().cpu().contiguous()
+        owned = _append_missing_owned_masters(
+            owned=owned,
+            replica=replica,
+            shadow=shadow,
+            node_master=node_master,
+            replica_mask=replica_mask,
+            rank=rank,
+        )
     else:
         replica = replica_mask.nonzero(as_tuple=True)[0].long().cpu()
         owned = ((node_master == rank) & ~replica_mask).nonzero(as_tuple=True)[0].long().cpu()
@@ -344,6 +397,33 @@ def _build_local_row(local_node_ids: Tensor, *, num_nodes: int) -> Tensor:
     if local_node_ids.numel() > 0:
         local_row[local_node_ids] = torch.arange(int(local_node_ids.numel()), dtype=torch.long)
     return local_row
+
+
+def _append_missing_owned_masters(
+    *,
+    owned: Tensor,
+    replica: Tensor,
+    shadow: Tensor,
+    node_master: Tensor,
+    replica_mask: Tensor,
+    rank: int,
+) -> Tensor:
+    """Keep native speed-partition layouts total over all master-owned nodes."""
+
+    masters = ((node_master == int(rank)) & ~replica_mask).nonzero(as_tuple=True)[0].long().cpu()
+    if masters.numel() == 0:
+        return owned
+    present = torch.zeros(int(node_master.numel()), dtype=torch.bool)
+    if replica.numel() > 0:
+        present[replica.long()] = True
+    if owned.numel() > 0:
+        present[owned.long()] = True
+    if shadow.numel() > 0:
+        present[shadow.long()] = True
+    missing = masters[~present.index_select(0, masters)]
+    if missing.numel() == 0:
+        return owned
+    return torch.cat([owned.long(), missing.long()], dim=0).contiguous()
 
 
 def _rank_local_edge_rows(edge_owner: Tensor) -> Tensor:

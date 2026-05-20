@@ -1,0 +1,43 @@
+{
+  "graph": {
+    "source": "/mnt/data/zlj/starrygl-data/raw/rec-amazon-ratings/rec-amazon-ratings.edges",
+    "degree_xy": true,
+    "compact_nodes": true,
+    "event_snapshot_bins": 100,
+    "event_snapshot_lags": 30
+  },
+  "model": {
+    "name": "tgcn",
+    "hidden_dim": 16
+  },
+  "gnn": {
+    "history": 2,
+    "gcn_layers": 1,
+    "full_graph": {
+      "chunk_order": "rand",
+      "disable_states": false
+    },
+    "slice_config": {
+      "chunk_decay": [87, 59, 41, 28, 19, 13],
+      "num_full_snapshots": 2
+    }
+  },
+  "task": {
+    "name": "node_regression"
+  },
+  "preprocess": {
+    "use_new_pipeline": true,
+    "partition_algorithm": "chunk_load_balance",
+    "chunks_per_rank": 32,
+    "train_ratio": 0.4,
+    "val_ratio": 0.0,
+    "lags": 1
+  },
+  "runtime": {
+    "route_check_batches": 2
+  },
+  "train": {
+    "epochs": 10,
+    "lr": 0.001
+  }
+}

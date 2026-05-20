@@ -107,10 +107,58 @@ def test_rank_artifacts_build_local_split_time_ptr() -> None:
     )
     r0, r1 = ranks
     assert r0["local_edge_ids"].tolist() == [0, 1]
+    assert r0["split_event_pos"]["train"]["data"].tolist() == [0, 1]
+    assert r0["split_event_pos"]["train"]["ptr"].tolist() == [0, 1, 2]
+    assert r0["split_event_pos"]["val"]["data"].tolist() == []
+    assert r0["split_event_pos"]["val"]["ptr"].tolist() == [0, 0]
+    assert r0["split_event_pos"]["test"]["data"].tolist() == []
+    assert r0["split_event_pos"]["test"]["ptr"].tolist() == [0, 0]
     assert r0["split_time_ptr"]["train"].tolist() == [[0, 1], [1, 2]]
     assert r0["split_time_ptr"]["val"].tolist() == [[0, 0]]
     assert r0["split_time_ptr"]["test"].tolist() == [[0, 0]]
     assert r1["local_edge_ids"].tolist() == [2, 3]
+    assert r1["split_event_pos"]["train"]["data"].tolist() == []
+    assert r1["split_event_pos"]["train"]["ptr"].tolist() == [0, 0, 0]
+    assert r1["split_event_pos"]["val"]["data"].tolist() == [2]
+    assert r1["split_event_pos"]["val"]["ptr"].tolist() == [0, 1]
+    assert r1["split_event_pos"]["test"]["data"].tolist() == [3]
+    assert r1["split_event_pos"]["test"]["ptr"].tolist() == [0, 1]
     assert r1["split_time_ptr"]["train"].tolist() == [[0, 0], [0, 0]]
     assert r1["split_time_ptr"]["val"].tolist() == [[0, 1]]
     assert r1["split_time_ptr"]["test"].tolist() == [[0, 1]]
+
+
+def test_rank_artifacts_include_native_layout_missing_isolated_master_nodes() -> None:
+    plan = _dist_plan()
+    plan["num_nodes"] = 5
+    plan["node_to_chunk"] = torch.tensor([0, 1, 2, 3, 0])
+    plan["node_master"] = torch.tensor([0, 0, 1, 1, 0])
+    plan["node_owner"] = torch.tensor([0, 0, 1, 1, 0])
+    plan["replica_mask"] = torch.tensor([True, False, True, False, False])
+    plan["local_node_ids_by_part"] = [
+        torch.tensor([0, 2, 1]),
+        torch.tensor([0, 2, 3]),
+    ]
+    plan["replica_node_ids_by_part"] = [
+        torch.tensor([0, 2]),
+        torch.tensor([0, 2]),
+    ]
+    plan["owned_node_ids_by_part"] = [
+        torch.tensor([1]),
+        torch.tensor([3]),
+    ]
+
+    dist, ranks = build_all_rank_artifacts(
+        dist_plan=plan,
+        src=torch.tensor([0, 1, 2, 3]),
+        dst=torch.tensor([1, 2, 3, 0]),
+        ts=torch.tensor([1.0, 2.0, 3.0, 4.0]),
+        time_ptr_2=torch.tensor([[0, 2], [2, 4]]),
+    )
+
+    r0 = ranks[0]
+    assert r0["local_node_ids"].tolist() == [0, 2, 1, 4]
+    assert r0["owned_count"] == 2
+    assert dist_index_part(dist["master_dist_index"][4:5]).item() == 0
+    assert dist_index_loc(dist["master_dist_index"][4:5]).item() == 3
+    assert dist_index_loc(r0["read_dist_index"][4:5]).item() == 3

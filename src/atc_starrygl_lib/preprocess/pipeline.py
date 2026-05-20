@@ -28,6 +28,11 @@ def run_preprocess_pipeline(
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     partition_data_dst_node_scope = str(dataset_kwargs.pop("partition_data_dst_node_scope", "active"))
+    hot_ratio = float(dataset_kwargs.pop("hot_ratio", 0.0))
+    hot_topk = int(dataset_kwargs.pop("hot_topk", 0))
+    node_count_weight = float(dataset_kwargs.pop("node_count_weight", 1.0))
+    speed_beta = float(dataset_kwargs.pop("speed_beta", 0.5))
+    speed_topk_type = str(dataset_kwargs.pop("speed_topk_type", "degree"))
     graph = build_dataset(data=data, mode=mode, **dataset_kwargs)
     dist = build_dist_plan(
         src=graph["src"],
@@ -38,6 +43,11 @@ def run_preprocess_pipeline(
         time_ptr_2=graph["time_ptr_2"],
         algorithm=algorithm,
         chunks_per_rank=chunks_per_rank,
+        hot_ratio=hot_ratio,
+        hot_topk=hot_topk,
+        node_count_weight=node_count_weight,
+        speed_beta=speed_beta,
+        speed_topk_type=speed_topk_type,
     )
     dist, ranks = build_all_rank_artifacts(
         dist_plan=dist,
@@ -54,6 +64,8 @@ def run_preprocess_pipeline(
         edge_feat=graph.get("edge_feat"),
         node_label=graph.get("node_label"),
         edge_label=graph.get("edge_label"),
+        node_feat_time_varying=bool(graph.get("node_feat_time_varying", False)),
+        node_label_time_varying=bool(graph.get("node_label_time_varying", False)),
     ) if build_feature else []
     pds = build_all_partition_data_artifacts(
         rank_artifacts=ranks,
@@ -63,8 +75,10 @@ def run_preprocess_pipeline(
         time_ptr_2=graph["time_ptr_2"],
         edge_ids=graph["edge_ids"],
         node_feat=graph.get("node_feat"),
+        node_feat_time_varying=bool(graph.get("node_feat_time_varying", False)),
         edge_feat=graph.get("edge_feat"),
         node_label=graph.get("node_label"),
+        node_label_time_varying=bool(graph.get("node_label_time_varying", False)),
         edge_label=graph.get("edge_label"),
         edge_weight=graph.get("edge_weight"),
         dst_node_scope=partition_data_dst_node_scope,

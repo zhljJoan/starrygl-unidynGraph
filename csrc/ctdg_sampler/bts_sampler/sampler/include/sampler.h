@@ -2,7 +2,6 @@
 #include <head.h>
 #include <neighbors.h>
 # include <output.h>
-#include <unordered_map>
 
 struct NodeInstanceKey
 {
@@ -503,8 +502,8 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
     out.edge_gids.reserve(estimated_edges);
     out.edge_ts.reserve(estimated_edges);
 
-    unordered_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> node_lid;
-    unordered_map<EdgeIDType, int64_t> edge_lid;
+    phmap::flat_hash_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> node_lid;
+    phmap::flat_hash_map<EdgeIDType, int64_t> edge_lid;
     node_lid.reserve(estimated_nodes);
     edge_lid.reserve(estimated_edges);
 
@@ -538,10 +537,8 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
     out.root_gids.reserve(root_nodes.size(0));
     out.root_ts.reserve(root_nodes.size(0));
     out.root_lids.reserve(root_nodes.size(0));
-    vector<NodeIDType> frontier_nodes;
-    vector<TimeStampType> frontier_ts;
-    frontier_nodes.reserve(root_nodes.size(0));
-    frontier_ts.reserve(root_nodes.size(0));
+    vector<int64_t> frontier_lids;
+    frontier_lids.reserve(root_nodes.size(0));
 
     for(int64_t i = 0; i < root_nodes.size(0); i++){
         NodeIDType gid = root_nodes_data[i];
@@ -550,13 +547,9 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
         out.root_gids.emplace_back(gid);
         out.root_ts.emplace_back(ts);
         out.root_lids.emplace_back(lid);
-        frontier_nodes.emplace_back(gid);
-        frontier_ts.emplace_back(ts);
+        frontier_lids.emplace_back(lid);
     }
     out.node_layer_ptr.emplace_back(static_cast<int64_t>(out.node_gids.size()));
-
-    const vector<NodeIDType>* frontier_nodes_ptr = &frontier_nodes;
-    const vector<TimeStampType>* frontier_ts_ptr = &frontier_ts;
 
     for(int64_t layer = 0; layer < static_cast<int64_t>(ret.size()); layer++){
         TemporalGraphBlock& block = ret[layer];
@@ -565,17 +558,12 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
         mfg.dst_begin = layer == 0 ? 0 : out.node_layer_ptr[layer];
         mfg.dst_end = out.node_layer_ptr[layer + 1];
 
-        const vector<NodeIDType>& cur_frontier_nodes = *frontier_nodes_ptr;
-        const vector<TimeStampType>& cur_frontier_ts = *frontier_ts_ptr;
-        int64_t num_dst = static_cast<int64_t>(cur_frontier_nodes.size());
-        mfg.dst_lids.reserve(num_dst);
-        for(int64_t i = 0; i < num_dst; i++){
-            TimeStampType ts = cur_frontier_ts.empty() ? 0 : cur_frontier_ts[i];
-            mfg.dst_lids.emplace_back(add_node(cur_frontier_nodes[i], ts));
-        }
+        const int64_t num_dst = static_cast<int64_t>(frontier_lids.size());
+        mfg.dst_lids.assign(frontier_lids.begin(), frontier_lids.end());
 
         mfg.csc_indptr.assign(num_dst + 1, 0);
-        for(int64_t j = 0; j < static_cast<int64_t>(block.src_index.size()); j++){
+        const int64_t edge_count = static_cast<int64_t>(block.src_index.size());
+        for(int64_t j = 0; j < edge_count; j++){
             int64_t dst_pos = block.src_index[j];
             if(dst_pos >= 0 && dst_pos < num_dst){
                 mfg.csc_indptr[dst_pos + 1] += 1;
@@ -585,38 +573,81 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
             mfg.csc_indptr[i + 1] += mfg.csc_indptr[i];
         }
 
-        int64_t edge_count = static_cast<int64_t>(block.src_index.size());
+        vector<int64_t> cursor = mfg.csc_indptr;
         mfg.csc_indices.resize(edge_count);
         mfg.edge_lids.resize(edge_count);
         mfg.delta_t.resize(edge_count);
-        vector<int64_t> cursor = mfg.csc_indptr;
+        vector<int64_t> next_frontier_lids(static_cast<size_t>(block.sample_nodes.size()), -1);
+
+        phmap::flat_hash_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> local_node_index;
+        phmap::flat_hash_map<EdgeIDType, int64_t> local_edge_index;
+        vector<NodeInstanceKey> local_nodes;
+        vector<EdgeIDType> local_edges;
+        vector<TimeStampType> local_edge_ts;
+        vector<int64_t> edge_to_local_node(static_cast<size_t>(edge_count), -1);
+        vector<int64_t> edge_to_local_edge(static_cast<size_t>(edge_count), -1);
+        local_node_index.reserve(static_cast<size_t>(edge_count));
+        local_edge_index.reserve(static_cast<size_t>(edge_count));
+        local_nodes.reserve(static_cast<size_t>(edge_count));
+        local_edges.reserve(static_cast<size_t>(edge_count));
+        local_edge_ts.reserve(static_cast<size_t>(edge_count));
 
         for(int64_t j = 0; j < edge_count; j++){
+            const NodeInstanceKey node_key{
+                block.sample_nodes[j],
+                block.sample_nodes_ts.empty() ? 0 : block.sample_nodes_ts[j],
+            };
+            auto node_it = local_node_index.find(node_key);
+            if(node_it == local_node_index.end()){
+                int64_t idx = static_cast<int64_t>(local_nodes.size());
+                local_node_index.emplace(node_key, idx);
+                local_nodes.emplace_back(node_key);
+                edge_to_local_node[static_cast<size_t>(j)] = idx;
+            } else {
+                edge_to_local_node[static_cast<size_t>(j)] = node_it->second;
+            }
+
+            const EdgeIDType edge_gid = block.eid[j];
+            auto edge_it = local_edge_index.find(edge_gid);
+            if(edge_it == local_edge_index.end()){
+                int64_t idx = static_cast<int64_t>(local_edges.size());
+                local_edge_index.emplace(edge_gid, idx);
+                local_edges.emplace_back(edge_gid);
+                local_edge_ts.emplace_back(node_key.ts);
+                edge_to_local_edge[static_cast<size_t>(j)] = idx;
+            } else {
+                edge_to_local_edge[static_cast<size_t>(j)] = edge_it->second;
+            }
+        }
+
+        vector<int64_t> local_node_lids(local_nodes.size(), -1);
+        for(int64_t i = 0; i < static_cast<int64_t>(local_nodes.size()); i++){
+            local_node_lids[static_cast<size_t>(i)] = add_node(local_nodes[static_cast<size_t>(i)].node, local_nodes[static_cast<size_t>(i)].ts);
+        }
+        vector<int64_t> local_edge_lids(local_edges.size(), -1);
+        for(int64_t i = 0; i < static_cast<int64_t>(local_edges.size()); i++){
+            local_edge_lids[static_cast<size_t>(i)] = add_edge(local_edges[static_cast<size_t>(i)], local_edge_ts[static_cast<size_t>(i)]);
+        }
+
+        for(int64_t j = 0; j < edge_count; j++){
+            int64_t src_lid = local_node_lids[static_cast<size_t>(edge_to_local_node[static_cast<size_t>(j)])];
+            next_frontier_lids[static_cast<size_t>(j)] = src_lid;
             int64_t dst_pos = block.src_index[j];
             if(dst_pos < 0 || dst_pos >= num_dst) continue;
-            NodeIDType src_gid = block.sample_nodes[j];
-            TimeStampType src_ts = block.sample_nodes_ts.empty() ? 0 : block.sample_nodes_ts[j];
-            int64_t src_lid = add_node(src_gid, src_ts);
-            TimeStampType edge_ts = src_ts;
-            int64_t e_lid = add_edge(block.eid[j], edge_ts);
             int64_t offset = cursor[dst_pos]++;
             mfg.csc_indices[offset] = src_lid;
-            mfg.edge_lids[offset] = e_lid;
+            mfg.edge_lids[offset] = local_edge_lids[static_cast<size_t>(edge_to_local_edge[static_cast<size_t>(j)])];
             mfg.delta_t[offset] = block.delta_ts.empty() ? 0 : block.delta_ts[j];
         }
 
         mfg.src_begin = 0;
         mfg.src_end = static_cast<int64_t>(out.node_gids.size());
-        mfg.src_lids.reserve(mfg.src_end - mfg.src_begin);
-        for(int64_t lid = mfg.src_begin; lid < mfg.src_end; lid++){
-            mfg.src_lids.emplace_back(lid);
-        }
+        mfg.src_lids.resize(mfg.src_end - mfg.src_begin);
+        std::iota(mfg.src_lids.begin(), mfg.src_lids.end(), mfg.src_begin);
         out.mfgs[layer] = std::move(mfg);
         out.node_layer_ptr.emplace_back(static_cast<int64_t>(out.node_gids.size()));
         out.edge_layer_ptr.emplace_back(static_cast<int64_t>(out.edge_gids.size()));
-
-        frontier_nodes_ptr = &block.sample_nodes;
-        frontier_ts_ptr = &block.sample_nodes_ts;
+        frontier_lids.swap(next_frontier_lids);
     }
     return out;
 }
@@ -651,7 +682,7 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_parallel(th::Tensor ro
         TimeStampType ts;
     };
 
-    auto update_node_first = [](unordered_map<NodeInstanceKey, uint64_t, NodeInstanceKeyHash>& first,
+    auto update_node_first = [](phmap::flat_hash_map<NodeInstanceKey, uint64_t, NodeInstanceKeyHash>& first,
                                 const NodeInstanceKey& key,
                                 uint64_t pos) {
         auto it = first.find(key);
@@ -662,7 +693,7 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_parallel(th::Tensor ro
             it->second = pos;
         }
     };
-    auto update_edge_first = [](unordered_map<EdgeIDType, FirstEdgeOccurrence>& first,
+    auto update_edge_first = [](phmap::flat_hash_map<EdgeIDType, FirstEdgeOccurrence>& first,
                                 EdgeIDType gid,
                                 TimeStampType ts,
                                 uint64_t pos) {
@@ -701,8 +732,8 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_parallel(th::Tensor ro
         root_ts_data = get_data_ptr<TimeStampType>(root_ts.value());
     }
 
-    unordered_map<NodeInstanceKey, uint64_t, NodeInstanceKeyHash> global_node_first;
-    unordered_map<EdgeIDType, FirstEdgeOccurrence> global_edge_first;
+    phmap::flat_hash_map<NodeInstanceKey, uint64_t, NodeInstanceKeyHash> global_node_first;
+    phmap::flat_hash_map<EdgeIDType, FirstEdgeOccurrence> global_edge_first;
     global_node_first.reserve(estimated_nodes);
     global_edge_first.reserve(estimated_edges);
 
@@ -711,8 +742,8 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_parallel(th::Tensor ro
         update_node_first(global_node_first, NodeInstanceKey{root_nodes_data[i], ts}, static_cast<uint64_t>(i));
     }
 
-    vector<unordered_map<NodeInstanceKey, uint64_t, NodeInstanceKeyHash>> local_node_first(nthreads);
-    vector<unordered_map<EdgeIDType, FirstEdgeOccurrence>> local_edge_first(nthreads);
+    vector<phmap::flat_hash_map<NodeInstanceKey, uint64_t, NodeInstanceKeyHash>> local_node_first(nthreads);
+    vector<phmap::flat_hash_map<EdgeIDType, FirstEdgeOccurrence>> local_edge_first(nthreads);
     for(int tid = 0; tid < nthreads; tid++){
         local_node_first[tid].reserve(estimated_nodes / nthreads + 1);
         local_edge_first[tid].reserve(estimated_edges / nthreads + 1);
@@ -791,8 +822,8 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_parallel(th::Tensor ro
     out.root_ts.reserve(num_roots);
     out.root_lids.reserve(num_roots);
 
-    unordered_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> node_lid;
-    unordered_map<EdgeIDType, int64_t> edge_lid;
+    phmap::flat_hash_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> node_lid;
+    phmap::flat_hash_map<EdgeIDType, int64_t> edge_lid;
     node_lid.reserve(node_entries.size());
     edge_lid.reserve(edge_entries.size());
     for(int64_t i = 0; i < static_cast<int64_t>(node_entries.size()); i++){
