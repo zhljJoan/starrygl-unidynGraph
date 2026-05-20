@@ -9,9 +9,22 @@ def load_bts_sampler_module():
     return importlib.import_module("atc_starrygl_lib.lib.libstarrygl_sampler")
 
 
+@lru_cache(maxsize=1)
+def load_native_utils_module():
+    return importlib.import_module("atc_starrygl_lib.lib.native_utils")
+
+
 def is_bts_sampler_available() -> bool:
     try:
         load_bts_sampler_module()
+    except Exception:
+        return False
+    return True
+
+
+def is_native_utils_available() -> bool:
+    try:
+        load_native_utils_module()
     except Exception:
         return False
     return True

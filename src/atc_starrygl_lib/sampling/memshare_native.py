@@ -6,6 +6,8 @@ from typing import Any, Optional
 import torch
 from torch import Tensor
 
+from atc_starrygl_lib.lib import load_native_utils_module
+
 from atc_starrygl_lib.lib import is_bts_sampler_available, load_bts_sampler_module
 
 from .native import NativeSamplerConfig, NativeSamplerFactory, NativeSamplerUnavailable, NativeTemporalSampler, TemporalGraphData
@@ -292,27 +294,53 @@ def _build_compat_edge_comm(edge_compute: EdgeComputeLayout) -> EdgeCommLayout:
 
 
 def _stable_unique(values: Tensor, ts: Optional[Tensor]) -> tuple[Tensor, Tensor]:
-    seen: dict[tuple[int, Optional[int]], int] = {}
-    unique: list[int] = []
-    inverse: list[int] = []
-    ts_cpu = None if ts is None else ts.cpu().reshape(-1)
-    for i, value in enumerate(values.cpu().reshape(-1).tolist()):
-        key = (int(value), None if ts_cpu is None else int(ts_cpu[i].item()))
-        lid = seen.get(key)
-        if lid is None:
-            lid = len(unique)
-            seen[key] = lid
-            unique.append(int(value))
-        inverse.append(lid)
-    return torch.tensor(unique, dtype=values.dtype), torch.tensor(inverse, dtype=torch.long)
+    try:
+        native = load_native_utils_module()
+        if ts is None:
+            unique, inverse = native.stable_unique(values.cpu().reshape(-1).contiguous())
+            return unique.to(dtype=values.dtype), inverse.long()
+        unique, inverse, _ = native.stable_unique_with_ts(
+            values.cpu().reshape(-1).contiguous(),
+            ts.cpu().reshape(-1).contiguous(),
+        )
+        return unique.to(dtype=values.dtype), inverse.long()
+    except Exception:
+        pass
+    values = values.cpu().reshape(-1).contiguous()
+    if values.numel() == 0:
+        return values, torch.empty(0, dtype=torch.long)
+    if ts is None:
+        _, inverse_sorted = torch.unique(values, sorted=True, return_inverse=True)
+    else:
+        keys = torch.stack([values.long(), ts.cpu().reshape(-1).long()], dim=1)
+        _, inverse_sorted = torch.unique(keys, dim=0, sorted=True, return_inverse=True)
+    positions = torch.arange(int(values.numel()), dtype=torch.long)
+    first_pos = torch.full((int(inverse_sorted.max().item()) + 1,), int(values.numel()), dtype=torch.long)
+    first_pos.scatter_reduce_(0, inverse_sorted.long(), positions, reduce="amin", include_self=True)
+    stable_order = torch.argsort(first_pos, stable=True)
+    sorted_to_stable = torch.empty_like(stable_order)
+    sorted_to_stable[stable_order] = torch.arange(int(stable_order.numel()), dtype=torch.long)
+    inverse = sorted_to_stable.index_select(0, inverse_sorted.long())
+    return values.index_select(0, first_pos.index_select(0, stable_order)).to(dtype=values.dtype), inverse.long()
 
 
 def _first_ts_for_lids(root_ts: Tensor, root_lids: Tensor, size: int) -> Tensor:
+    try:
+        native = load_native_utils_module()
+        return native.first_ts_for_lids(
+            root_ts.cpu().reshape(-1).contiguous(),
+            root_lids.cpu().reshape(-1).contiguous(),
+            int(size),
+        ).to(dtype=root_ts.dtype)
+    except Exception:
+        pass
     out = torch.zeros(size, dtype=root_ts.dtype)
-    filled = torch.zeros(size, dtype=torch.bool)
-    for ts, lid in zip(root_ts.reshape(-1), root_lids.reshape(-1)):
-        idx = int(lid.item())
-        if not bool(filled[idx].item()):
-            out[idx] = ts
-            filled[idx] = True
+    if int(size) == 0 or root_lids.numel() == 0:
+        return out
+    lids = root_lids.cpu().reshape(-1).long()
+    positions = torch.arange(int(lids.numel()), dtype=torch.long)
+    first_pos = torch.full((int(size),), int(lids.numel()), dtype=torch.long)
+    first_pos.scatter_reduce_(0, lids, positions, reduce="amin", include_self=True)
+    keep = first_pos < int(lids.numel())
+    out[keep] = root_ts.cpu().reshape(-1).index_select(0, first_pos[keep])
     return out

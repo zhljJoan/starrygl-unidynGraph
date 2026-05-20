@@ -101,3 +101,31 @@ set_target_properties(adaptive_split_cpp PROPERTIES
   BUILD_RPATH "${TORCH_LIBRARY_DIRS_RAW}"
   INSTALL_RPATH "${TORCH_LIBRARY_DIRS_RAW}"
 )
+
+add_library(native_utils MODULE
+  "${CMAKE_CURRENT_SOURCE_DIR}/csrc/native_utils.cpp"
+)
+
+target_include_directories(native_utils PRIVATE
+  "${BTS_ROOT}/sampler/include"
+  "${Python3_INCLUDE_DIRS}"
+  ${TORCH_INCLUDE_DIRS}
+)
+target_link_directories(native_utils PRIVATE ${TORCH_LIBRARY_DIRS})
+target_compile_options(native_utils PRIVATE -O3)
+target_compile_definitions(native_utils PRIVATE
+  TORCH_EXTENSION_NAME=native_utils
+  _GLIBCXX_USE_CXX11_ABI=${TORCH_CXX11_ABI}
+)
+target_link_libraries(native_utils PRIVATE c10 torch torch_cpu)
+if(TORCH_PYTHON_LIBRARY)
+  target_link_libraries(native_utils PRIVATE "${TORCH_PYTHON_LIBRARY}")
+endif()
+
+set_target_properties(native_utils PROPERTIES
+  PREFIX ""
+  SUFFIX ".so"
+  LIBRARY_OUTPUT_DIRECTORY "${NATIVE_OUTPUT_DIR}"
+  BUILD_RPATH "${TORCH_LIBRARY_DIRS_RAW}"
+  INSTALL_RPATH "${TORCH_LIBRARY_DIRS_RAW}"
+)

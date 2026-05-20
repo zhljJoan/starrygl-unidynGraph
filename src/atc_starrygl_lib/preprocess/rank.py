@@ -104,15 +104,18 @@ def _build_local_split_time_ptr(
         windows = split_time_ptr
     out: dict[str, Tensor] = {}
     for name in names:
-        ptr = [0]
-        rows: list[list[int]] = []
-        for begin, end in windows[name].tolist():
-            begin, end = int(begin), int(end)
-            mask = (local_edge_ids >= begin) & (local_edge_ids < end)
-            cnt = int(mask.sum().item())
-            rows.append([ptr[-1], ptr[-1] + cnt])
-            ptr.append(ptr[-1] + cnt)
-        out[name] = torch.tensor(rows, dtype=torch.long) if rows else torch.zeros((0, 2), dtype=torch.long)
+        win = windows[name].long().cpu().contiguous()
+        if win.numel() == 0:
+            out[name] = torch.zeros((0, 2), dtype=torch.long)
+            continue
+        sorted_edges = torch.sort(local_edge_ids).values
+        left = torch.searchsorted(sorted_edges, win[:, 0].contiguous())
+        right = torch.searchsorted(sorted_edges, win[:, 1].contiguous())
+        counts = (right - left).long()
+        starts = torch.zeros_like(counts)
+        if counts.numel() > 1:
+            starts[1:] = counts.cumsum(0)[:-1]
+        out[name] = torch.stack([starts, starts + counts], dim=1).long().contiguous()
     return out
 
 
@@ -178,14 +181,16 @@ def finalize_dist_index(
     edge_owner = dist_plan["edge_owner"].long().cpu()
     num_nodes = int(node_master.numel())
     master_dist_index = torch.empty(num_nodes, dtype=torch.long)
-    for nid in range(num_nodes):
-        master = int(node_master[nid])
-        local = int(layouts[master]["local_row"][nid])
-        master_dist_index[nid] = encode_dist_index(
-            torch.tensor([local]),
-            torch.tensor([master]),
-            shared=bool(replica_mask[nid]),
-        )[0]
+    for rank, layout in enumerate(layouts):
+        nodes = (node_master == int(rank)).nonzero(as_tuple=True)[0].long()
+        if nodes.numel() == 0:
+            continue
+        local = layout["local_row"].index_select(0, nodes).long()
+        master_dist_index[nodes] = encode_dist_index(
+            local,
+            torch.full((int(nodes.numel()),), int(rank), dtype=torch.long),
+            shared=replica_mask.index_select(0, nodes),
+        )
     for layout in layouts:
         local_row = layout["local_row"]
         rank = int(layout["rank"])
@@ -261,11 +266,6 @@ def finalize_memory_routes(
     layouts: list[dict[str, Any]],
     dist_plan: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    holders = _node_holders(layouts, num_nodes=int(dist_plan["num_nodes"]))
-    target_rows = [
-        {int(nid): int(row) for row, nid in enumerate(layout["local_node_ids"].tolist())}
-        for layout in layouts
-    ]
     sends = [_empty_send_accum(int(layout["update_node_ptr"].numel()) - 1) for layout in layouts]
     recvs = [_empty_recv_accum(int(layout["update_node_ptr"].numel()) - 1) for layout in layouts]
     for src_rank, layout in enumerate(layouts):
@@ -274,23 +274,30 @@ def finalize_memory_routes(
         update_rows = layout["update_local_row"]
         for t in range(int(update_ptr.numel()) - 1):
             begin, end = int(update_ptr[t]), int(update_ptr[t + 1])
-            for pos in range(begin, end):
-                nid = int(update_nodes[pos])
-                for dst_rank in holders[nid]:
-                    if dst_rank == src_rank:
-                        continue
-                    target_row = target_rows[dst_rank][nid]
-                    target_index = encode_dist_index(
-                        torch.tensor([target_row]),
-                        torch.tensor([dst_rank]),
-                    )[0]
-                    sends[src_rank]["rank"][t].append(dst_rank)
-                    sends[src_rank]["update_pos"][t].append(pos)
-                    sends[src_rank]["local_row"][t].append(int(update_rows[pos]))
-                    sends[src_rank]["dist_index"][t].append(int(target_index))
-                    recvs[dst_rank]["rank"][t].append(src_rank)
-                    recvs[dst_rank]["local_row"][t].append(target_row)
-                    recvs[dst_rank]["dist_index"][t].append(int(target_index))
+            if end <= begin:
+                continue
+            nodes = update_nodes[begin:end].long()
+            positions = torch.arange(begin, end, dtype=torch.long)
+            local_rows = update_rows[begin:end].long()
+            for dst_rank, dst_layout in enumerate(layouts):
+                if dst_rank == src_rank:
+                    continue
+                target_rows = dst_layout["local_row"].index_select(0, nodes)
+                keep = target_rows >= 0
+                if not bool(keep.any()):
+                    continue
+                target_rows = target_rows[keep].long().contiguous()
+                target_index = encode_dist_index(
+                    target_rows,
+                    torch.full((int(target_rows.numel()),), dst_rank, dtype=torch.long),
+                )
+                sends[src_rank]["rank"][t].append(torch.full((int(target_rows.numel()),), dst_rank, dtype=torch.long))
+                sends[src_rank]["update_pos"][t].append(positions[keep].long().contiguous())
+                sends[src_rank]["local_row"][t].append(local_rows[keep].long().contiguous())
+                sends[src_rank]["dist_index"][t].append(target_index.long().contiguous())
+                recvs[dst_rank]["rank"][t].append(torch.full((int(target_rows.numel()),), src_rank, dtype=torch.long))
+                recvs[dst_rank]["local_row"][t].append(target_rows)
+                recvs[dst_rank]["dist_index"][t].append(target_index.long().contiguous())
     for rank, layout in enumerate(layouts):
         layout["memory_route"] = _pack_memory_route(sends[rank], recvs[rank])
     return layouts
@@ -311,8 +318,7 @@ def build_local_chunk_view(
         return torch.empty(0, dtype=torch.long), local_node_to_chunk, torch.zeros(1, dtype=torch.long), torch.empty(0, dtype=torch.long)
     global_chunks = node_to_chunk.index_select(0, local_node_ids[:active_end])
     local_chunk_ids = torch.unique(global_chunks, sorted=True)
-    chunk_to_compact = {int(cid): idx for idx, cid in enumerate(local_chunk_ids.tolist())}
-    compact = torch.tensor([chunk_to_compact[int(cid)] for cid in global_chunks.tolist()], dtype=torch.long)
+    compact = torch.searchsorted(local_chunk_ids, global_chunks).long()
     local_node_to_chunk[:active_end] = compact
     order = torch.argsort(compact, stable=True)
     counts = torch.bincount(compact, minlength=int(local_chunk_ids.numel()))
@@ -349,22 +355,13 @@ def _rank_local_edge_rows(edge_owner: Tensor) -> Tensor:
 
 
 def _unique_nodes_with_max_ts(nodes: Tensor, ts: Tensor) -> tuple[Tensor, Tensor]:
-    unique = torch.unique(nodes.long(), sorted=True)
-    max_ts_parts = []
-    for nid in unique.tolist():
-        max_ts_parts.append(ts[nodes == int(nid)].max().reshape(1))
-    return unique.long().contiguous(), torch.cat(max_ts_parts, dim=0)
+    unique, inverse = torch.unique(nodes.long(), sorted=True, return_inverse=True)
+    max_ts = torch.full((int(unique.numel()),), -float("inf"), dtype=ts.dtype)
+    max_ts.scatter_reduce_(0, inverse.long(), ts, reduce="amax", include_self=True)
+    return unique.long().contiguous(), max_ts.contiguous()
 
 
-def _node_holders(layouts: list[dict[str, Any]], *, num_nodes: int) -> list[list[int]]:
-    holders: list[list[int]] = [[] for _ in range(int(num_nodes))]
-    for rank, layout in enumerate(layouts):
-        for nid in layout["local_node_ids"].tolist():
-            holders[int(nid)].append(rank)
-    return holders
-
-
-def _empty_send_accum(num_slices: int) -> dict[str, list[list[int]]]:
+def _empty_send_accum(num_slices: int) -> dict[str, list[list[Tensor]]]:
     return {
         "rank": [[] for _ in range(num_slices)],
         "update_pos": [[] for _ in range(num_slices)],
@@ -373,7 +370,7 @@ def _empty_send_accum(num_slices: int) -> dict[str, list[list[int]]]:
     }
 
 
-def _empty_recv_accum(num_slices: int) -> dict[str, list[list[int]]]:
+def _empty_recv_accum(num_slices: int) -> dict[str, list[list[Tensor]]]:
     return {
         "rank": [[] for _ in range(num_slices)],
         "local_row": [[] for _ in range(num_slices)],
@@ -381,7 +378,7 @@ def _empty_recv_accum(num_slices: int) -> dict[str, list[list[int]]]:
     }
 
 
-def _pack_memory_route(send: dict[str, list[list[int]]], recv: dict[str, list[list[int]]]) -> dict[str, Tensor]:
+def _pack_memory_route(send: dict[str, list[list[Tensor]]], recv: dict[str, list[list[Tensor]]]) -> dict[str, Tensor]:
     send_rank, send_pos, send_row, send_index, send_ptr = _pack_slices(
         send["rank"],
         send["update_pos"],
@@ -406,15 +403,15 @@ def _pack_memory_route(send: dict[str, list[list[int]]], recv: dict[str, list[li
     }
 
 
-def _pack_slices(*items: list[list[int]]) -> tuple[Tensor, ...]:
+def _pack_slices(*items: list[list[Tensor]]) -> tuple[Tensor, ...]:
     ptr = [0]
     flat_items = [[] for _ in items]
     num_slices = len(items[0]) if items else 0
     for t in range(num_slices):
-        count = len(items[0][t])
+        count = sum(int(part.numel()) for part in items[0][t])
         ptr.append(ptr[-1] + count)
         for out, item in zip(flat_items, items):
             out.extend(item[t])
-    tensors = [torch.tensor(values, dtype=torch.long) for values in flat_items]
+    tensors = [torch.cat(values, dim=0).long().contiguous() if values else torch.empty(0, dtype=torch.long) for values in flat_items]
     tensors.append(torch.tensor(ptr, dtype=torch.long))
     return tuple(tensors)
