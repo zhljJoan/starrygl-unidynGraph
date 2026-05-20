@@ -69,3 +69,35 @@ def test_partition_data_uses_active_dst_per_slice() -> None:
     p0 = parts[0]
     assert p0["dst_ids"]["ptr"].tolist() == [0, 1, 2]
     assert p0["dst_ids"]["data"].tolist() == [1, 2]
+
+
+def test_partition_data_routes_asymmetric_remote_requests() -> None:
+    parts = build_all_partition_data_artifacts(
+        rank_artifacts=[
+            {
+                "rank": 0,
+                "local_node_ids": torch.tensor([0]),
+                "local_edge_ids": torch.tensor([0]),
+            },
+            {
+                "rank": 1,
+                "local_node_ids": torch.tensor([2]),
+                "local_edge_ids": torch.empty(0, dtype=torch.long),
+            },
+        ],
+        dist_plan={
+            "node_to_chunk": torch.tensor([0, 0, 1]),
+            "node_master": torch.tensor([0, 0, 1]),
+        },
+        src=torch.tensor([2]),
+        dst=torch.tensor([0]),
+        time_ptr_2=torch.tensor([[0, 1]]),
+    )
+
+    p0, p1 = parts
+    assert p0["route"]["recv_sizes"][0] == [0, 1]
+    assert p0["route"]["send_sizes"][0] == [0, 0]
+    assert p0["route"]["send_index"].tolist() == []
+    assert p1["route"]["recv_sizes"][0] == [0, 0]
+    assert p1["route"]["send_sizes"][0] == [1, 0]
+    assert p1["route"]["send_index"].tolist() == [0]

@@ -192,29 +192,35 @@ def _attach_master_routes(
         {int(nid): row for row, nid in enumerate(rank_artifact["local_node_ids"].tolist())}
         for rank_artifact in rank_artifacts
     ]
+    num_slices = _td_len(artifacts[0]["dst_ids"]) if artifacts else 0
+    send_sizes = [[[0 for _ in range(world_size)] for _ in range(num_slices)] for _ in range(world_size)]
+    recv_sizes = [[[0 for _ in range(world_size)] for _ in range(num_slices)] for _ in range(world_size)]
+    send_rows = [[[[] for _ in range(world_size)] for _ in range(num_slices)] for _ in range(world_size)]
+    for requester, artifact in enumerate(artifacts):
+        for sid in range(num_slices):
+            for nid in _td_item(artifact["src_ids"], sid).tolist():
+                nid = int(nid)
+                provider = int(node_master[nid])
+                if provider == requester:
+                    continue
+                try:
+                    provider_row = local_rows[provider][nid]
+                except KeyError as exc:
+                    raise ValueError(f"node {nid} is missing from master rank {provider} local_node_ids") from exc
+                recv_sizes[requester][sid][provider] += 1
+                send_sizes[provider][sid][requester] += 1
+                send_rows[provider][sid][requester].append(provider_row)
     for rank, artifact in enumerate(artifacts):
-        num_slices = _td_len(artifact["dst_ids"])
-        send_sizes = [[0 for _ in range(world_size)] for _ in range(num_slices)]
-        recv_sizes = [[0 for _ in range(world_size)] for _ in range(num_slices)]
         send_index_parts: list[Tensor] = []
         send_ptr = [0]
         for sid in range(num_slices):
-            send_rows_by_peer: list[list[int]] = [[] for _ in range(world_size)]
-            for nid in _td_item(artifact["src_ids"], sid).tolist():
-                master = int(node_master[int(nid)])
-                if master == rank:
-                    continue
-                recv_sizes[sid][master] += 1
-                if int(nid) in local_rows[master]:
-                    send_rows_by_peer[master].append(local_rows[master][int(nid)])
-                    send_sizes[sid][master] += 1
-            flat = [row for rows in send_rows_by_peer for row in rows]
+            flat = [row for rows in send_rows[rank][sid] for row in rows]
             if flat:
                 send_index_parts.append(torch.tensor(flat, dtype=torch.long))
             send_ptr.append(send_ptr[-1] + len(flat))
         artifact["route"] = {
-            "send_sizes": send_sizes,
-            "recv_sizes": recv_sizes,
+            "send_sizes": send_sizes[rank],
+            "recv_sizes": recv_sizes[rank],
             "send_index_ptr": torch.tensor(send_ptr, dtype=torch.long),
             "send_index": torch.cat(send_index_parts, dim=0) if send_index_parts else torch.empty(0, dtype=torch.long),
         }

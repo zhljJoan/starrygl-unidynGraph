@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 import torch
+import torch.distributed as dist
 
 from atc_starrygl_lib.core.types import ArtifactBundle, RuntimeContext
 from atc_starrygl_lib.dtdg.runtime import FlareDTDGBackend
+from atc_starrygl_lib.dtdg.runtime.stgraph_loader import STGraphWindow
 from atc_starrygl_lib.dtdg.train_loop import evaluate, train_epoch
 from atc_starrygl_lib.models.dtdg import TGCN
 from atc_starrygl_lib.tasks import NodeRegressionTask
@@ -16,16 +19,22 @@ from atc_starrygl_lib.tasks import NodeRegressionTask
 
 def main() -> None:
     args = _parse_args()
+    rank, world_size, local_rank = _init_dist(args.device)
     artifact_root = Path(args.artifact_root)
-    device = torch.device(args.device)
+    device = _device(args.device, local_rank)
     source = _dataset_source(args)
 
-    ctx = _ctx(args, source=source, artifact_root=artifact_root, device=str(device))
+    ctx = _ctx(args, source=source, artifact_root=artifact_root, rank=rank, world_size=world_size, device=str(device))
     backend = FlareDTDGBackend()
-    artifacts = backend.prepare(ctx) if args.prepare else _bundle(artifact_root)
+    if args.prepare and rank == 0:
+        backend.prepare(ctx)
+    if dist.is_initialized():
+        dist.barrier()
+    artifacts = _bundle(artifact_root, world_size=world_size)
     backend.build_runtime(ctx, artifacts)
 
     graph = torch.load(artifacts.require("graph"), map_location="cpu", weights_only=False)
+    route_summary = _validate_routes(backend, split="train", device=device, max_batches=int(args.route_check_batches))
     model = TGCN(
         input_size=_node_feature_dim(graph),
         hidden_size=int(args.hidden_dim),
@@ -38,6 +47,9 @@ def main() -> None:
     summary: dict[str, Any] = {
         "artifact_root": str(artifact_root),
         "device": str(device),
+        "rank": rank,
+        "world_size": world_size,
+        "route": route_summary,
         "epochs": [],
     }
     for epoch in range(int(args.epochs)):
@@ -45,14 +57,17 @@ def main() -> None:
         val_metrics = evaluate(backend, model, task, split="val")
         row = {"epoch": epoch, "train": train_metrics, "val": val_metrics}
         summary["epochs"].append(row)
-        print(json.dumps(row, sort_keys=True), flush=True)
+        print(json.dumps({"rank": rank, **row}, sort_keys=True), flush=True)
 
     test_metrics = evaluate(backend, model, task, split="test")
     summary["test"] = test_metrics
-    print(json.dumps({"test": test_metrics}, sort_keys=True), flush=True)
+    print(json.dumps({"rank": rank, "test": test_metrics, "route": route_summary}, sort_keys=True), flush=True)
 
-    if args.output:
+    if args.output and rank == 0:
         Path(args.output).write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+    if dist.is_initialized():
+        dist.barrier()
+        dist.destroy_process_group()
 
 
 def _parse_args() -> argparse.Namespace:
@@ -81,10 +96,19 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--num-full-snapshots", type=int, default=1)
     parser.add_argument("--disable-states", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--disable-routes", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--route-check-batches", type=int, default=2, help="Number of train batches used to validate route all_to_all.")
     return parser.parse_args()
 
 
-def _ctx(args: argparse.Namespace, *, source: Any, artifact_root: Path, device: str) -> RuntimeContext:
+def _ctx(
+    args: argparse.Namespace,
+    *,
+    source: Any,
+    artifact_root: Path,
+    rank: int,
+    world_size: int,
+    device: str,
+) -> RuntimeContext:
     runtime_cfg: dict[str, Any] = {
         "num_full_snapshots": int(args.num_full_snapshots),
         "disable_states": bool(args.disable_states),
@@ -110,10 +134,29 @@ def _ctx(args: argparse.Namespace, *, source: Any, artifact_root: Path, device: 
             "runtime": runtime_cfg,
         },
         artifact_root=artifact_root,
-        rank=0,
-        world_size=1,
+        rank=rank,
+        world_size=world_size,
         device=device,
     )
+
+
+def _init_dist(device_arg: str) -> tuple[int, int, int]:
+    rank = int(os.environ.get("RANK", "0"))
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    if world_size <= 1:
+        return rank, world_size, local_rank
+    backend = "nccl" if str(device_arg).startswith("cuda") and torch.cuda.is_available() else "gloo"
+    if backend == "nccl":
+        torch.cuda.set_device(local_rank)
+    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+    return rank, world_size, local_rank
+
+
+def _device(device_arg: str, local_rank: int) -> torch.device:
+    if str(device_arg).startswith("cuda"):
+        return torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
+    return torch.device(device_arg)
 
 
 def _dataset_source(args: argparse.Namespace) -> Any:
@@ -253,18 +296,64 @@ def _load_or_build_node_features(
     return torch.stack([node_id / denom, indeg, outdeg], dim=1).contiguous()
 
 
-def _bundle(root: Path) -> ArtifactBundle:
+def _bundle(root: Path, *, world_size: int = 1) -> ArtifactBundle:
     files = {
         "graph": root / "graph.pt",
         "dist": root / "dist.pt",
         "meta": root / "meta.json",
-        "rank_000": root / "rank_000.pt",
-        "partition_data_000": root / "partition_data_000.pt",
     }
-    feature = root / "feature_000.pt"
-    if feature.exists():
-        files["feature_000"] = feature
+    for rank in range(int(world_size)):
+        files[f"rank_{rank:03d}"] = root / f"rank_{rank:03d}.pt"
+        files[f"partition_data_{rank:03d}"] = root / f"partition_data_{rank:03d}.pt"
+        feature = root / f"feature_{rank:03d}.pt"
+        if feature.exists():
+            files[f"feature_{rank:03d}"] = feature
     return ArtifactBundle(root=root, graph_mode="dtdg", files=files)
+
+
+def _validate_routes(backend: FlareDTDGBackend, *, split: str, device: torch.device, max_batches: int) -> dict[str, Any]:
+    checked = 0
+    routed = 0
+    send_total = 0
+    recv_total = 0
+    if max_batches <= 0:
+        return {"checked": checked, "routed": routed, "send_total": send_total, "recv_total": recv_total}
+    for batch in backend.iter_batches(split):
+        for graph in _graphs_from_batch_graph(batch.graph):
+            route = getattr(graph, "route", None)
+            if route is None or route.send_index is None:
+                continue
+            rows = int(graph.num_dst_nodes()) if hasattr(graph, "num_dst_nodes") else int(graph.num_nodes())
+            if int(route.send_index.numel()) > 0:
+                rows = max(rows, int(route.send_index.max().item()) + 1)
+            x = torch.arange(rows, dtype=torch.float32, device=device).unsqueeze(1)
+            y = graph.flare_apply_route(x)
+            expected = rows + int(route.recv_len)
+            if int(y.size(0)) != expected:
+                raise RuntimeError(f"route output rows mismatch: got {int(y.size(0))}, expected {expected}")
+            checked += 1
+            routed += int(route.send_len > 0 or route.recv_len > 0)
+            send_total += int(route.send_len)
+            recv_total += int(route.recv_len)
+        if checked >= int(max_batches):
+            break
+    return {
+        "checked": checked,
+        "routed": routed,
+        "send_total": send_total,
+        "recv_total": recv_total,
+    }
+
+
+def _graphs_from_batch_graph(graph: Any) -> list[Any]:
+    if isinstance(graph, STGraphWindow):
+        return list(graph)
+    if isinstance(graph, (list, tuple)):
+        out = []
+        for item in graph:
+            out.extend(_graphs_from_batch_graph(item))
+        return out
+    return [graph]
 
 
 def _node_feature_dim(graph: dict[str, Any]) -> int:
