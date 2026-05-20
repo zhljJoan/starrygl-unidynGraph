@@ -254,6 +254,98 @@ torch::Tensor vector_to_long_tensor(const std::vector<int64_t>& values) {
     return out;
 }
 
+int64_t first_local_part_or_fallback(
+    const SpeedState& state,
+    int64_t nid,
+    int64_t fallback) {
+    if (!state.node_parts[static_cast<size_t>(nid)].empty()) {
+        return state.node_parts[static_cast<size_t>(nid)][0];
+    }
+    return fallback;
+}
+
+torch::Tensor choose_balanced_node_master(
+    const SpeedState& state,
+    const int64_t* src_ptr,
+    const int64_t* dst_ptr,
+    const int64_t* edge_owner_ptr,
+    const std::vector<uint8_t>& is_hot,
+    const std::vector<int64_t>& degree) {
+    const int64_t n = state.num_nodes;
+    const int64_t num_parts = state.num_parts;
+    auto node_master = torch::full({n}, -1, torch::dtype(torch::kInt64));
+    auto* node_master_ptr = node_master.data_ptr<int64_t>();
+
+    std::vector<double> master_load(static_cast<size_t>(num_parts), 0.0);
+    std::vector<std::vector<double>> affinity(
+        static_cast<size_t>(n),
+        std::vector<double>(static_cast<size_t>(num_parts), 0.0));
+
+    for (int64_t eid = 0; eid < state.num_edges; ++eid) {
+        const int64_t part = edge_owner_ptr[eid];
+        if (part < 0 || part >= num_parts) {
+            continue;
+        }
+        affinity[static_cast<size_t>(src_ptr[eid])][static_cast<size_t>(part)] += 1.0;
+        affinity[static_cast<size_t>(dst_ptr[eid])][static_cast<size_t>(part)] += 1.0;
+    }
+
+    std::vector<int64_t> replica_nodes;
+    replica_nodes.reserve(static_cast<size_t>(n));
+    for (int64_t nid = 0; nid < n; ++nid) {
+        const bool replica = is_hot[static_cast<size_t>(nid)] || state.node_parts[static_cast<size_t>(nid)].size() > 1;
+        if (replica) {
+            replica_nodes.push_back(nid);
+            continue;
+        }
+        const int64_t fallback = nid % std::max<int64_t>(num_parts, 1);
+        const int64_t master = first_local_part_or_fallback(state, nid, fallback);
+        node_master_ptr[nid] = master;
+        master_load[static_cast<size_t>(master)] += static_cast<double>(std::max<int64_t>(degree[static_cast<size_t>(nid)], 1));
+    }
+
+    std::sort(replica_nodes.begin(), replica_nodes.end(), [&](int64_t a, int64_t b) {
+        if (degree[static_cast<size_t>(a)] != degree[static_cast<size_t>(b)]) {
+            return degree[static_cast<size_t>(a)] > degree[static_cast<size_t>(b)];
+        }
+        return a < b;
+    });
+
+    double total_weight = 0.0;
+    for (int64_t nid = 0; nid < n; ++nid) {
+        total_weight += static_cast<double>(std::max<int64_t>(degree[static_cast<size_t>(nid)], 1));
+    }
+    const double target_load = std::max(total_weight / static_cast<double>(std::max<int64_t>(num_parts, 1)), 1.0);
+
+    for (int64_t nid : replica_nodes) {
+        const double node_weight = static_cast<double>(std::max<int64_t>(degree[static_cast<size_t>(nid)], 1));
+        double affinity_sum = 0.0;
+        for (int64_t part = 0; part < num_parts; ++part) {
+            affinity_sum += affinity[static_cast<size_t>(nid)][static_cast<size_t>(part)];
+        }
+        const double load_penalty = std::max(1.0, affinity_sum);
+        int64_t best_part = 0;
+        double best_score = -std::numeric_limits<double>::infinity();
+        for (int64_t part = 0; part < num_parts; ++part) {
+            const bool candidate = is_hot[static_cast<size_t>(nid)] || state.is_in[static_cast<size_t>(nid)][static_cast<size_t>(part)];
+            if (!candidate) {
+                continue;
+            }
+            const double score =
+                affinity[static_cast<size_t>(nid)][static_cast<size_t>(part)] -
+                load_penalty * (master_load[static_cast<size_t>(part)] / target_load);
+            if (score > best_score + kEps || (almost_equal(score, best_score) && part < best_part)) {
+                best_score = score;
+                best_part = part;
+            }
+        }
+        node_master_ptr[nid] = best_part;
+        master_load[static_cast<size_t>(best_part)] += node_weight;
+    }
+
+    return node_master;
+}
+
 }  // namespace
 
 py::dict speed_partition(
@@ -358,34 +450,6 @@ py::dict speed_partition(
             epsilon_t);
     }
 
-    auto node_master = torch::full({n}, -1, torch::dtype(torch::kInt64));
-    auto replica_mask = torch::zeros({n}, torch::dtype(torch::kBool));
-    auto node_master_ptr = node_master.data_ptr<int64_t>();
-    auto replica_ptr = replica_mask.data_ptr<bool>();
-    std::vector<torch::Tensor> local_node_ids_by_part;
-    local_node_ids_by_part.reserve(static_cast<size_t>(num_parts));
-    for (int64_t p = 0; p < num_parts; ++p) {
-        std::vector<int64_t> local_nodes;
-        for (int64_t nid = 0; nid < n; ++nid) {
-            const bool shared = state.node_parts[nid].size() > 1;
-            if (shared) {
-                replica_ptr[nid] = true;
-            }
-            if (node_master_ptr[nid] < 0 && !state.node_parts[nid].empty()) {
-                node_master_ptr[nid] = state.node_parts[nid][0];
-            }
-            if (state.is_in[nid][p] || shared) {
-                local_nodes.push_back(nid);
-            }
-        }
-        local_node_ids_by_part.push_back(vector_to_long_tensor(local_nodes));
-    }
-    for (int64_t nid = 0; nid < n; ++nid) {
-        if (node_master_ptr[nid] < 0) {
-            node_master_ptr[nid] = nid % num_parts;
-        }
-    }
-
     auto edge_owner = torch::full({num_edges}, -1, torch::dtype(torch::kInt64));
     auto edge_owner_ptr = edge_owner.data_ptr<int64_t>();
     std::vector<torch::Tensor> edge_ids_by_part;
@@ -398,18 +462,68 @@ py::dict speed_partition(
     }
     for (int64_t eid = 0; eid < num_edges; ++eid) {
         if (edge_owner_ptr[eid] < 0) {
-            edge_owner_ptr[eid] = node_master_ptr[dst_ptr[eid]];
+            edge_owner_ptr[eid] = first_local_part_or_fallback(state, dst_ptr[eid], dst_ptr[eid] % num_parts);
         }
+    }
+
+    auto node_master = choose_balanced_node_master(state, src_ptr, dst_ptr, edge_owner_ptr, is_hot, degree);
+    auto node_master_ptr = node_master.data_ptr<int64_t>();
+    auto replica_mask = torch::zeros({n}, torch::dtype(torch::kBool));
+    auto replica_ptr = replica_mask.data_ptr<bool>();
+    std::vector<torch::Tensor> local_node_ids_by_part;
+    std::vector<torch::Tensor> owned_node_ids_by_part;
+    std::vector<torch::Tensor> replica_node_ids_by_part;
+    std::vector<torch::Tensor> shadow_node_ids_by_part;
+    local_node_ids_by_part.reserve(static_cast<size_t>(num_parts));
+    owned_node_ids_by_part.reserve(static_cast<size_t>(num_parts));
+    replica_node_ids_by_part.reserve(static_cast<size_t>(num_parts));
+    shadow_node_ids_by_part.reserve(static_cast<size_t>(num_parts));
+    for (int64_t nid = 0; nid < n; ++nid) {
+        if (is_hot[static_cast<size_t>(nid)] || state.node_parts[static_cast<size_t>(nid)].size() > 1) {
+            replica_ptr[nid] = true;
+        }
+    }
+    for (int64_t p = 0; p < num_parts; ++p) {
+        std::vector<int64_t> replica_nodes;
+        std::vector<int64_t> owned_nodes;
+        std::vector<int64_t> shadow_nodes;
+        for (int64_t nid = 0; nid < n; ++nid) {
+            const bool replica = replica_ptr[nid];
+            const bool held = state.is_in[static_cast<size_t>(nid)][static_cast<size_t>(p)] || replica;
+            if (!held) {
+                continue;
+            }
+            if (replica) {
+                replica_nodes.push_back(nid);
+            } else if (node_master_ptr[nid] == p) {
+                owned_nodes.push_back(nid);
+            } else {
+                shadow_nodes.push_back(nid);
+            }
+        }
+        std::vector<int64_t> local_nodes;
+        local_nodes.reserve(replica_nodes.size() + owned_nodes.size() + shadow_nodes.size());
+        local_nodes.insert(local_nodes.end(), replica_nodes.begin(), replica_nodes.end());
+        local_nodes.insert(local_nodes.end(), owned_nodes.begin(), owned_nodes.end());
+        local_nodes.insert(local_nodes.end(), shadow_nodes.begin(), shadow_nodes.end());
+        local_node_ids_by_part.push_back(vector_to_long_tensor(local_nodes));
+        owned_node_ids_by_part.push_back(vector_to_long_tensor(owned_nodes));
+        replica_node_ids_by_part.push_back(vector_to_long_tensor(replica_nodes));
+        shadow_node_ids_by_part.push_back(vector_to_long_tensor(shadow_nodes));
     }
 
     py::dict out;
     out["node_master"] = node_master;
     out["node_parts"] = node_master;
+    out["node_owner"] = node_master;
     out["edge_owner"] = edge_owner;
     out["edge_parts"] = edge_owner;
     out["replica_mask"] = replica_mask;
     out["hot_node_ids"] = vector_to_long_tensor(hot_node_ids);
     out["local_node_ids_by_part"] = local_node_ids_by_part;
+    out["owned_node_ids_by_part"] = owned_node_ids_by_part;
+    out["replica_node_ids_by_part"] = replica_node_ids_by_part;
+    out["shadow_node_ids_by_part"] = shadow_node_ids_by_part;
     out["edge_ids_by_part"] = edge_ids_by_part;
     out["dropped_edges"] = vector_to_long_tensor(state.dropped_edges);
     return out;

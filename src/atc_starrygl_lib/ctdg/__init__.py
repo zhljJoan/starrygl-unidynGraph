@@ -1,3 +1,3 @@
-from .runtime.backend import MemShareCTDGBackend
+from .runtime.backend import MemShareTemporalSamplingBackend
 
-__all__ = ["MemShareCTDGBackend"]
+__all__ = ["MemShareTemporalSamplingBackend"]
