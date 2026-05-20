@@ -7,6 +7,7 @@ import torch
 from torch import Tensor
 
 from atc_starrygl_lib.core.types import Batch
+from atc_starrygl_lib.memory import AsyncMemoryUpdateSpec
 
 
 def train_epoch(
@@ -92,6 +93,38 @@ def encode_batch(encoder: torch.nn.Module, batch: Batch) -> Tensor:
     return encoder(batch.graph)
 
 
+class CTDGMemoryCommitHook:
+    """Explicit post-step memory/mailbox writeback hook for CTDG training."""
+
+    def __init__(self, updater: Any = None, *, wait_apply: bool = True) -> None:
+        self.updater = updater
+        self.wait_apply = bool(wait_apply)
+        self.last_handle = None
+
+    def __call__(self, encoder: torch.nn.Module, batch: Batch) -> None:
+        updater = self.updater or _find_memory_updater(encoder)
+        if updater is None:
+            return
+        spec = AsyncMemoryUpdateSpec.from_edges(
+            batch.src,
+            batch.dst,
+            batch.ts,
+            edge_feat=_first_edge_feature(batch.graph),
+            wait_apply=self.wait_apply,
+        ) if batch.src is not None and batch.dst is not None and batch.ts is not None else AsyncMemoryUpdateSpec(
+            wait_apply=self.wait_apply,
+        )
+        if hasattr(updater, "submit_commit"):
+            handle = updater.submit_commit(spec)
+        elif hasattr(updater, "commit"):
+            handle = updater.commit(spec)
+        else:
+            return
+        self.last_handle = handle
+        if self.wait_apply and handle is not None and hasattr(handle, "wait_apply"):
+            handle.wait_apply()
+
+
 def _append_metrics(dst: defaultdict[str, list[float]], metrics: dict[str, float]) -> None:
     for key, value in metrics.items():
         dst[key].append(float(value))
@@ -106,3 +139,41 @@ def _mean(values: Iterable[float]) -> float:
     if not values:
         return 0.0
     return float(sum(values) / len(values))
+
+
+def _find_memory_updater(module: torch.nn.Module) -> Any:
+    current: Any = module
+    if hasattr(current, "module"):
+        current = current.module
+    for name in ("memory_updater", "updater", "memory"):
+        candidate = getattr(current, name, None)
+        if candidate is not None and (hasattr(candidate, "submit_commit") or hasattr(candidate, "commit")):
+            return candidate
+    for child in current.modules() if hasattr(current, "modules") else ():
+        if child is current:
+            continue
+        if hasattr(child, "submit_commit") or hasattr(child, "commit"):
+            return child
+    return None
+
+
+def _first_edge_feature(graph: Any) -> Tensor | None:
+    block = _first_block(graph)
+    edata = getattr(block, "edata", None)
+    if not isinstance(edata, dict):
+        return None
+    feature = edata.get("f")
+    if feature is None:
+        feature = edata.get("feat")
+    return feature
+
+
+def _first_block(graph: Any) -> Any:
+    if isinstance(graph, (list, tuple)):
+        if not graph:
+            return None
+        first = graph[0]
+        if isinstance(first, (list, tuple)):
+            return first[0] if first else None
+        return first
+    return graph

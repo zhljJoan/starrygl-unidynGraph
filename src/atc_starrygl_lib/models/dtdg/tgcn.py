@@ -14,12 +14,12 @@ if TYPE_CHECKING:
 
 
 class TGCN(nn.Module):
-    def __init__(self, input_size: int, hidden_size: int, output_size: int = 1) -> None:
+    def __init__(self, input_size: int, hidden_size: int, output_size: int = 1, num_gcn_layers: int = 2) -> None:
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.output_size = output_size
-        self.gcn = GCN(input_size, hidden_size * 3, num_layers=2, bias=False)
+        self.gcn = GCN(input_size, hidden_size * 3, num_layers=num_gcn_layers, bias=False)
         self.u_t = nn.Linear(hidden_size * 2, hidden_size)
         self.r_t = nn.Linear(hidden_size * 2, hidden_size)
         self.c_t = nn.Linear(hidden_size * 2, hidden_size)
@@ -49,7 +49,7 @@ class TGCN(nn.Module):
             # blob is a single DGLGraph at eval time
             g = blob
             x = self.gcn(g)
-            if state is None:
+            if state is None or int(state.size(0)) != int(x.size(0)):
                 h = torch.zeros(*x.shape[:-1], self.hidden_size, dtype=x.dtype, device=x.device)
             else:
                 h = state

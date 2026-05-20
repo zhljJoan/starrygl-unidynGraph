@@ -17,6 +17,10 @@
   - `python -m pytest tests`
 - Run targeted tests during development:
   - `python -m pytest tests/test_preprocess_dataset.py`
+- Run DTDG STGraphLoader tests:
+  - `python -m pytest tests/test_dtdg_stgraph_loader.py`
+- Run single-process DTDG STGraph smoke:
+  - `python tools/dtdg_stgraph_smoke.py --artifact-root /tmp/atc_dtdg_stgraph_smoke --epochs 2`
 - Compile-check Python modules:
   - `python -m py_compile src/atc_starrygl_lib/preprocess/*.py`
 - Build native sampler library (when C++ changes):
@@ -78,14 +82,27 @@
   - Task classes should stay thin: use them for `compute_loss()` and `compute_metrics()` only.
   - Avoid introducing heavy task adapter wrappers around batch prep, model forward, head, and metrics.
   - Edge prediction negative sampling stays as a separate pre-sampling batch transform; it must extend `roots/timestamps` before sampler execution so `neg_dst` can be remapped to embedding rows.
+  - Memory/mailbox writeback is an explicit post-step hook via `CTDGMemoryCommitHook`; keep writeback outside task adapters.
+  - Runtime can construct default sampler, feature runtime, memory runtime, and mailbox runtime from config when requested.
 - Current CTDG execution shape:
   - `session.iter_batches(split)` -> optional negative sampling before sampler -> sampler -> async feature/memory/mailbox patch -> `encoder.encode(batch.graph)` -> `head(emb, batch)` -> `task.compute_loss/metrics`.
+- DTDG new-pipeline runtime is wired for node snapshot training:
+  - `FlareDTDGBackend` can run the new snapshot preprocess path and load `partition_data_XXX.pt`.
+  - `STGraphLoader` materializes DGL blocks from `partition_data` with `srcdata["ID"]`, `dstdata["ID"]`, `srcdata["__ID"]`, `dstdata["__ID"]`, `edata["ID"]`, and `edata["__ID"]`.
+  - Node features are patched as `srcdata["x"]`; node labels are patched as `dstdata["y"]`; edge weights/norms/features are patched under `edata`.
+  - `iter_batches("train")` can yield `STGraphWindow` objects for sliding-window DTDG models; eval/test yield single snapshot graphs.
+  - Sliding-window state hooks are patched as `flare_fetch_state()` / `flare_store_state()`, and route hooks as `flare_apply_route()` / `flare_async_route()`.
+  - `dtdg.train_loop.train_epoch/evaluate` support recurrent node regression/classification style models such as `TGCN`.
+  - `tools/dtdg_stgraph_smoke.py` runs a single-process synthetic or `.pth`-backed node-regression smoke through prepare, runtime build, train, val, and test.
+- DTDG edge prediction is partially wired:
+  - Backend can emit edge prediction batches with `pos_src`, `pos_dst`, optional `neg_dst`, `src`, `dst`, and `eids`.
+  - `evaluate_edge_prediction()` supports encoder/head evaluation on these batches.
+  - Full endpoint embedding communication for distributed edge prediction still needs validation and likely additional routing work.
 
 ## Near-Term Migration Priorities
-- Write and run a WIKI edge-prediction smoke using the new CTDG loop and report AP/AUC.
-- Add default config-driven construction for memory and mailbox runtimes.
-- Add memory/mailbox writeback after training steps; keep it as an explicit hook, not hidden inside task adapters.
-- Continue DTDG integration separately:
-  - `STGraphLoader` should use `partition_data_*.pt` for full-snapshot node tasks.
-  - DTDG edge prediction still needs endpoint embedding communication based on master/read routing.
+- Run CTDG WIKI edge-prediction smoke on the new loop and report AP/AUC.
+- Run DTDG `tools/dtdg_stgraph_smoke.py` on a real snapshot dataset, not only the synthetic default.
+- Validate DTDG STGraphLoader under `torchrun` with multiple ranks:
+  - Check route send/recv sizes, `send_index`, `flare_apply_route()`, and state behavior across sliding windows.
+- Complete DTDG edge prediction endpoint embedding communication based on master/read routing.
 - Once the new CTDG and DTDG paths are stable, remove unused legacy fallback and any task adapter abstraction that is not carrying real behavior.

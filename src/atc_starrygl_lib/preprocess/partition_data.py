@@ -130,17 +130,17 @@ def _build_slice_block(
     s = src.index_select(0, eids)
     d = dst.index_select(0, eids)
     gids = edge_ids.index_select(0, eids)
-    dst_chunk = dist_plan["node_to_chunk"].long().cpu().index_select(0, d)
+    edge_dst_chunk = dist_plan["node_to_chunk"].long().cpu().index_select(0, d)
     eid_scale = int(edge_ids.numel()) + 1
     node_scale = int(dst.max().item()) + 1
-    order_key = dst_chunk * node_scale * eid_scale + d * eid_scale + gids
+    order_key = edge_dst_chunk * node_scale * eid_scale + d * eid_scale + gids
     order = torch.argsort(order_key, stable=True)
     eids = eids.index_select(0, order)
     s = s.index_select(0, order)
     d = d.index_select(0, order)
     gids = gids.index_select(0, order)
-    dst_chunk = dst_chunk.index_select(0, order)
     dst_ids = torch.unique(d, sorted=True)
+    dst_chunk = dist_plan["node_to_chunk"].long().cpu().index_select(0, dst_ids.long())
     dst_pos = _index_map(dst_ids)
     dst_rows = torch.tensor([dst_pos[int(n)] for n in d.tolist()], dtype=torch.long)
     src_unique = torch.unique(s, sorted=True)

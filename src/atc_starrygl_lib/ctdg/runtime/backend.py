@@ -8,7 +8,8 @@ import torch
 
 from atc_starrygl_lib.core.types import ArtifactBundle, Batch, RuntimeContext
 from atc_starrygl_lib.features import CTDGFeatureRuntime, FeatureStore
-from atc_starrygl_lib.comm.dynamic import DynamicFetchComm
+from atc_starrygl_lib.comm.dynamic import DynamicFetchComm, DynamicPushComm
+from atc_starrygl_lib.memory import MailboxRuntime, MailboxStore, MemoryRuntime, MemoryStore
 from atc_starrygl_lib.runtime.index import DistIndexTables
 from atc_starrygl_lib.sampling import MemShareNativeSamplerFactory, NativeSamplerConfig, TemporalGraphData
 from atc_starrygl_lib.sampling.negative import NegativeSampler, NegativeSamplingRequest, RandomNegativeSampler
@@ -225,6 +226,22 @@ class _CTDGArtifactRuntime:
                 feature_artifact=feature_artifact,
                 ctx=ctx,
             )
+        memory_runtime = runtime_cfg.get("memory_runtime")
+        if memory_runtime is None and bool(runtime_cfg.get("build_memory_runtime", False)):
+            memory_runtime = _build_memory_runtime(
+                rank_artifact=rank_artifact,
+                dist=dist,
+                ctx=ctx,
+                runtime_cfg=runtime_cfg,
+            )
+        mailbox_runtime = runtime_cfg.get("mailbox_runtime")
+        if mailbox_runtime is None and bool(runtime_cfg.get("build_mailbox_runtime", False)):
+            mailbox_runtime = _build_mailbox_runtime(
+                rank_artifact=rank_artifact,
+                dist=dist,
+                ctx=ctx,
+                runtime_cfg=runtime_cfg,
+            )
         negative_sampler = runtime_cfg.get("negative_sampler")
         negative_ratio = int(runtime_cfg.get("negative_ratio", 0))
         if negative_sampler is None and negative_ratio > 0:
@@ -239,8 +256,8 @@ class _CTDGArtifactRuntime:
             node_batch_size=int(task_cfg.get("batch_size", prep_cfg.get("node_batch_size", prep_cfg.get("batch_size", 1024)))),
             sampler=sampler,
             feature_runtime=feature_runtime,
-            memory_runtime=runtime_cfg.get("memory_runtime"),
-            mailbox_runtime=runtime_cfg.get("mailbox_runtime"),
+            memory_runtime=memory_runtime,
+            mailbox_runtime=mailbox_runtime,
             negative_sampler=negative_sampler,
             negative_ratio=negative_ratio,
             prefetch_batches=bool(runtime_cfg.get("prefetch_batches", True)),
@@ -526,6 +543,86 @@ def _build_feature_runtime(
     )
 
 
+def _build_dist_index_tables(*, rank_artifact: dict[str, Any], dist: dict[str, Any]) -> DistIndexTables:
+    master = dist.get("master_dist_index")
+    if master is None:
+        master = rank_artifact["read_dist_index"]
+    return DistIndexTables(
+        master_dist_index=master.long().cpu().contiguous(),
+        read_dist_index=rank_artifact["read_dist_index"].long().cpu().contiguous(),
+    )
+
+
+def _build_memory_runtime(
+    *,
+    rank_artifact: dict[str, Any],
+    dist: dict[str, Any],
+    ctx: RuntimeContext,
+    runtime_cfg: dict[str, Any],
+) -> MemoryRuntime:
+    local_nodes = rank_artifact["local_node_ids"].long().cpu().contiguous()
+    memory_cfg = dict(runtime_cfg.get("memory", {}))
+    init_memory = runtime_cfg.get("memory_init", memory_cfg.get("init"))
+    init_ts = runtime_cfg.get("memory_ts_init", memory_cfg.get("ts_init"))
+    memory_dim = int(runtime_cfg.get("memory_dim", memory_cfg.get("dim", 0)))
+    if init_memory is None:
+        if memory_dim <= 0:
+            raise ValueError("runtime.memory_dim (or runtime.memory.dim) is required to build memory runtime")
+        memory = torch.zeros((int(local_nodes.numel()), memory_dim), dtype=torch.float32, device=torch.device(ctx.device))
+    else:
+        memory = torch.as_tensor(init_memory, dtype=torch.float32, device=torch.device(ctx.device)).contiguous()
+    if init_ts is None:
+        ts = torch.zeros((int(memory.size(0)),), dtype=torch.float32, device=memory.device)
+    else:
+        ts = torch.as_tensor(init_ts, dtype=torch.float32, device=memory.device).reshape(-1).contiguous()
+    return MemoryRuntime(
+        index=_build_dist_index_tables(rank_artifact=rank_artifact, dist=dist),
+        store=MemoryStore(memory, ts),
+        fetch_comm=DynamicFetchComm(torch.device(ctx.device)),
+        push_comm=DynamicPushComm(torch.device(ctx.device)),
+        world_size=int(ctx.world_size),
+    )
+
+
+def _build_mailbox_runtime(
+    *,
+    rank_artifact: dict[str, Any],
+    dist: dict[str, Any],
+    ctx: RuntimeContext,
+    runtime_cfg: dict[str, Any],
+) -> MailboxRuntime:
+    local_nodes = rank_artifact["local_node_ids"].long().cpu().contiguous()
+    mailbox_cfg = dict(runtime_cfg.get("mailbox", {}))
+    init_mailbox = runtime_cfg.get("mailbox_init", mailbox_cfg.get("init"))
+    init_ts = runtime_cfg.get("mailbox_ts_init", mailbox_cfg.get("ts_init"))
+    mailbox_size = int(runtime_cfg.get("mailbox_size", mailbox_cfg.get("size", 1)))
+    msg_dim = int(runtime_cfg.get("mailbox_msg_dim", mailbox_cfg.get("msg_dim", 0)))
+    if init_mailbox is None:
+        if mailbox_size <= 0:
+            raise ValueError("runtime.mailbox_size must be positive")
+        if msg_dim <= 0:
+            raise ValueError("runtime.mailbox_msg_dim (or runtime.mailbox.msg_dim) is required to build mailbox runtime")
+        mailbox = torch.zeros(
+            (int(local_nodes.numel()), mailbox_size, msg_dim),
+            dtype=torch.float32,
+            device=torch.device(ctx.device),
+        )
+    else:
+        mailbox = torch.as_tensor(init_mailbox, dtype=torch.float32, device=torch.device(ctx.device)).contiguous()
+    if init_ts is None:
+        mailbox_ts = torch.zeros(mailbox.shape[:2], dtype=torch.float32, device=mailbox.device)
+    else:
+        mailbox_ts = torch.as_tensor(init_ts, dtype=torch.float32, device=mailbox.device).contiguous()
+    next_pos = torch.zeros((int(mailbox.size(0)),), dtype=torch.long, device=mailbox.device)
+    return MailboxRuntime(
+        index=_build_dist_index_tables(rank_artifact=rank_artifact, dist=dist),
+        store=MailboxStore(mailbox, mailbox_ts, next_pos),
+        fetch_comm=DynamicFetchComm(torch.device(ctx.device)),
+        push_comm=DynamicPushComm(torch.device(ctx.device)),
+        world_size=int(ctx.world_size),
+    )
+
+
 def _remap_batch_root_indices(batch: Batch, output: Any) -> None:
     root_lids = getattr(output.node_compute, "root_lids", None)
     groups = getattr(output.node_compute, "groups", {})
@@ -560,14 +657,19 @@ def _materialize_mfgs(output: Any) -> Any:
     for mfg in mfgs:
         indptr = mfg.csc_indptr.long().cpu().contiguous()
         indices = mfg.csc_indices.long().cpu().contiguous()
+        old_src_lids = mfg.src_lids.long().cpu()
+        dst_lids = mfg.dst_lids.long().cpu()
+        src_lids, indices = _ensure_dst_prefix_src_lids(
+            old_src_lids=old_src_lids,
+            dst_lids=dst_lids,
+            indices=indices,
+        )
         dgl_eids = torch.arange(int(indices.numel()), dtype=torch.long)
         block = dgl.create_block(
             ("csc", (indptr, indices, dgl_eids)),
-            num_src_nodes=int(mfg.src_lids.numel()),
-            num_dst_nodes=int(mfg.dst_lids.numel()),
+            num_src_nodes=int(src_lids.numel()),
+            num_dst_nodes=int(dst_lids.numel()),
         )
-        src_lids = mfg.src_lids.long().cpu()
-        dst_lids = mfg.dst_lids.long().cpu()
         block.srcdata["__ID"] = src_lids
         block.dstdata["__ID"] = dst_lids
         block.srcdata["ID"] = node_gids.index_select(0, src_lids)
@@ -583,6 +685,17 @@ def _materialize_mfgs(output: Any) -> Any:
             block.edata["ID"] = edge_gids.index_select(0, edge_lids)
         blocks.append([block])
     return blocks
+
+
+def _ensure_dst_prefix_src_lids(*, old_src_lids: torch.Tensor, dst_lids: torch.Tensor, indices: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    if int(old_src_lids.numel()) >= int(dst_lids.numel()) and torch.equal(old_src_lids[: int(dst_lids.numel())], dst_lids):
+        return old_src_lids, indices
+    dst_set = set(int(v) for v in dst_lids.tolist())
+    tail = torch.tensor([int(v) for v in old_src_lids.tolist() if int(v) not in dst_set], dtype=torch.long)
+    src_lids = torch.cat([dst_lids, tail], dim=0).long().contiguous()
+    row_map = {int(v): i for i, v in enumerate(src_lids.tolist())}
+    old_to_new = torch.tensor([row_map[int(v)] for v in old_src_lids.tolist()], dtype=torch.long)
+    return src_lids, old_to_new.index_select(0, indices.long()).long().contiguous()
 
 
 def _patch_first_layer_inputs(
@@ -603,7 +716,7 @@ def _patch_first_layer_inputs(
         first_layer = mfgs[0] if isinstance(mfgs, (list, tuple)) else [mfgs]
     for block in first_layer:
         srcdata = getattr(block, "srcdata", None)
-        if not isinstance(srcdata, dict) or "__ID" not in srcdata:
+        if srcdata is None or "__ID" not in srcdata:
             continue
         idx = srcdata["__ID"].long()
         device = idx.device

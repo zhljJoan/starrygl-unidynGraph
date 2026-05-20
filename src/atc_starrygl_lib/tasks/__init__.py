@@ -23,6 +23,8 @@ def register_builtin_tasks() -> None:
 
     for name, task in {
         "edge_prediction": EdgePredictionTask,
+        "edge_predict": EdgePredictionTask,
+        "link_prediction": EdgePredictionTask,
         "node_prediction": NodePredictionTask,
         "node_regression": NodeRegressionTask,
         "edge_regression": EdgeRegressionTask,

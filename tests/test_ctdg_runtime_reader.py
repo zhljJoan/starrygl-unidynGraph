@@ -200,7 +200,7 @@ def test_new_pipeline_runtime_prefetches_sampling_and_patches_features(tmp_path:
     assert mailbox_runtime.submitted == [0, 1]
 
 
-def test_new_pipeline_runtime_builds_default_sampler_and_feature_runtime(monkeypatch, tmp_path: Path) -> None:
+def test_new_pipeline_runtime_builds_default_sampler_feature_memory_and_mailbox_runtime(monkeypatch, tmp_path: Path) -> None:
     graph = {
         "src": torch.tensor([0], dtype=torch.long),
         "dst": torch.tensor([1], dtype=torch.long),
@@ -218,6 +218,7 @@ def test_new_pipeline_runtime_builds_default_sampler_and_feature_runtime(monkeyp
     }
     rank = {
         "rank": 0,
+        "local_node_ids": torch.tensor([0, 1], dtype=torch.long),
         "local_edge_ids": torch.tensor([0], dtype=torch.long),
         "read_dist_index": torch.tensor([0, 1], dtype=torch.long),
     }
@@ -249,6 +250,11 @@ def test_new_pipeline_runtime_builds_default_sampler_and_feature_runtime(monkeyp
                 "runtime": {
                     "build_sampler": True,
                     "build_feature_runtime": True,
+                    "build_memory_runtime": True,
+                    "build_mailbox_runtime": True,
+                    "memory_dim": 4,
+                    "mailbox_size": 2,
+                    "mailbox_msg_dim": 8,
                     "fanouts": [2, 3],
                     "num_layers": 2,
                     "policy": "recent",
@@ -279,6 +285,10 @@ def test_new_pipeline_runtime_builds_default_sampler_and_feature_runtime(monkeyp
     assert built["config"].fanouts == (2, 3)
     assert built["config"].num_layers == 2
     assert backend._runtime.feature_runtime is not None
+    assert backend._runtime.memory_runtime is not None
+    assert backend._runtime.mailbox_runtime is not None
+    assert backend._runtime.memory_runtime.store.memory.shape == (2, 4)
+    assert backend._runtime.mailbox_runtime.store.mailbox.shape == (2, 2, 8)
 
 
 def test_new_pipeline_runtime_attaches_negative_roots_before_sampling(tmp_path: Path) -> None:
