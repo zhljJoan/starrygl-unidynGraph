@@ -262,9 +262,9 @@ class _CTDGArtifactRuntime:
         self.mailbox_runtime = mailbox_runtime
         self.negative_sampler = negative_sampler
         self.negative_ratio = int(negative_ratio)
-        self.negative_dst_pool = None if negative_dst_pool is None else negative_dst_pool.long().cpu().contiguous()
-        self.local_negative_dst_pool = None if local_negative_dst_pool is None else local_negative_dst_pool.long().cpu().contiguous()
-        self.remote_negative_dst_pool = None if remote_negative_dst_pool is None else remote_negative_dst_pool.long().cpu().contiguous()
+        self.negative_dst_pool = _negative_pool_to_device(negative_dst_pool, self.device)
+        self.local_negative_dst_pool = _negative_pool_to_device(local_negative_dst_pool, self.device)
+        self.remote_negative_dst_pool = _negative_pool_to_device(remote_negative_dst_pool, self.device)
         self.prefetch_batches = bool(prefetch_batches)
         self.prefetch_sample_lookahead = max(1, int(prefetch_sample_lookahead))
         self.prefetch_read_lookahead = max(1, int(prefetch_read_lookahead))
@@ -863,6 +863,12 @@ def _negative_dst_pool(*, graph: dict[str, Any], runtime_cfg: dict[str, Any]) ->
     if raw is not None:
         return torch.as_tensor(raw, dtype=torch.long).cpu().contiguous()
     raise ValueError(f"unsupported negative dst pool policy: {policy!r}")
+
+
+def _negative_pool_to_device(pool: torch.Tensor | None, device: torch.device) -> torch.Tensor | None:
+    if pool is None:
+        return None
+    return pool.long().to(device=device, non_blocking=True).contiguous()
 
 
 def _build_negative_sampler(runtime_cfg: dict[str, Any]) -> NegativeSampler:
