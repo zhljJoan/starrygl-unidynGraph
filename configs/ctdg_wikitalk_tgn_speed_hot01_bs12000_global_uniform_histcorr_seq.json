@@ -63,7 +63,7 @@
     "memory_replica_push": false,
     "mailbox_replica_push": false,
     "reset_memory_each_epoch": true,
-    "gradient_sync": "async",
+    "gradient_sync": "ddp",
     "train_compute_metrics": false,
     "mailbox_msg_dim": 200,
     "prefetch_batches": false,
