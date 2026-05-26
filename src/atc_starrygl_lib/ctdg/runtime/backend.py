@@ -667,9 +667,11 @@ class _CTDGArtifactRuntime:
             else:
                 layout = self.feature_runtime.build_layout_from_sampling(output)
             self._profile_stats["backend_build_node_feature_layout_seconds"] += float(time.perf_counter() - t0)
-            t0 = time.perf_counter()
-            edge_layout = self.feature_runtime.build_edge_layout_from_sampling(output)
-            self._profile_stats["backend_build_edge_feature_layout_seconds"] += float(time.perf_counter() - t0)
+            edge_layout = None
+            if _should_fetch_edge_features(self.feature_runtime, self.edge_feat_dim):
+                t0 = time.perf_counter()
+                edge_layout = self.feature_runtime.build_edge_layout_from_sampling(output)
+                self._profile_stats["backend_build_edge_feature_layout_seconds"] += float(time.perf_counter() - t0)
             t0 = time.perf_counter()
             reads["node_feature"] = (self.feature_runtime, layout, self.feature_runtime.submit_fetch(layout))
             self._profile_stats["backend_submit_node_feature_seconds"] += float(time.perf_counter() - t0)
@@ -869,6 +871,15 @@ def _negative_pool_to_device(pool: torch.Tensor | None, device: torch.device) ->
     if pool is None:
         return None
     return pool.long().to(device=device, non_blocking=True).contiguous()
+
+
+def _should_fetch_edge_features(feature_runtime: Any, edge_feat_dim: int) -> bool:
+    if int(edge_feat_dim) > 0:
+        return True
+    store = getattr(feature_runtime, "feature_store", None)
+    if store is not None and getattr(store, "edge_features", None) is None:
+        return False
+    return True
 
 
 def _build_negative_sampler(runtime_cfg: dict[str, Any]) -> NegativeSampler:
