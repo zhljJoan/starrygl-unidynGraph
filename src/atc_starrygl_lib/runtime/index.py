@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 from torch import Tensor
 
-from atc_starrygl_lib.comm.dist_index import dist_index_part
+from atc_starrygl_lib.comm.dist_index import LOCAL_BITS, dist_index_loc, dist_index_part
 from atc_starrygl_lib.comm.layouts import FeatureReadLayout
 
 
@@ -155,7 +155,7 @@ def _unique_sorted_by_rank(index: Tensor, world_size: int) -> tuple[Tensor, Tens
         ptr = torch.zeros(int(world_size) + 1, dtype=torch.long, device=index.device)
         return unique, ptr, inverse
     rank = dist_index_part(unique)
-    order = torch.argsort(rank, stable=True)
+    order = _rank_local_order(unique)
     grouped = unique[order].contiguous()
     ptr = _ptr_from_rank(rank[order], int(world_size))
     unique_to_grouped = torch.empty_like(order)
@@ -205,7 +205,7 @@ def build_feature_read_layout_from_index(
         grouped, ptr, compute_to_feature = _unique_sorted_by_rank(read_idx, int(world_size))
     else:
         rank = dist_index_part(read_idx)
-        order = torch.argsort(rank, stable=True)
+        order = _rank_local_order(read_idx)
         grouped = read_idx[order].contiguous()
         ptr = _ptr_from_rank(rank[order], int(world_size))
         compute_to_grouped = torch.empty_like(order)
@@ -255,7 +255,7 @@ def build_feature_read_layout_from_comm(
         grouped_time = None
     else:
         rank = dist_index_part(read_idx)
-        order = torch.argsort(rank, stable=True)
+        order = _rank_local_order(read_idx)
         grouped = read_idx[order].contiguous()
         ptr = _ptr_from_rank(rank[order], int(world_size))
         comm_to_feature = torch.empty_like(order)
@@ -272,3 +272,8 @@ def build_feature_read_layout_from_comm(
         compute_to_feature=compute_to_feature.to(comm_node_ids.device).long().contiguous(),
         time_slices=grouped_time,
     )
+
+
+def _rank_local_order(index: Tensor) -> Tensor:
+    key = (dist_index_part(index) << LOCAL_BITS) | dist_index_loc(index)
+    return torch.argsort(key, stable=True)
