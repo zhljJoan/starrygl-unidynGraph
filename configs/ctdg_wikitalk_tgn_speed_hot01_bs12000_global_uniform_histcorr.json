@@ -64,6 +64,7 @@
     "mailbox_replica_push": false,
     "reset_memory_each_epoch": true,
     "gradient_sync": "async",
+    "train_compute_metrics": false,
     "mailbox_msg_dim": 200,
     "historical": {
       "enabled": true,
