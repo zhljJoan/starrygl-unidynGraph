@@ -653,7 +653,7 @@ class _CTDGArtifactRuntime:
     def _submit_runtime_reads(self, output: Any) -> dict[str, tuple[Any, Any, Any]]:
         total_t0 = time.perf_counter()
         reads: dict[str, tuple[Any, Any, Any]] = {}
-        node_layout_cache: dict[tuple[int, int, bool], FeatureReadLayout] = {}
+        node_layout_cache: dict[tuple[int, int, int], FeatureReadLayout] = {}
         if self.feature_runtime is not None:
             t0 = time.perf_counter()
             if hasattr(self.feature_runtime, "index") and hasattr(self.feature_runtime, "world_size"):
@@ -834,13 +834,15 @@ def _select_optional(tensor: Any, event_pos: torch.Tensor) -> torch.Tensor | Non
 
 def _cached_node_feature_layout(
     *,
-    cache: dict[tuple[int, int, bool], FeatureReadLayout],
+    cache: dict[tuple[int, int, int], FeatureReadLayout],
     output: Any,
     read_dist_index: torch.Tensor,
     world_size: int,
     include_time_slices: bool,
 ) -> FeatureReadLayout:
-    key = (int(read_dist_index.data_ptr()), int(read_dist_index.numel()), bool(include_time_slices))
+    time_slices = output.node_comm.time_slices if include_time_slices else None
+    time_key = 0 if time_slices is None else int(time_slices.data_ptr())
+    key = (int(read_dist_index.data_ptr()), int(read_dist_index.numel()), time_key)
     layout = cache.get(key)
     if layout is not None:
         return layout
@@ -849,7 +851,7 @@ def _cached_node_feature_layout(
         output.node_comm.compute_to_comm,
         read_dist_index,
         world_size=int(world_size),
-        time_slices=output.node_comm.time_slices if include_time_slices else None,
+        time_slices=time_slices,
     )
     cache[key] = layout
     return layout
