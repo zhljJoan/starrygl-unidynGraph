@@ -50,7 +50,19 @@ def train_epoch(
         "optimizer_step_seconds": 0.0,
         "memory_commit_seconds": 0.0,
         "metrics_seconds": 0.0,
+        "finalize_seconds": 0.0,
         "batches": 0.0,
+    }
+    sync_stage = {
+        "memory_commit_seconds": 0.0,
+        "batch_wait_seconds": 0.0,
+        "encode_seconds": 0.0,
+        "head_loss_seconds": 0.0,
+        "backward_seconds": 0.0,
+        "optimizer_step_seconds": 0.0,
+        "metrics_seconds": 0.0,
+        "epoch_tail_seconds": 0.0,
+        "finalize_seconds": 0.0,
     }
     backend = getattr(session, "backend", None)
     if backend is not None and hasattr(backend, "reset_profile_stats"):
@@ -69,39 +81,39 @@ def train_epoch(
             else:
                 if _commit_waits_at_batch_boundary(memory_commit):
                     _drain_commit_queue(commit_queue, wait_all=False)
-            _maybe_sync_cuda(sync_timing, sync_device)
+            sync_stage["memory_commit_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
             stage["memory_commit_seconds"] += float(time.perf_counter() - t_commit_wait)
             t_wait = time.perf_counter()
             try:
                 batch = next(iterator)
             except StopIteration:
                 break
-            _maybe_sync_cuda(sync_timing, sync_device)
+            sync_stage["batch_wait_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
             stage["batch_wait_seconds"] += float(time.perf_counter() - t_wait)
             optimizer.zero_grad(set_to_none=True)
             t_encode = time.perf_counter()
             emb = encode_batch(encoder, batch)
-            _maybe_sync_cuda(sync_timing, sync_device)
+            sync_stage["encode_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
             stage["encode_seconds"] += float(time.perf_counter() - t_encode)
             t_head = time.perf_counter()
             output = head(emb, batch)
             loss = task.compute_loss(output, batch)
-            _maybe_sync_cuda(sync_timing, sync_device)
+            sync_stage["head_loss_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
             stage["head_loss_seconds"] += float(time.perf_counter() - t_head)
 
             t_backward = time.perf_counter()
             loss.backward()
-            _maybe_sync_cuda(sync_timing, sync_device)
+            sync_stage["backward_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
             stage["backward_seconds"] += float(time.perf_counter() - t_backward)
             t_step = time.perf_counter()
             optimizer.step()
-            _maybe_sync_cuda(sync_timing, sync_device)
+            sync_stage["optimizer_step_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
             stage["optimizer_step_seconds"] += float(time.perf_counter() - t_step)
 
             if memory_commit is not None:
                 if commit_queue is None:
                     memory_commit(encoder, batch)
-                    _maybe_sync_cuda(sync_timing, sync_device)
+                    sync_stage["memory_commit_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
                 else:
                     # Keep one in-flight commit so i can overlap with i+1 compute.
                     _drain_commit_queue(commit_queue, wait_all=False)
@@ -111,7 +123,7 @@ def train_epoch(
             if compute_train_metrics:
                 t_metrics = time.perf_counter()
                 _append_metrics(metrics, task.compute_metrics(output, batch))
-                _maybe_sync_cuda(sync_timing, sync_device)
+                sync_stage["metrics_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
                 stage["metrics_seconds"] += float(time.perf_counter() - t_metrics)
             stage["batches"] += 1.0
     finally:
@@ -121,8 +133,9 @@ def train_epoch(
         else:
             _drain_commit_queue(commit_queue, wait_all=True)
             commit_queue.close()
-        _maybe_sync_cuda(sync_timing, sync_device)
+        sync_stage["memory_commit_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
         stage["memory_commit_seconds"] += float(time.perf_counter() - t_commit_wait)
+    sync_stage["epoch_tail_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
 
     epoch_wall = float(time.perf_counter() - epoch_t0)
     accounted = float(
@@ -138,6 +151,7 @@ def train_epoch(
     stage["accounted_seconds"] = accounted
     stage["unaccounted_seconds"] = max(0.0, epoch_wall - accounted)
 
+    t_finalize = time.perf_counter()
     out = _mean_metrics(metrics)
     out["loss"] = _mean(losses)
     out.update({f"stage_{k}": float(v) for k, v in stage.items()})
@@ -145,6 +159,11 @@ def train_epoch(
         out.update({f"stage_{k}": float(v) for k, v in memory_commit.pop_profile_stats().items()})
     if backend is not None and hasattr(backend, "pop_profile_stats"):
         out.update(backend.pop_profile_stats())
+    if optimizer is not None and hasattr(optimizer, "pop_profile_stats"):
+        out.update({f"stage_optimizer_{k}": float(v) for k, v in optimizer.pop_profile_stats().items()})
+    sync_stage["finalize_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
+    out.update({f"stage_sync_{k}": float(v) for k, v in sync_stage.items()})
+    out["stage_finalize_seconds"] = float(time.perf_counter() - t_finalize)
     return out
 
 
@@ -231,6 +250,12 @@ def _maybe_sync_cuda(enabled: bool, device: str | None) -> None:
     if device is None or not str(device).startswith("cuda"):
         return
     torch.cuda.synchronize(torch.device(str(device)))
+
+
+def _timed_sync_cuda(enabled: bool, device: str | None) -> float:
+    t0 = time.perf_counter()
+    _maybe_sync_cuda(enabled, device)
+    return float(time.perf_counter() - t0)
 
 
 class CTDGMemoryCommitHook:

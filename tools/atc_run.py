@@ -107,7 +107,10 @@ def _train_eval(ctx: Any, session: TrainingSession, *, epochs: int) -> dict[str,
             train_sum_keys.add("stage_batches")
         if "backend_batches" in train_metrics:
             train_sum_keys.add("backend_batches")
+        t_reduce0 = time.perf_counter()
         train_metrics = _reduce_metrics(train_metrics, device=torch.device(ctx.device), time_keys=train_time_keys, sum_keys=train_sum_keys)
+        train_reduce_wall = float(time.perf_counter() - t_reduce0)
+        train_metrics["train_metrics_reduce_wall_seconds"] = train_reduce_wall
         t_val0 = time.perf_counter()
         val_metrics = _eval_with_model(ctx, session, model, head, task, split="val")
         val_wall = float(time.perf_counter() - t_val0)
@@ -128,6 +131,8 @@ def _train_eval(ctx: Any, session: TrainingSession, *, epochs: int) -> dict[str,
                 "epoch_wall_seconds": epoch_wall,
                 "train_call_wall_seconds": train_wall,
                 "train_reported_seconds": train_seconds,
+                "train_wrapper_gap_seconds": max(0.0, train_wall - train_seconds),
+                "train_metrics_reduce_wall_seconds": train_reduce_wall,
                 "val_wall_seconds": val_wall,
                 "test_wall_seconds": test_wall,
                 "other_wall_seconds": other_wall,
@@ -170,8 +175,18 @@ def _train_epoch(ctx: Any, session: TrainingSession, model: torch.nn.Module, hea
 
     if head is None:
         raise RuntimeError("temporal_sampling path requires a head")
+    t_commit0 = time.perf_counter()
     commit = _build_ctdg_memory_commit(session, enabled=bool(ctx.config.get("runtime", {}).get("commit_memory", True)))
-    return train_epoch(session, model, head, task, optimizer, memory_commit=commit)
+    commit_build_wall = float(time.perf_counter() - t_commit0)
+    t_train0 = time.perf_counter()
+    out = train_epoch(session, model, head, task, optimizer, memory_commit=commit)
+    out = dict(out)
+    out["train_epoch_call_wall_seconds"] = float(time.perf_counter() - t_train0)
+    out["memory_commit_hook_build_wall_seconds"] = commit_build_wall
+    if commit is not None:
+        out["memory_replica_index_build_wall_seconds"] = float(getattr(commit, "memory_replica_index_build_wall_seconds", 0.0))
+        out["mailbox_replica_index_build_wall_seconds"] = float(getattr(commit, "mailbox_replica_index_build_wall_seconds", 0.0))
+    return out
 
 
 def _eval(ctx: Any, session: TrainingSession, *, split: str) -> dict[str, float]:
@@ -229,23 +244,34 @@ def _build_ctdg_memory_commit(session: TrainingSession, *, enabled: bool) -> CTD
     mailbox_runtime = None
     runtime_cfg = getattr(getattr(session, "ctx", None), "config", {}).get("runtime", {})
     async_memory_cfg = dict(runtime_cfg.get("async_memory", {})) if isinstance(runtime_cfg.get("async_memory", {}), dict) else {}
+    build_stats: dict[str, float] = {
+        "memory_replica_index_build_wall_seconds": 0.0,
+        "mailbox_replica_index_build_wall_seconds": 0.0,
+    }
     if runtime is not None and bool(runtime_cfg.get("memory_replica_push", False)):
         replica_index = getattr(runtime, "_cached_memory_replica_index", None)
         if replica_index is None:
+            t0 = time.perf_counter()
             replica_index = build_memory_replica_index(dist=getattr(runtime, "dist", {}))
+            build_stats["memory_replica_index_build_wall_seconds"] = float(time.perf_counter() - t0)
             setattr(runtime, "_cached_memory_replica_index", replica_index)
     if runtime is not None and bool(runtime_cfg.get("mailbox_replica_push", runtime_cfg.get("memory_replica_push", False))):
         mailbox_replica_index = getattr(runtime, "_cached_mailbox_replica_index", None)
         if mailbox_replica_index is None:
+            t0 = time.perf_counter()
             mailbox_replica_index = build_memory_replica_index(dist=getattr(runtime, "dist", {}))
+            build_stats["mailbox_replica_index_build_wall_seconds"] = float(time.perf_counter() - t0)
             setattr(runtime, "_cached_mailbox_replica_index", mailbox_replica_index)
         mailbox_runtime = getattr(runtime, "mailbox_runtime", None)
-    return CTDGMemoryCommitHook(
+    hook = CTDGMemoryCommitHook(
         memory_replica_index=replica_index,
         mailbox_replica_index=mailbox_replica_index,
         mailbox_runtime=mailbox_runtime,
         wait_mode=str(async_memory_cfg.get("commit_order", "legacy")),
     )
+    for key, value in build_stats.items():
+        setattr(hook, key, float(value))
+    return hook
 
 
 def _is_edge_prediction(task_name: str) -> bool:

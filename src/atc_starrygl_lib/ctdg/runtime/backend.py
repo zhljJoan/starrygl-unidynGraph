@@ -636,7 +636,7 @@ class _CTDGArtifactRuntime:
         t_wait = time.perf_counter()
         self._wait_and_patch_runtime_reads(batch.graph, reads)
         t_remap = time.perf_counter()
-        _remap_batch_root_indices_from_first_block(batch)
+        _remap_batch_root_indices(batch, output)
         self._profile_stats["backend_root_remap_seconds"] += float(time.perf_counter() - t_remap)
         _populate_commit_rows(batch)
         self._update_remap_alignment_stats(batch)
@@ -1403,6 +1403,10 @@ def _first_block(mfgs: Any) -> Any:
 
 
 def _populate_commit_rows(batch: Batch) -> None:
+    if batch.pos_src is not None and batch.pos_dst is not None:
+        batch.commit_src_rows = batch.pos_src.long().contiguous()
+        batch.commit_dst_rows = batch.pos_dst.long().contiguous()
+        return
     if batch.src is None or batch.dst is None or batch.ts is None:
         return
     first = _first_block(batch.graph)

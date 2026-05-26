@@ -6,10 +6,12 @@ from atc_starrygl_lib.comm.dist_index import dist_index_is_shared, dist_index_lo
 from atc_starrygl_lib.core.types import ArtifactBundle, RuntimeContext
 from atc_starrygl_lib.ctdg.runtime.backend import (
     MemShareTemporalSamplingBackend,
+    _remap_batch_root_indices,
     _build_sampler_temporal_graph,
     _populate_commit_rows,
     build_memory_replica_index,
 )
+from atc_starrygl_lib.sampling import MemShareNativeSamplerFactory, NativeSamplerConfig, RootSet, TemporalSamplingRequest
 
 
 def test_new_pipeline_runtime_reader_iterates_rank_local_event_batches(tmp_path: Path) -> None:
@@ -343,6 +345,46 @@ def test_build_sampler_temporal_graph_can_disable_reverse_edges() -> None:
     assert out.edge_part.tolist() == [0, 1]
 
 
+def test_native_compact_sampling_uses_unique_head_rows_with_root_inverse() -> None:
+    graph_data = _build_sampler_temporal_graph(
+        graph={
+            "src": torch.tensor([0, 0], dtype=torch.long),
+            "dst": torch.tensor([1, 2], dtype=torch.long),
+            "ts": torch.tensor([1, 1], dtype=torch.long),
+            "edge_ids": torch.tensor([0, 1], dtype=torch.long),
+        },
+        num_nodes=3,
+        node_part=None,
+        edge_owner=torch.tensor([0, 0], dtype=torch.long),
+        add_reverse_edges=False,
+    )
+    sampler = MemShareNativeSamplerFactory(graph_name="unit").build(
+        graph_data,
+        NativeSamplerConfig(
+            fanouts=(2,),
+            num_layers=1,
+            policy="recent",
+            workers=1,
+        ),
+    )
+
+    out = sampler.sample(
+        TemporalSamplingRequest(
+            roots=RootSet(
+                nodes=torch.tensor([0, 0, 1], dtype=torch.long),
+                ts=torch.tensor([2, 2, 2], dtype=torch.long),
+                groups={"pos_src": (0, 1), "pos_dst": (1, 2), "neg_dst": (2, 3)},
+            ),
+            fanouts=(),
+            num_layers=0,
+            policy="runtime",
+        )
+    )
+
+    assert out.node_compute.root_lids.tolist() == [0, 0, 1]
+    assert out.mfgs[0].dst_lids.tolist() == [0, 1]
+
+
 def test_build_memory_replica_index_targets_only_remote_shared_rows() -> None:
     dist = {
         "master_dist_index": torch.cat(
@@ -494,6 +536,51 @@ def test_populate_commit_rows_uses_first_block_node_time_mapping() -> None:
     assert batch.commit_dst_rows is not None and batch.commit_dst_rows.tolist() == [0, 3]
 
 
+def test_populate_commit_rows_prefers_batch_root_row_space() -> None:
+    from atc_starrygl_lib.core.types import Batch
+
+    batch = Batch(
+        split="train",
+        roots=torch.tensor([10, 10, 12], dtype=torch.long),
+        graph=[[_FakeBlock()]],
+        src=torch.tensor([10], dtype=torch.long),
+        dst=torch.tensor([12], dtype=torch.long),
+        ts=torch.tensor([1.0], dtype=torch.float32),
+        pos_src=torch.tensor([0], dtype=torch.long),
+        pos_dst=torch.tensor([1], dtype=torch.long),
+    )
+
+    _populate_commit_rows(batch)
+
+    assert batch.commit_src_rows is not None and batch.commit_src_rows.tolist() == [0]
+    assert batch.commit_dst_rows is not None and batch.commit_dst_rows.tolist() == [1]
+
+
+def test_remap_batch_root_indices_uses_sampling_inverse_mapping() -> None:
+    from atc_starrygl_lib.core.types import Batch
+
+    batch = Batch(
+        split="train",
+        roots=torch.tensor([10, 10, 12], dtype=torch.long),
+        timestamps=torch.tensor([1.0, 1.0, 2.0], dtype=torch.float32),
+        graph=[[_FakeBlock()]],
+        pos_src=torch.tensor([0], dtype=torch.long),
+        pos_dst=torch.tensor([1], dtype=torch.long),
+        neg_dst=torch.tensor([2], dtype=torch.long),
+    )
+    output = _FakeSamplingOutput(
+        idx=0,
+        groups={"pos_src": (0, 1), "pos_dst": (1, 2), "neg_dst": (2, 3)},
+        root_lids=torch.tensor([0, 0, 1], dtype=torch.long),
+    )
+
+    _remap_batch_root_indices(batch, output)
+
+    assert batch.pos_src is not None and batch.pos_src.tolist() == [0]
+    assert batch.pos_dst is not None and batch.pos_dst.tolist() == [0]
+    assert batch.neg_dst is not None and batch.neg_dst.tolist() == [1]
+
+
 class _FakeBlock:
     def __init__(self) -> None:
         self.srcdata = {"__ID": torch.tensor([0], dtype=torch.long), "ID": torch.tensor([0], dtype=torch.long)}
@@ -501,17 +588,17 @@ class _FakeBlock:
 
 
 class _FakeSamplingOutput:
-    def __init__(self, idx: int, groups: dict[str, tuple[int, int]]) -> None:
+    def __init__(self, idx: int, groups: dict[str, tuple[int, int]], root_lids: torch.Tensor | None = None) -> None:
         self.idx = idx
         self.mfgs = [_FakeBlock()]
-        self.node_compute = _FakeNodeCompute(groups)
+        self.node_compute = _FakeNodeCompute(groups, root_lids=root_lids)
         self.edge_compute = _FakeEdgeCompute()
         self.edge_comm = _FakeEdgeComm()
 
 
 class _FakeNodeCompute:
-    def __init__(self, groups: dict[str, tuple[int, int]]) -> None:
-        self.root_lids = torch.tensor([0, 2, 2, 1], dtype=torch.long)
+    def __init__(self, groups: dict[str, tuple[int, int]], root_lids: torch.Tensor | None = None) -> None:
+        self.root_lids = torch.arange(0, max((end for _, end in groups.values()), default=0), dtype=torch.long) if root_lids is None else root_lids
         self.groups = groups
 
 

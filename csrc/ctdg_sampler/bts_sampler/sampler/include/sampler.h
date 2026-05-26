@@ -748,6 +748,10 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
 
     vector<int64_t> frontier_lids;
     frontier_lids.reserve(root_nodes.size(0));
+    vector<int64_t> occurrence_to_frontier;
+    occurrence_to_frontier.reserve(root_nodes.size(0));
+    phmap::flat_hash_map<int64_t, int64_t> frontier_pos_by_lid;
+    frontier_pos_by_lid.reserve(root_nodes.size(0));
     for(int64_t i = 0; i < root_nodes.size(0); i++){
         NodeIDType gid = root_nodes_data[i];
         TimeStampType ts = root_ts_data == nullptr ? 0 : root_ts_data[i];
@@ -755,7 +759,16 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
         out.root_gids.emplace_back(gid);
         out.root_ts.emplace_back(ts);
         out.root_lids.emplace_back(lid);
-        frontier_lids.emplace_back(lid);
+        auto frontier_it = frontier_pos_by_lid.find(lid);
+        if(frontier_it == frontier_pos_by_lid.end()){
+            int64_t frontier_pos = static_cast<int64_t>(frontier_lids.size());
+            frontier_pos_by_lid.emplace(lid, frontier_pos);
+            frontier_lids.emplace_back(lid);
+            occurrence_to_frontier.emplace_back(frontier_pos);
+        }
+        else{
+            occurrence_to_frontier.emplace_back(frontier_it->second);
+        }
     }
     out.node_layer_ptr.emplace_back(static_cast<int64_t>(out.node_gids.size()));
     compact_root_seconds += omp_get_wtime() - root_start_time;
@@ -777,7 +790,11 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
         mfg.delta_t.resize(edge_count);
 
         for(int64_t j = 0; j < edge_count; j++){
-            int64_t dst_pos = block.src_index[j];
+            int64_t dst_occurrence = block.src_index[j];
+            if(dst_occurrence < 0 || dst_occurrence >= static_cast<int64_t>(occurrence_to_frontier.size())){
+                continue;
+            }
+            int64_t dst_pos = occurrence_to_frontier[static_cast<size_t>(dst_occurrence)];
             if(dst_pos >= 0 && dst_pos < num_dst){
                 mfg.csc_indptr[dst_pos + 1] += 1;
             }
@@ -787,11 +804,15 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
         }
 
         double index_start_time = omp_get_wtime();
-        vector<int64_t> next_frontier_lids(static_cast<size_t>(block.sample_nodes.size()), -1);
+        vector<int64_t> next_frontier_lids;
+        next_frontier_lids.reserve(static_cast<size_t>(block.sample_nodes.size()));
+        vector<int64_t> next_occurrence_to_frontier(static_cast<size_t>(block.sample_nodes.size()), -1);
         vector<int64_t> edge_src_idx(static_cast<size_t>(edge_count), -1);
         vector<int64_t> edge_lid_cache(static_cast<size_t>(edge_count), -1);
         phmap::flat_hash_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> local_node_index;
+        phmap::flat_hash_map<int64_t, int64_t> next_frontier_pos_by_lid;
         local_node_index.reserve(static_cast<size_t>(edge_count));
+        next_frontier_pos_by_lid.reserve(static_cast<size_t>(edge_count));
         const bool has_sample_node_ts = !block.sample_nodes_ts.empty();
         NodeInstanceKey last_node_key{};
         int64_t last_src_idx = -1;
@@ -826,7 +847,14 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
                 has_last_node = true;
             }
             edge_src_idx[static_cast<size_t>(j)] = src_idx;
-            next_frontier_lids[static_cast<size_t>(j)] = src_lid;
+            auto frontier_res = next_frontier_pos_by_lid.emplace(src_lid, -1);
+            int64_t next_frontier_pos = frontier_res.first->second;
+            if(frontier_res.second){
+                next_frontier_pos = static_cast<int64_t>(next_frontier_lids.size());
+                frontier_res.first->second = next_frontier_pos;
+                next_frontier_lids.emplace_back(src_lid);
+            }
+            next_occurrence_to_frontier[static_cast<size_t>(j)] = next_frontier_pos;
 
             const EdgeIDType edge_gid = block.eid[j];
             int64_t edge_lid_val = -1;
@@ -845,7 +873,11 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
         double fill_start_time = omp_get_wtime();
         vector<int64_t> cursor = mfg.csc_indptr;
         for(int64_t j = 0; j < edge_count; j++){
-            int64_t dst_pos = block.src_index[j];
+            int64_t dst_occurrence = block.src_index[j];
+            if(dst_occurrence < 0 || dst_occurrence >= static_cast<int64_t>(occurrence_to_frontier.size())){
+                continue;
+            }
+            int64_t dst_pos = occurrence_to_frontier[static_cast<size_t>(dst_occurrence)];
             if(dst_pos < 0 || dst_pos >= num_dst) continue;
             int64_t offset = cursor[dst_pos]++;
             mfg.csc_indices[offset] = edge_src_idx[static_cast<size_t>(j)];
@@ -860,6 +892,7 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
         out.node_layer_ptr.emplace_back(static_cast<int64_t>(out.node_gids.size()));
         out.edge_layer_ptr.emplace_back(static_cast<int64_t>(out.edge_gids.size()));
         frontier_lids.swap(next_frontier_lids);
+        occurrence_to_frontier.swap(next_occurrence_to_frontier);
     }
 
     compact_total_seconds += omp_get_wtime() - total_start_time;
