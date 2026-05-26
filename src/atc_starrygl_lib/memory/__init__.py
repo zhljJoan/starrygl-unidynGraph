@@ -5,6 +5,7 @@ from .async_updater import (
     AsyncMemoryUpdateSpec,
     HistoricalBlend,
     RuntimeAsyncMemoryUpdater,
+    SharedHistoricalCache,
 )
 from .mailbox import Mailbox, MailboxStore
 from .mailbox_runtime import MailboxReadHandle, MailboxReplicaHandle, MailboxRuntime, MailboxWriteHandle
@@ -31,6 +32,7 @@ __all__ = [
     "MemoryWriteHandle",
     "ReplicaPushIndex",
     "RuntimeAsyncMemoryUpdater",
+    "SharedHistoricalCache",
     "SharedStateSync",
     "build_replica_push_layout",
 ]

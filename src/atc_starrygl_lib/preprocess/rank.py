@@ -19,6 +19,7 @@ def build_all_rank_artifacts(
     time_ptr_2: Tensor,
     split_time_ptr: dict[str, Tensor] | None = None,
     split: Tensor | None = None,
+    preserve_replica_history: bool = False,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Build rank-local shared layouts from a global dist plan."""
 
@@ -45,6 +46,7 @@ def build_all_rank_artifacts(
             dst=dst,
             ts=ts_cpu,
             time_ptr_2=time_ptr_2,
+            preserve_replica_history=preserve_replica_history,
         )
         for layout in layouts
     ]
@@ -79,6 +81,7 @@ def build_all_rank_artifacts(
                 time_ptr_2=time_ptr_2,
             ),
             "split": split_cpu,
+            "preserve_replica_history": bool(preserve_replica_history),
             "update_node_ptr": layout["update_node_ptr"],
             "update_node_ids": layout["update_node_ids"],
             "update_node_ts": layout["update_node_ts"],
@@ -276,6 +279,7 @@ def finalize_update_nodes(
     dst: Tensor,
     ts: Tensor,
     time_ptr_2: Tensor,
+    preserve_replica_history: bool = False,
 ) -> dict[str, Any]:
     local_row = layout["local_row"]
     local_edge_ids = layout["local_edge_ids"]
@@ -302,11 +306,19 @@ def finalize_update_nodes(
         if not bool(keep.any()):
             ptr.append(ptr[-1])
             continue
-        nodes, max_ts = _unique_nodes_with_max_ts(cand_nodes[keep], cand_ts[keep])
-        node_parts.append(nodes)
-        ts_parts.append(max_ts)
-        row_parts.append(local_row.index_select(0, nodes).long())
-        ptr.append(ptr[-1] + int(nodes.numel()))
+        if preserve_replica_history:
+            kept_nodes = cand_nodes[keep].long().contiguous()
+            kept_ts = cand_ts[keep].contiguous()
+            node_parts.append(kept_nodes)
+            ts_parts.append(kept_ts)
+            row_parts.append(local_row.index_select(0, kept_nodes).long())
+            ptr.append(ptr[-1] + int(kept_nodes.numel()))
+        else:
+            nodes, max_ts = _unique_nodes_with_max_ts(cand_nodes[keep], cand_ts[keep])
+            node_parts.append(nodes)
+            ts_parts.append(max_ts)
+            row_parts.append(local_row.index_select(0, nodes).long())
+            ptr.append(ptr[-1] + int(nodes.numel()))
     layout["update_node_ptr"] = torch.tensor(ptr, dtype=torch.long)
     layout["update_node_ids"] = torch.cat(node_parts, dim=0).long().contiguous() if node_parts else torch.empty(0, dtype=torch.long)
     layout["update_node_ts"] = torch.cat(ts_parts, dim=0).contiguous() if ts_parts else torch.empty(0, dtype=ts.dtype)

@@ -5,10 +5,12 @@ from typing import Any, Optional
 
 import torch
 from torch import Tensor, nn
+import torch.distributed as dist
 
 from .mailbox_runtime import MailboxRuntime
 from .runtime import MemoryRuntime
 from .shared_sync import ReplicaPushIndex
+from atc_starrygl_lib.comm.dist_index import dist_index_is_shared, dist_index_loc, dist_index_part
 
 
 class HistoricalBlend(nn.Module):
@@ -34,6 +36,129 @@ class HistoricalBlend(nn.Module):
         pred = historical_memory + _normalize_increment(increment)
         out[shared_mask] = gamma * updated[shared_mask] + (1 - gamma) * pred[shared_mask]
         return out
+
+
+class SharedHistoricalCache(nn.Module):
+    """Filter small shared-memory deltas before replica synchronization."""
+
+    def __init__(
+        self,
+        memory_dim: int,
+        *,
+        num_nodes: int = 0,
+        alpha: float = 0.0,
+        times_threshold: int = 10,
+        time_threshold: float | None = None,
+    ) -> None:
+        super().__init__()
+        self.memory_dim = int(memory_dim)
+        self.alpha = float(alpha)
+        self.times_threshold = int(times_threshold)
+        self.time_threshold = None if time_threshold is None else float(time_threshold)
+        self.register_buffer("historical_memory", torch.zeros(int(num_nodes), self.memory_dim))
+        self.register_buffer("historical_ts", torch.zeros(int(num_nodes)))
+        self.register_buffer("loss_count", torch.zeros(int(num_nodes), dtype=torch.long))
+        self.register_buffer("increment_sum", torch.zeros(int(num_nodes), self.memory_dim))
+        self.register_buffer("increment_count", torch.zeros(int(num_nodes), 1))
+
+    def reset_state(self) -> None:
+        self.historical_memory.zero_()
+        self.historical_ts.zero_()
+        self.loss_count.zero_()
+        self.increment_sum.zero_()
+        self.increment_count.zero_()
+
+    def historical_check(self, index: Tensor, new_data: Tensor, ts: Tensor) -> Tensor:
+        index = index.long().reshape(-1)
+        if index.numel() == 0:
+            return torch.zeros(0, dtype=torch.bool, device=new_data.device)
+        self._ensure_capacity(int(index.max().item()) + 1, new_data.device, new_data.dtype)
+        hist = self.historical_memory.index_select(0, index).to(device=new_data.device, dtype=new_data.dtype)
+        hist_ts = self.historical_ts.index_select(0, index).to(device=ts.device, dtype=ts.dtype)
+        loss = self.loss_count.index_select(0, index).to(device=index.device)
+        delta = new_data - hist
+        self._update_increment(index, delta)
+
+        mask = _cosine_distance(new_data, hist) > self.alpha
+        if self.time_threshold is not None:
+            mask = mask | ((ts - hist_ts) > self.time_threshold)
+        mask = mask | (loss > self.times_threshold)
+
+        if mask.any():
+            update_index = index[mask].to(self.historical_memory.device)
+            self.historical_memory[update_index] = new_data[mask].to(
+                device=self.historical_memory.device,
+                dtype=self.historical_memory.dtype,
+            )
+            self.historical_ts[update_index] = ts[mask].to(
+                device=self.historical_ts.device,
+                dtype=self.historical_ts.dtype,
+            )
+            self.loss_count[update_index] = 0
+            self.increment_sum[update_index] = 0
+            self.increment_count[update_index] = 0
+        if (~mask).any():
+            skipped = index[~mask].to(self.loss_count.device)
+            self.loss_count[skipped] += 1
+        return mask
+
+    def get_increment(self, index: Tensor) -> Tensor:
+        index = index.long().reshape(-1)
+        if index.numel() == 0:
+            return self.increment_sum.new_zeros((0, self.memory_dim))
+        self._ensure_capacity(int(index.max().item()) + 1, self.increment_sum.device, self.increment_sum.dtype)
+        denom = self.increment_count.index_select(0, index).clamp_min(1)
+        return self.increment_sum.index_select(0, index) / denom
+
+    def get_increment_remote(self, index: Tensor) -> Tensor:
+        # Keep the same API semantics as MemShare's filter module.
+        return self.get_increment(index)
+
+    def update(self, index: Tensor, change: Tensor) -> None:
+        index = index.long().reshape(-1)
+        if index.numel() == 0:
+            return
+        self._ensure_capacity(int(index.max().item()) + 1, change.device, change.dtype)
+        dev_index = index.to(self.increment_sum.device)
+        value = change.to(device=self.increment_sum.device, dtype=self.increment_sum.dtype).reshape(-1, self.memory_dim)
+        self.increment_sum[dev_index] = value
+        self.increment_count[dev_index] = 1.0
+
+    def _update_increment(self, index: Tensor, delta: Tensor) -> None:
+        device_index = index.to(self.increment_sum.device)
+        self.increment_sum.index_add_(
+            0,
+            device_index,
+            delta.to(device=self.increment_sum.device, dtype=self.increment_sum.dtype),
+        )
+        ones = torch.ones((device_index.numel(), 1), device=self.increment_count.device, dtype=self.increment_count.dtype)
+        self.increment_count.index_add_(0, device_index, ones)
+
+    def _ensure_capacity(self, size: int, device: torch.device, dtype: torch.dtype) -> None:
+        if int(self.historical_memory.size(0)) >= int(size):
+            return
+        current = int(self.historical_memory.size(0))
+        grow = int(size) - current
+        self.historical_memory = torch.cat(
+            [self.historical_memory, torch.zeros(grow, self.memory_dim, device=device, dtype=dtype)],
+            dim=0,
+        )
+        self.historical_ts = torch.cat(
+            [self.historical_ts, torch.zeros(grow, device=device, dtype=torch.float32)],
+            dim=0,
+        )
+        self.loss_count = torch.cat(
+            [self.loss_count, torch.zeros(grow, device=device, dtype=torch.long)],
+            dim=0,
+        )
+        self.increment_sum = torch.cat(
+            [self.increment_sum, torch.zeros(grow, self.memory_dim, device=device, dtype=dtype)],
+            dim=0,
+        )
+        self.increment_count = torch.cat(
+            [self.increment_count, torch.zeros(grow, 1, device=device, dtype=torch.float32)],
+            dim=0,
+        )
 
 
 @dataclass(slots=True)
@@ -64,10 +189,13 @@ class AsyncMemoryUpdateSpec:
 
     src: Tensor | None = None
     dst: Tensor | None = None
+    src_rows: Tensor | None = None
+    dst_rows: Tensor | None = None
     ts: Tensor | None = None
     edge_feat: Tensor | None = None
     update_mailbox: bool = True
     memory_nodes: Tensor | None = None
+    memory_rows: Tensor | None = None
     mailbox_nodes: Tensor | None = None
     memory_replica_index: ReplicaPushIndex | None = None
     mailbox_replica_index: ReplicaPushIndex | None = None
@@ -83,12 +211,16 @@ class AsyncMemoryUpdateSpec:
         ts: Tensor,
         edge_feat: Tensor | None = None,
         *,
+        src_rows: Tensor | None = None,
+        dst_rows: Tensor | None = None,
         update_mailbox: bool = True,
         wait_apply: bool = False,
     ) -> "AsyncMemoryUpdateSpec":
         return cls(
             src=src,
             dst=dst,
+            src_rows=src_rows,
+            dst_rows=dst_rows,
             ts=ts,
             edge_feat=edge_feat,
             update_mailbox=bool(update_mailbox),
@@ -103,28 +235,42 @@ class AsyncMemoryCommitter:
         self.memory_runtime = memory_runtime
         self.mailbox_runtime = mailbox_runtime
 
-    def submit(
+    def submit_p2p_memory(
+        self,
+        updated_nodes: Tensor,
+        updated_memory: Tensor,
+        updated_ts: Tensor,
+    ) -> AsyncCommitHandle:
+        mem_layout = self.memory_runtime.build_write_layout(updated_nodes)
+        mem_handle = self.memory_runtime.write(mem_layout, updated_memory, updated_ts)
+        return AsyncCommitHandle(memory_handle=mem_handle)
+
+    def submit_p2p_mailbox(
+        self,
+        mailbox_nodes: Tensor,
+        mailbox_msg: Tensor,
+        mailbox_ts: Tensor,
+    ) -> AsyncCommitHandle:
+        if self.mailbox_runtime is None:
+            return AsyncCommitHandle()
+        mail_layout = self.mailbox_runtime.build_write_layout(mailbox_nodes)
+        mail_handle = self.mailbox_runtime.write(mail_layout, mailbox_msg, mailbox_ts)
+        return AsyncCommitHandle(mailbox_handle=mail_handle)
+
+    def submit_shared(
         self,
         updated_nodes: Tensor,
         updated_memory: Tensor,
         updated_ts: Tensor,
         *,
-        mailbox_nodes: Optional[Tensor] = None,
-        mailbox_msg: Optional[Tensor] = None,
-        mailbox_ts: Optional[Tensor] = None,
         memory_replica_index: Optional[ReplicaPushIndex] = None,
+        mailbox_nodes: Optional[Tensor] = None,
         mailbox_replica_index: Optional[ReplicaPushIndex] = None,
         mailbox_snapshot: Optional[Tensor] = None,
         mailbox_snapshot_ts: Optional[Tensor] = None,
     ) -> AsyncCommitHandle:
-        mem_layout = self.memory_runtime.build_write_layout(updated_nodes)
-        mem_handle = self.memory_runtime.write(mem_layout, updated_memory, updated_ts)
-        mail_handle = None
         mem_replica_handle = None
         mail_replica_handle = None
-        if self.mailbox_runtime is not None and mailbox_nodes is not None and mailbox_msg is not None and mailbox_ts is not None:
-            mail_layout = self.mailbox_runtime.build_write_layout(mailbox_nodes)
-            mail_handle = self.mailbox_runtime.write(mail_layout, mailbox_msg, mailbox_ts)
         if memory_replica_index is not None:
             replica_layout = self.memory_runtime.build_replica_push_layout(updated_nodes, memory_replica_index)
             mem_replica_handle = self.memory_runtime.replica_push(replica_layout, updated_memory, updated_ts)
@@ -142,10 +288,39 @@ class AsyncMemoryCommitter:
                 mailbox_snapshot_ts,
             )
         return AsyncCommitHandle(
-            memory_handle=mem_handle,
-            mailbox_handle=mail_handle,
             memory_replica_handle=mem_replica_handle,
             mailbox_replica_handle=mail_replica_handle,
+        )
+
+    def submit(
+        self,
+        updated_nodes: Tensor,
+        updated_memory: Tensor,
+        updated_ts: Tensor,
+        *,
+        mailbox_nodes: Optional[Tensor] = None,
+        mailbox_msg: Optional[Tensor] = None,
+        mailbox_ts: Optional[Tensor] = None,
+        memory_replica_index: Optional[ReplicaPushIndex] = None,
+        mailbox_replica_index: Optional[ReplicaPushIndex] = None,
+        mailbox_snapshot: Optional[Tensor] = None,
+        mailbox_snapshot_ts: Optional[Tensor] = None,
+    ) -> AsyncCommitHandle:
+        return _merge_handles(
+            self.submit_shared(
+                updated_nodes,
+                updated_memory,
+                updated_ts,
+                memory_replica_index=memory_replica_index,
+                mailbox_nodes=mailbox_nodes,
+                mailbox_replica_index=mailbox_replica_index,
+                mailbox_snapshot=mailbox_snapshot,
+                mailbox_snapshot_ts=mailbox_snapshot_ts,
+            ),
+            self.submit_p2p_memory(updated_nodes, updated_memory, updated_ts),
+            self.submit_p2p_mailbox(mailbox_nodes, mailbox_msg, mailbox_ts)
+            if mailbox_nodes is not None and mailbox_msg is not None and mailbox_ts is not None
+            else AsyncCommitHandle(),
         )
 
 
@@ -162,21 +337,53 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         base_updater: nn.Module,
         committer: AsyncMemoryCommitter,
         historical_blend: HistoricalBlend | None = None,
+        historical_cache: SharedHistoricalCache | None = None,
+        use_staged_commit: bool = False,
+        use_shared_filter: bool = True,
+        enable_delta_compensation: bool = False,
+        delta_compensation_gamma: float = 0.5,
     ) -> None:
         super().__init__()
         self.base_updater = base_updater
         self.committer = committer
         self.historical_blend = historical_blend
+        self.historical_cache = historical_cache
+        self.use_staged_commit = bool(use_staged_commit)
+        self.use_shared_filter = bool(use_shared_filter)
+        self.enable_delta_compensation = bool(enable_delta_compensation)
+        self.delta_compensation_gamma = float(delta_compensation_gamma)
+        self.delta_gamma = nn.Parameter(torch.tensor([self.delta_compensation_gamma], dtype=torch.float32))
         self.last_updated_memory: Tensor | None = None
         self.last_updated_ts: Tensor | None = None
         self.last_updated_nid: Tensor | None = None
         self.last_commit_handle: AsyncCommitHandle | None = None
+        self.pending_shared_handle: AsyncCommitHandle | None = None
+        self.pending_async_handle: AsyncCommitHandle | None = None
+        self._diag_stats: dict[str, float] = {
+            "commit_memory_row_path_count": 0.0,
+            "commit_memory_row_fallback_count": 0.0,
+            "commit_mailbox_row_path_count": 0.0,
+            "commit_mailbox_row_fallback_count": 0.0,
+        }
+
+    def reset_diag_stats(self) -> None:
+        for key in self._diag_stats:
+            self._diag_stats[key] = 0.0
+
+    def pop_diag_stats(self) -> dict[str, float]:
+        out = dict(self._diag_stats)
+        self.reset_diag_stats()
+        return out
 
     def reset_state(self) -> None:
         self.last_updated_memory = None
         self.last_updated_ts = None
         self.last_updated_nid = None
         self.last_commit_handle = None
+        self.pending_shared_handle = None
+        self.pending_async_handle = None
+        if self.historical_cache is not None:
+            self.historical_cache.reset_state()
         for name in ("last_updated_memory", "last_updated_ts", "last_updated_nid"):
             if hasattr(self.base_updater, name):
                 setattr(self.base_updater, name, None)
@@ -191,17 +398,122 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             return updated
 
         updated = self._maybe_historical_blend(mfg, updated)
+        updated = self._maybe_delta_compensate(updated, nid, ts)
         self.last_updated_memory = updated.detach().clone()
         self.last_updated_ts = ts.detach().clone()
         self.last_updated_nid = nid.detach().clone()
 
         if spec is not None:
             self.last_commit_handle = self.submit_commit(spec)
-            if spec.wait_apply and self.last_commit_handle is not None:
-                self.last_commit_handle.wait_apply()
+            if spec.wait_apply:
+                self.synchronize_shared()
+                self.handle_last_async()
         return updated
 
     def submit_commit(self, spec: AsyncMemoryUpdateSpec) -> AsyncCommitHandle:
+        prepared = self._prepare_commit_inputs(spec)
+        if not self.use_staged_commit:
+            handle = self.committer.submit(
+                prepared.memory_nodes,
+                prepared.memory_values,
+                prepared.memory_ts,
+                mailbox_nodes=prepared.mailbox_nodes,
+                mailbox_msg=prepared.mailbox_msg,
+                mailbox_ts=prepared.mailbox_ts,
+                memory_replica_index=prepared.spec.memory_replica_index,
+                mailbox_replica_index=prepared.spec.mailbox_replica_index,
+                mailbox_snapshot=prepared.spec.mailbox_snapshot,
+                mailbox_snapshot_ts=prepared.spec.mailbox_snapshot_ts,
+            )
+            self.pending_shared_handle = None
+            self.pending_async_handle = None
+            return handle
+        if self.pending_shared_handle is not None or self.pending_async_handle is not None:
+            raise RuntimeError("pending shared/async updates must be drained before submitting a new commit")
+        shared_handle = self.submit_shared(prepared)
+        async_handle = _merge_handles(
+            self.submit_p2p_memory(prepared),
+            self.submit_p2p_mailbox(prepared),
+        )
+        self.pending_shared_handle = shared_handle if _has_any_handle(shared_handle) else None
+        self.pending_async_handle = async_handle if _has_any_handle(async_handle) else None
+        return _merge_handles(shared_handle, async_handle)
+
+    def synchronize_shared(self) -> None:
+        handle = self.pending_shared_handle
+        self.pending_shared_handle = None
+        if handle is not None:
+            handle.wait_apply()
+
+    def handle_last_async(self) -> None:
+        handle = self.pending_async_handle
+        self.pending_async_handle = None
+        if handle is not None:
+            handle.wait_apply()
+
+    def wait_pending(self) -> None:
+        self.synchronize_shared()
+        self.handle_last_async()
+
+    def submit_shared(self, prepared: "_PreparedCommitInputs") -> AsyncCommitHandle:
+        shared_nodes = prepared.shared_nodes
+        shared_memory = prepared.shared_memory
+        shared_ts = prepared.shared_ts
+        shared_mailbox_nodes = prepared.shared_mailbox_nodes
+        shared_mailbox_snapshot = prepared.shared_mailbox_snapshot
+        shared_mailbox_snapshot_ts = prepared.shared_mailbox_snapshot_ts
+        has_shared_memory = (
+            shared_nodes is not None
+            and shared_memory is not None
+            and shared_ts is not None
+        )
+        has_shared_mailbox = (
+            prepared.spec.mailbox_replica_index is not None
+            and shared_mailbox_nodes is not None
+            and shared_mailbox_snapshot is not None
+            and shared_mailbox_snapshot_ts is not None
+        )
+        if not has_shared_memory and not has_shared_mailbox:
+            return AsyncCommitHandle()
+        if any(value is not None for value in (shared_nodes, shared_memory, shared_ts)) and not has_shared_memory:
+            raise RuntimeError("shared memory payload is incomplete")
+        if any(
+            value is not None
+            for value in (shared_mailbox_nodes, shared_mailbox_snapshot, shared_mailbox_snapshot_ts)
+        ) and not has_shared_mailbox:
+            raise RuntimeError("shared mailbox payload is incomplete")
+        if not has_shared_memory:
+            shared_nodes = prepared.memory_nodes.new_empty((0,))
+            shared_memory = prepared.memory_values.new_empty((0, prepared.memory_values.size(1)))
+            shared_ts = prepared.memory_ts.new_empty((0,))
+        return self.committer.submit_shared(
+            shared_nodes,
+            shared_memory,
+            shared_ts,
+            memory_replica_index=prepared.spec.memory_replica_index if has_shared_memory else None,
+            mailbox_nodes=shared_mailbox_nodes,
+            mailbox_replica_index=prepared.spec.mailbox_replica_index,
+            mailbox_snapshot=shared_mailbox_snapshot,
+            mailbox_snapshot_ts=shared_mailbox_snapshot_ts,
+        )
+
+    def submit_p2p_memory(self, prepared: "_PreparedCommitInputs") -> AsyncCommitHandle:
+        return self.committer.submit_p2p_memory(
+            prepared.memory_nodes,
+            prepared.memory_values,
+            prepared.memory_ts,
+        )
+
+    def submit_p2p_mailbox(self, prepared: "_PreparedCommitInputs") -> AsyncCommitHandle:
+        if prepared.mailbox_nodes is None or prepared.mailbox_msg is None or prepared.mailbox_ts is None:
+            return AsyncCommitHandle()
+        return self.committer.submit_p2p_mailbox(
+            prepared.mailbox_nodes,
+            prepared.mailbox_msg,
+            prepared.mailbox_ts,
+        )
+
+    def _prepare_commit_inputs(self, spec: AsyncMemoryUpdateSpec) -> "_PreparedCommitInputs":
         if self.last_updated_memory is None or self.last_updated_ts is None or self.last_updated_nid is None:
             raise RuntimeError("no updated memory is available; call forward() first")
         nid = self.last_updated_nid
@@ -214,30 +526,88 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             memory_nodes = torch.cat([spec.src, spec.dst], dim=0)
         else:
             memory_nodes = nid
-        memory_values = _safe_index(nid, memory_nodes, updated)
-        memory_ts = _safe_index(nid, memory_nodes, updated_ts.reshape(-1, 1)).reshape(-1)
-        if memory_values is None or memory_ts is None:
-            raise RuntimeError("memory_nodes are not covered by updated node ids")
+        memory_rows = spec.memory_rows
+        if memory_rows is None and spec.src_rows is not None and spec.dst_rows is not None:
+            memory_rows = torch.cat([spec.src_rows, spec.dst_rows], dim=0)
+        if memory_rows is not None:
+            memory_rows = _checked_rows(memory_rows, updated, name="memory_rows")
+            if _rows_match_nodes(nid, memory_rows, memory_nodes):
+                self._diag_stats["commit_memory_row_path_count"] += 1.0
+                memory_values = updated.index_select(0, memory_rows)
+                memory_ts = updated_ts.reshape(-1, 1).index_select(0, memory_rows).reshape(-1)
+            else:
+                self._diag_stats["commit_memory_row_fallback_count"] += 1.0
+                memory_values = _safe_index(nid, memory_nodes, updated)
+                memory_ts = _safe_index(nid, memory_nodes, updated_ts.reshape(-1, 1))
+                if memory_values is None or memory_ts is None:
+                    raise RuntimeError("memory_nodes are not covered by updated node ids")
+                memory_ts = memory_ts.reshape(-1)
+        else:
+            memory_values = _safe_index(nid, memory_nodes, updated)
+            memory_ts = _safe_index(nid, memory_nodes, updated_ts.reshape(-1, 1))
+            if memory_values is None or memory_ts is None:
+                raise RuntimeError("memory_nodes are not covered by updated node ids")
+            memory_ts = memory_ts.reshape(-1)
 
         mailbox_nodes = spec.mailbox_nodes
         mailbox_msg = None
         mailbox_ts = None
         if spec.update_mailbox and spec.src is not None and spec.dst is not None and spec.ts is not None:
             mailbox_nodes = torch.cat([spec.src, spec.dst], dim=0) if mailbox_nodes is None else mailbox_nodes
-            mailbox_msg = _build_mailbox_messages(nid, updated, spec.src, spec.dst, spec.edge_feat)
+            if spec.src_rows is not None and spec.dst_rows is not None:
+                src_rows = _checked_rows(spec.src_rows, updated, name="src_rows")
+                dst_rows = _checked_rows(spec.dst_rows, updated, name="dst_rows")
+                if _rows_match_nodes(nid, src_rows, spec.src) and _rows_match_nodes(nid, dst_rows, spec.dst):
+                    self._diag_stats["commit_mailbox_row_path_count"] += 1.0
+                    mailbox_msg = _build_mailbox_messages_from_rows(updated, src_rows, dst_rows, spec.edge_feat)
+                else:
+                    self._diag_stats["commit_mailbox_row_fallback_count"] += 1.0
+                    mailbox_msg = _build_mailbox_messages(nid, updated, spec.src, spec.dst, spec.edge_feat)
+            else:
+                mailbox_msg = _build_mailbox_messages(nid, updated, spec.src, spec.dst, spec.edge_feat)
             mailbox_ts = torch.cat([spec.ts, spec.ts], dim=0)
+        shared_nodes = None
+        shared_memory = None
+        shared_ts = None
+        if spec.memory_replica_index is not None:
+            shared_mask = _replicated_node_mask(memory_nodes, spec.memory_replica_index)
+            if self.use_shared_filter and self.historical_cache is not None and shared_mask.any():
+                shared_index = memory_nodes[shared_mask].to(device=updated.device, dtype=torch.long)
+                update_mask = self.historical_cache.historical_check(
+                    shared_index,
+                    memory_values[shared_mask],
+                    memory_ts[shared_mask],
+                )
+                full_mask = torch.zeros_like(shared_mask)
+                full_mask[shared_mask] = update_mask.to(device=shared_mask.device)
+                shared_mask = full_mask
+            if shared_mask.any():
+                shared_nodes = memory_nodes[shared_mask]
+                shared_memory = memory_values[shared_mask]
+                shared_ts = memory_ts[shared_mask]
 
-        return self.committer.submit(
-            memory_nodes,
-            memory_values,
-            memory_ts,
+        shared_mailbox_nodes = None
+        shared_mailbox_snapshot = None
+        shared_mailbox_snapshot_ts = None
+        if spec.mailbox_replica_index is not None and mailbox_nodes is not None:
+            shared_mailbox_nodes = mailbox_nodes
+            shared_mailbox_snapshot = spec.mailbox_snapshot
+            shared_mailbox_snapshot_ts = spec.mailbox_snapshot_ts
+
+        return _PreparedCommitInputs(
+            spec=spec,
+            memory_nodes=memory_nodes,
+            memory_values=memory_values,
+            memory_ts=memory_ts,
             mailbox_nodes=mailbox_nodes,
             mailbox_msg=mailbox_msg,
             mailbox_ts=mailbox_ts,
-            memory_replica_index=spec.memory_replica_index,
-            mailbox_replica_index=spec.mailbox_replica_index,
-            mailbox_snapshot=spec.mailbox_snapshot,
-            mailbox_snapshot_ts=spec.mailbox_snapshot_ts,
+            shared_nodes=shared_nodes,
+            shared_memory=shared_memory,
+            shared_ts=shared_ts,
+            shared_mailbox_nodes=shared_mailbox_nodes,
+            shared_mailbox_snapshot=shared_mailbox_snapshot,
+            shared_mailbox_snapshot_ts=shared_mailbox_snapshot_ts,
         )
 
     def _run_base_updater(self, mfg: Any) -> Tensor | None:
@@ -271,10 +641,85 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             increment.to(device=updated.device, dtype=updated.dtype),
         )
 
+    def _maybe_delta_compensate(self, updated: Tensor, nid: Tensor, ts: Tensor) -> Tensor:
+        if not self.enable_delta_compensation or self.historical_cache is None:
+            return updated
+        if nid.numel() == 0:
+            return updated
+        index = nid.to(device=updated.device, dtype=torch.long).reshape(-1)
+        if index.numel() == 0:
+            return updated
+        cache = self.historical_cache
+        cache._ensure_capacity(int(index.max().item()) + 1, cache.historical_memory.device, cache.historical_memory.dtype)
+        dev_index = index.to(cache.historical_memory.device)
+        prev_memory = cache.historical_memory.index_select(0, dev_index).to(device=updated.device, dtype=updated.dtype)
+        memory_runtime = getattr(self.committer, "memory_runtime", None)
+        if memory_runtime is not None and hasattr(memory_runtime, "index"):
+            master_index = memory_runtime.index.master_for(
+                index.to(memory_runtime.index.master_dist_index.device)
+            ).to(index.device)
+            rank = int(dist.get_rank()) if dist.is_available() and dist.is_initialized() else 0
+            remote_mask = ~(dist_index_part(master_index) == rank)
+            shared_mask = dist_index_is_shared(master_index).to(device=updated.device)
+            local_rows = dist_index_loc(master_index).to(device=updated.device)
+        else:
+            remote_mask = torch.zeros_like(index, dtype=torch.bool, device=index.device)
+            shared_mask = torch.zeros_like(index, dtype=torch.bool, device=updated.device)
+            local_rows = index.to(device=updated.device)
+
+        with torch.no_grad():
+            if bool(remote_mask.any().item()):
+                transition_dense = cache.get_increment_remote(index).to(device=updated.device, dtype=updated.dtype)
+            else:
+                transition_dense = cache.get_increment(local_rows).to(device=updated.device, dtype=updated.dtype)
+            transition_dense[shared_mask] *= 2
+            max_val = transition_dense.max()
+            if float(max_val.item()) != 0.0:
+                transition_dense = transition_dense - transition_dense.min()
+                transition_dense = transition_dense / transition_dense.max().clamp_min(1e-12)
+                transition_dense = 2 * transition_dense - 1
+            pred_memory = prev_memory + transition_dense
+
+        gamma = self.delta_gamma.to(device=updated.device, dtype=updated.dtype)
+        inc_count = cache.increment_count.index_select(0, dev_index).to(device=updated.device).reshape(-1)
+        valid = inc_count > 0
+        out = updated.clone()
+        if bool(valid.any().item()):
+            out[valid] = gamma * pred_memory[valid] + (1.0 - gamma) * updated[valid]
+
+        with torch.no_grad():
+            local_non_shared = ((~remote_mask).to(device=updated.device) & (~shared_mask) & valid)
+            if bool(local_non_shared.any().item()):
+                change = (out.detach() - prev_memory.detach()).clone()
+                max_change = change.max()
+                if float(max_change.item()) != 0.0:
+                    change = change - change.min()
+                    change = change / change.max().clamp_min(1e-12)
+                    change = 2 * change - 1
+                    cache.update(local_rows[local_non_shared], change[local_non_shared])
+        return out
+
 
 def _normalize_increment(x: Tensor, eps: float = 1e-12) -> Tensor:
     norm = x.norm(dim=-1, keepdim=True).clamp_min(eps)
     return x / norm
+
+
+@dataclass(slots=True)
+class _PreparedCommitInputs:
+    spec: AsyncMemoryUpdateSpec
+    memory_nodes: Tensor
+    memory_values: Tensor
+    memory_ts: Tensor
+    mailbox_nodes: Tensor | None = None
+    mailbox_msg: Tensor | None = None
+    mailbox_ts: Tensor | None = None
+    shared_nodes: Tensor | None = None
+    shared_memory: Tensor | None = None
+    shared_ts: Tensor | None = None
+    shared_mailbox_nodes: Tensor | None = None
+    shared_mailbox_snapshot: Tensor | None = None
+    shared_mailbox_snapshot_ts: Tensor | None = None
 
 
 def _first_block(mfg: Any) -> Any:
@@ -310,6 +755,47 @@ def _build_mailbox_messages(
     return torch.cat([src_mail, dst_mail], dim=0)
 
 
+def _build_mailbox_messages_from_rows(
+    updated: Tensor,
+    src_rows: Tensor,
+    dst_rows: Tensor,
+    edge_feat: Tensor | None,
+) -> Tensor:
+    src_rows = _checked_rows(src_rows, updated, name="src_rows")
+    dst_rows = _checked_rows(dst_rows, updated, name="dst_rows")
+    src_mem = updated.index_select(0, src_rows).reshape(int(src_rows.numel()), -1)
+    dst_mem = updated.index_select(0, dst_rows).reshape(int(dst_rows.numel()), -1)
+    src_mail = torch.cat([src_mem, dst_mem], dim=-1)
+    dst_mail = torch.cat([dst_mem, src_mem], dim=-1)
+    if edge_feat is not None:
+        edge = edge_feat.to(src_mem.device, dtype=src_mem.dtype).reshape(int(edge_feat.size(0)), -1)
+        src_mail = torch.cat([src_mail, edge], dim=-1)
+        dst_mail = torch.cat([dst_mail, edge], dim=-1)
+    return torch.cat([src_mail, dst_mail], dim=0)
+
+
+def _checked_rows(rows: Tensor, values: Tensor, *, name: str) -> Tensor:
+    rows = rows.to(values.device).long().reshape(-1)
+    if rows.numel() == 0:
+        return rows
+    if int(rows.min().item()) < 0 or int(rows.max().item()) >= int(values.size(0)):
+        raise RuntimeError(f"{name} contain rows outside updated memory")
+    return rows
+
+
+def _check_rows_match_nodes(nid: Tensor, rows: Tensor, nodes: Tensor) -> None:
+    if _rows_match_nodes(nid, rows, nodes):
+        return
+    raise RuntimeError("commit row ids do not match commit node ids")
+
+
+def _rows_match_nodes(nid: Tensor, rows: Tensor, nodes: Tensor) -> bool:
+    rows = _checked_rows(rows, nid.reshape(-1, 1), name="rows")
+    actual = nid.to(rows.device).long().reshape(-1).index_select(0, rows)
+    expected = nodes.to(rows.device).long().reshape(-1)
+    return torch.equal(actual, expected)
+
+
 def _safe_index(nid: Tensor, query: Tensor, values: Tensor) -> Tensor | None:
     dev = values.device
     nid_s = nid.to(dev).long().reshape(-1)
@@ -323,3 +809,43 @@ def _safe_index(nid: Tensor, query: Tensor, values: Tensor) -> Tensor | None:
     if not torch.equal(sorted_nid[rows], query_s):
         return None
     return values[order[rows]]
+
+
+def _merge_handles(*handles: AsyncCommitHandle) -> AsyncCommitHandle:
+    out = AsyncCommitHandle()
+    for handle in handles:
+        if handle.memory_handle is not None:
+            out.memory_handle = handle.memory_handle
+        if handle.mailbox_handle is not None:
+            out.mailbox_handle = handle.mailbox_handle
+        if handle.memory_replica_handle is not None:
+            out.memory_replica_handle = handle.memory_replica_handle
+        if handle.mailbox_replica_handle is not None:
+            out.mailbox_replica_handle = handle.mailbox_replica_handle
+    return out
+
+
+def _has_any_handle(handle: AsyncCommitHandle) -> bool:
+    return any(
+        part is not None
+        for part in (
+            handle.memory_handle,
+            handle.mailbox_handle,
+            handle.memory_replica_handle,
+            handle.mailbox_replica_handle,
+        )
+    )
+
+
+def _replicated_node_mask(node_ids: Tensor, replica_index: ReplicaPushIndex) -> Tensor:
+    nodes = node_ids.long().to(replica_index.replica_ptr.device)
+    starts = replica_index.replica_ptr.index_select(0, nodes)
+    ends = replica_index.replica_ptr.index_select(0, nodes + 1)
+    return (ends - starts).to(node_ids.device) > 0
+
+
+def _cosine_distance(x: Tensor, y: Tensor, eps: float = 1e-12) -> Tensor:
+    x_norm = x.norm(dim=-1).clamp_min(eps)
+    y_norm = y.norm(dim=-1).clamp_min(eps)
+    sim = (x * y).sum(dim=-1) / (x_norm * y_norm)
+    return 1 - sim.clamp(-1, 1)

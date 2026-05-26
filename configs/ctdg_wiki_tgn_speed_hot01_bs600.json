@@ -1,7 +1,7 @@
 {
   "graph": {
     "source": "/mnt/data/zlj/starrygl-data/raw/TGL-DATA/WIKI",
-    "random_node_feat_dim": 172,
+    "random_node_feat_dim": 0,
     "random_node_feat_seed": 0
   },
   "model": {
@@ -48,14 +48,15 @@
     "memory_dim": 100,
     "mailbox_size": 1,
     "negative_ratio": 1,
-    "negative_sampler_policy": "local_remote",
+    "negative_sampler_policy": "memshare_local",
+    "negative_memshare_beta": 0.1,
+    "negative_test_policy": "global",
     "negative_dst_pool": "global_dst",
-    "negative_train_remote_dst_prob": 0.1,
     "predict_updates_memory": true,
     "eval_updates_memory": true,
     "commit_memory": true,
     "reset_memory_each_epoch": true,
-    "gradient_sync": "async",
+    "gradient_sync": "ddp",
     "mailbox_msg_dim": 372
   },
   "train": {

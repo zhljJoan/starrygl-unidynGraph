@@ -62,28 +62,52 @@ class MailboxStore:
             raise ValueError("rows, msg, and ts must have aligned leading dimensions")
         if message.dim() != 2:
             raise ValueError("msg must be [N, msg_dim]")
-        if message.size(1) < self.mailbox.size(2):
-            pad = message.new_zeros((int(message.size(0)), int(self.mailbox.size(2) - message.size(1))))
-            message = torch.cat([message, pad], dim=1)
-        elif message.size(1) > self.mailbox.size(2):
-            message = message[:, : int(self.mailbox.size(2))].contiguous()
+        if int(message.size(1)) != int(self.mailbox.size(2)):
+            raise ValueError(
+                f"msg_dim mismatch: message has width {int(message.size(1))}, "
+                f"mailbox expects {int(self.mailbox.size(2))}"
+            )
         if reduce == "max_ts" and row.numel() > 1:
             row, message, ts_in = _latest_by_row(row, message, ts_in)
-        if reduce == "max_ts":
-            oldest = self.mailbox_ts[row].min(dim=1).values
-            keep = ts_in > oldest
-            if not keep.any():
-                return
-            row = row[keep]
-            message = message[keep]
-            ts_in = ts_in[keep]
-        elif reduce != "append":
+        # NOTE: MemShare-compatible behavior - do NOT check against existing timestamps
+        # Original code checked: if reduce == "max_ts": oldest = self.mailbox_ts[row].min(dim=1).values; keep = ts_in > oldest
+        # This prevented old messages from overwriting newer ones, but MemShare allows it (circular queue)
+        # Removing this check to match MemShare behavior for accuracy reproduction
+        elif reduce != "append" and reduce != "max_ts":
             raise ValueError(f"unknown mailbox reduce mode: {reduce!r}")
         k = int(self.mailbox.size(1))
         pos = self.next_pos[row] % k
         self.mailbox[row, pos] = message
         self.mailbox_ts[row, pos] = ts_in
         self.next_pos[row] = (pos + 1) % k
+
+    def project_append_rows(self, rows: Tensor, msg: Tensor, ts: Tensor, *, reduce: str = "max_ts") -> tuple[Tensor, Tensor]:
+        row = rows.long().to(self.mailbox.device)
+        message = msg.to(device=self.mailbox.device, dtype=self.mailbox.dtype)
+        ts_in = ts.to(device=self.mailbox_ts.device, dtype=self.mailbox_ts.dtype).reshape(-1)
+        if row.numel() != message.size(0) or row.numel() != ts_in.numel():
+            raise ValueError("rows, msg, and ts must have aligned leading dimensions")
+        if message.dim() != 2:
+            raise ValueError("msg must be [N, msg_dim]")
+        if int(message.size(1)) != int(self.mailbox.size(2)):
+            raise ValueError(
+                f"msg_dim mismatch: message has width {int(message.size(1))}, "
+                f"mailbox expects {int(self.mailbox.size(2))}"
+            )
+        if reduce == "max_ts" and row.numel() > 1:
+            row, message, ts_in = _latest_by_row(row, message, ts_in)
+        # NOTE: MemShare-compatible behavior - do NOT check against existing timestamps
+        # Removed timestamp check to match MemShare behavior
+        elif reduce != "append" and reduce != "max_ts":
+            raise ValueError(f"unknown mailbox reduce mode: {reduce!r}")
+        current_mail = self.mailbox.index_select(0, row).clone()
+        current_ts = self.mailbox_ts.index_select(0, row).clone()
+        current_pos = self.next_pos.index_select(0, row).clone()
+        k = int(self.mailbox.size(1))
+        pos = current_pos % k
+        current_mail[torch.arange(int(row.numel()), device=row.device), pos] = message
+        current_ts[torch.arange(int(row.numel()), device=row.device), pos] = ts_in
+        return current_mail, current_ts
 
 
 def _latest_by_row(row: Tensor, msg: Tensor, ts: Tensor) -> tuple[Tensor, Tensor, Tensor]:

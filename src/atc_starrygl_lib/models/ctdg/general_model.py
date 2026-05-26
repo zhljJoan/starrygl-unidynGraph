@@ -40,7 +40,9 @@ class GeneralModel(nn.Module):
             gnn_param['dim_out'] = memory_param['dim_out']
 
         if memory_param['type'] == 'node':
-            dim_in = 2 * memory_param['dim_out'] + dim_edge
+            # Runtime mailbox message width is the true updater input width.
+            # Fall back to the legacy assumption when not provided.
+            dim_in = int(memory_param.get('input_dim', 2 * memory_param['dim_out'] + dim_edge))
             dim_hid = memory_param['dim_out']
             dim_time = memory_param['dim_time']
             upd = memory_param['memory_update']

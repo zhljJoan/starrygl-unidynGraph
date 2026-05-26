@@ -12,24 +12,24 @@ class EdgePredictionTask(BaseTask):
     spec = TaskSpec(name="edge_prediction", task_type="link_prediction")
 
     def compute_loss(self, output: EdgePredOutput, batch: Batch) -> Tensor:
-        logits = torch.cat([output.pos_score.flatten(), output.neg_score.flatten()])
-        labels = torch.cat([
-            torch.ones_like(output.pos_score.flatten()),
-            torch.zeros_like(output.neg_score.flatten()),
-        ])
-        if batch.neg_weight is None:
-            return self.binary_loss(logits, labels)
-        weight = torch.cat([
-            torch.ones_like(output.pos_score.flatten(), dtype=torch.float32),
-            batch.neg_weight.to(device=output.neg_score.device, dtype=torch.float32).flatten(),
-        ])
-        loss = F.binary_cross_entropy_with_logits(
-            logits.float().flatten(),
-            labels.float().flatten(),
-            weight=weight,
-            reduction="sum",
+        pos_score = output.pos_score.flatten()
+        neg_score = output.neg_score.flatten()
+        pos_loss = F.binary_cross_entropy_with_logits(
+            pos_score.float(),
+            torch.ones_like(pos_score, dtype=torch.float32),
         )
-        return loss / weight.sum().clamp_min(1.0)
+        if batch.neg_weight is None:
+            neg_loss = F.binary_cross_entropy_with_logits(
+                neg_score.float(),
+                torch.zeros_like(neg_score, dtype=torch.float32),
+            )
+            return pos_loss + neg_loss
+        neg_loss = F.binary_cross_entropy_with_logits(
+            neg_score.float(),
+            torch.zeros_like(neg_score, dtype=torch.float32),
+            weight=batch.neg_weight.to(device=neg_score.device, dtype=torch.float32).flatten(),
+        )
+        return pos_loss + neg_loss
 
     def compute_metrics(self, output: EdgePredOutput, batch: Batch) -> dict[str, float]:
         return self.link_prediction_metrics(output.pos_score, output.neg_score)

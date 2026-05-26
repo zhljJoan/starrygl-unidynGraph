@@ -28,6 +28,7 @@ def run_preprocess_pipeline(
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     partition_data_dst_node_scope = str(dataset_kwargs.pop("partition_data_dst_node_scope", "active"))
+    preserve_replica_history = bool(dataset_kwargs.pop("preserve_replica_history", False))
     hot_ratio = float(dataset_kwargs.pop("hot_ratio", 0.0))
     hot_topk = int(dataset_kwargs.pop("hot_topk", 0))
     node_count_weight = float(dataset_kwargs.pop("node_count_weight", 1.0))
@@ -57,6 +58,7 @@ def run_preprocess_pipeline(
         time_ptr_2=graph["time_ptr_2"],
         split_time_ptr=graph.get("split_time_ptr"),
         split=graph["split"],
+        preserve_replica_history=preserve_replica_history,
     )
     feats = build_all_feature_artifacts(
         rank_artifacts=ranks,
@@ -100,6 +102,7 @@ def run_preprocess_pipeline(
         "num_ranks": len(ranks),
         "has_feature": bool(build_feature),
         "has_partition_data": bool(build_partition_data),
+        "preserve_replica_history": bool(preserve_replica_history),
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return {"graph": graph, "dist": dist, "ranks": ranks, "features": feats, "partition_data": pds, "meta": meta}

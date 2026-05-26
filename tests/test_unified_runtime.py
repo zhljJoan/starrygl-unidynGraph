@@ -3,6 +3,9 @@ import torch
 from atc_starrygl_lib.core.config import normalize_config
 from atc_starrygl_lib.ctdg.runtime.backend import _native_sampler_policy
 from atc_starrygl_lib.runtime.unified import SampledBlockGCNEncoder
+from atc_starrygl_lib.runtime.unified import build_model_and_head
+from atc_starrygl_lib.core.types import RuntimeContext
+from pathlib import Path
 
 
 def test_config_infers_snapshot_full_graph_for_dtdg_model_without_sampling() -> None:
@@ -74,6 +77,55 @@ def test_boundary_sampling_config_maps_probability_and_memory_history() -> None:
     assert cfg["runtime"]["sample_probability"] == 0.1
     assert cfg["runtime"]["mailbox_size"] == 4
     assert _native_sampler_policy(cfg["runtime"]["policy"]) == "boundery_recent_uniform"
+
+
+def test_historical_runtime_builds_blend_enabled_updater() -> None:
+    cfg = normalize_config({
+        "graph": {"source": "x"},
+        "model": {
+            "name": "general",
+            "hidden_dim": 8,
+            "dim_time": 8,
+            "gnn_arch": "identity",
+            "layers": 1,
+            "memory_update": "gru",
+            "memory_history": 1,
+        },
+        "gnn": {
+            "history": 1,
+            "sampling": {"fanouts": [5], "policy": "boundary_recent_decay", "probability": 0.1},
+        },
+        "task": {"name": "edge_prediction"},
+        "runtime": {
+            "build_memory_runtime": True,
+            "build_mailbox_runtime": True,
+            "memory_dim": 8,
+            "mailbox_size": 1,
+            "mailbox_msg_dim": 16,
+            "historical": {"enabled": True, "alpha": 0.1, "times_threshold": 10},
+            "async_memory": {"shared_filter": True, "staged_commit": True, "delta_compensation": True},
+        },
+    })
+
+    class DummyBackend:
+        pass
+
+    class DummyRuntime:
+        pass
+
+    backend = DummyBackend()
+    runtime = DummyRuntime()
+    runtime.memory_runtime = object()
+    runtime.mailbox_runtime = object()
+    runtime.edge_feat_dim = 0
+    backend._runtime = runtime
+
+    ctx = RuntimeContext(config=cfg, artifact_root=Path("/tmp"), rank=0, world_size=1, device="cpu")
+    model, _ = build_model_and_head(ctx, backend)
+    updater = model.memory_updater
+
+    assert updater.historical_cache is not None
+    assert updater.historical_blend is not None
 
 
 def test_sampled_block_gcn_encoder_uses_sampled_block_features() -> None:

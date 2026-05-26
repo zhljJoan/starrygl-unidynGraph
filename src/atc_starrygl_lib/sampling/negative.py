@@ -99,6 +99,44 @@ class PoolNegativeSampler:
         return NegativeSamplingResult(neg_src=neg_src, neg_dst=neg_dst, ratio=int(request.ratio))
 
 
+class MemShareLocalNegativeSampler:
+    """Replicate MemShare local/global destination sampling and weights."""
+
+    def __init__(self, beta: float = 0.1, test_policy: str = "global") -> None:
+        self.beta = min(1.0, max(0.0, float(beta)))
+        self.test_policy = str(test_policy)
+
+    def sample(self, request: NegativeSamplingRequest) -> NegativeSamplingResult:
+        if request.ratio <= 0:
+            raise ValueError("ratio must be positive")
+        count = int(request.pos_src.numel()) * int(request.ratio)
+        neg_src = request.pos_src.repeat_interleave(int(request.ratio))
+
+        if request.split == "train" and request.local_dst_pool is not None and request.local_dst_pool.numel() > 0:
+            global_pool = request.dst_pool if request.dst_pool is not None and request.dst_pool.numel() > 0 else None
+            if global_pool is None:
+                neg_dst = _sample_pool(request.local_dst_pool, count, request.pos_src.device, request.pos_src.dtype, request.generator)
+                return NegativeSamplingResult(neg_src=neg_src, neg_dst=neg_dst, ratio=int(request.ratio))
+            sampled_global = _sample_pool(global_pool, count, request.pos_src.device, request.pos_src.dtype, request.generator)
+            sampled_local = _sample_pool(request.local_dst_pool, count, request.pos_src.device, request.pos_src.dtype, request.generator)
+            choose_global = torch.rand(count, device=request.pos_src.device, generator=request.generator) <= self.beta
+            neg_dst = torch.where(choose_global, sampled_global, sampled_local)
+            local_mask = _membership_mask(neg_dst, request.local_dst_pool)
+            weight = _memshare_local_global_weight(
+                local_mask=local_mask,
+                beta=self.beta,
+                local_pool_size=int(request.local_dst_pool.numel()),
+                global_pool_size=int(global_pool.numel()),
+            )
+            return NegativeSamplingResult(neg_src=neg_src, neg_dst=neg_dst, ratio=int(request.ratio), weight=weight)
+
+        if self.test_policy == "rank_local" and request.local_dst_pool is not None and request.local_dst_pool.numel() > 0:
+            neg_dst = _sample_pool(request.local_dst_pool, count, request.pos_src.device, request.pos_src.dtype, request.generator)
+        else:
+            neg_dst = _sample_or_uniform(request, count)
+        return NegativeSamplingResult(neg_src=neg_src, neg_dst=neg_dst, ratio=int(request.ratio))
+
+
 def _sample_or_uniform(request: NegativeSamplingRequest, count: int) -> Tensor:
     if request.dst_pool is not None and request.dst_pool.numel() > 0:
         return _sample_pool(request.dst_pool, count, request.pos_src.device, request.pos_src.dtype, request.generator)
@@ -116,6 +154,33 @@ def _sample_pool(pool: Tensor, count: int, device: torch.device, dtype: torch.dt
     pool_dev = pool.to(device=device, dtype=dtype, non_blocking=True)
     idx = torch.randint(0, int(pool_dev.numel()), (count,), device=device, generator=generator)
     return pool_dev[idx]
+
+
+def _membership_mask(sampled: Tensor, pool: Tensor) -> Tensor:
+    if pool.numel() == 0 or sampled.numel() == 0:
+        return torch.zeros(sampled.shape, dtype=torch.bool, device=sampled.device)
+    pool_cpu = torch.unique(pool.long().cpu(), sorted=True)
+    sampled_cpu = sampled.long().cpu()
+    pos = torch.searchsorted(pool_cpu, sampled_cpu)
+    pos = pos.clamp_max(max(int(pool_cpu.numel()) - 1, 0))
+    mask = (torch.searchsorted(pool_cpu, sampled_cpu) < int(pool_cpu.numel())) & (pool_cpu.index_select(0, pos) == sampled_cpu)
+    return mask.to(sampled.device)
+
+
+def _memshare_local_global_weight(*, local_mask: Tensor, beta: float, local_pool_size: int, global_pool_size: int) -> Tensor | None:
+    if local_mask.numel() == 0 or local_pool_size <= 0 or global_pool_size <= 0:
+        return None
+    if beta <= 0.0 or beta >= 1.0:
+        return None
+    local_ratio = float(local_pool_size) / float(global_pool_size)
+    if local_ratio <= 0.0:
+        return None
+    local_weight = 1.0 / (1.0 - beta + beta * local_ratio)
+    remote_weight = 1.0 / (beta * local_ratio)
+    weight = torch.empty(local_mask.shape, dtype=torch.float32, device=local_mask.device)
+    weight[local_mask] = float(local_weight)
+    weight[~local_mask] = float(remote_weight)
+    return weight
 
 
 def _balanced_binary_partition_weight(mask: Tensor) -> Tensor | None:

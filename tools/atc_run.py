@@ -9,11 +9,13 @@ from typing import Any
 
 import torch
 import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from atc_starrygl_lib.core.config import build_context
 from atc_starrygl_lib.core.config import normalize_config
 from atc_starrygl_lib.core.session import TrainingSession
 from atc_starrygl_lib.ctdg.train_loop import CTDGMemoryCommitHook
+from atc_starrygl_lib.ctdg.runtime.backend import build_memory_replica_index
 from atc_starrygl_lib.dtdg.runtime.stgraph_loader import STGraphWindow
 from atc_starrygl_lib.runtime.grad_sync import AsyncGradientSyncOptimizer
 from atc_starrygl_lib.runtime.unified import artifact_bundle, build_model_and_head, register_builtin_backends
@@ -67,6 +69,11 @@ def main() -> None:
 
 def _train_eval(ctx: Any, session: TrainingSession, *, epochs: int) -> dict[str, Any]:
     model, head = build_model_and_head(ctx, session.backend)
+    sync_mode = _gradient_sync_mode(ctx)
+    if sync_mode == "ddp":
+        model = _wrap_ddp(model, ctx)
+        if head is not None:
+            head = _wrap_ddp(head, ctx)
     _sync_module_state(model)
     if head is not None:
         _sync_module_state(head)
@@ -76,7 +83,7 @@ def _train_eval(ctx: Any, session: TrainingSession, *, epochs: int) -> dict[str,
     weight_decay = float(train_cfg.get("weight_decay", ctx.config.get("optimizer", {}).get("weight_decay", 0.0) if isinstance(ctx.config.get("optimizer"), dict) else 0.0))
     params = list(model.parameters()) + ([] if head is None else list(head.parameters()))
     optimizer = torch.optim.Adam(params, lr=lr, weight_decay=weight_decay)
-    if _gradient_sync_enabled(ctx):
+    if sync_mode == "async":
         optimizer = AsyncGradientSyncOptimizer(optimizer, params)
     route_summary = _validate_routes(
         session,
@@ -86,11 +93,13 @@ def _train_eval(ctx: Any, session: TrainingSession, *, epochs: int) -> dict[str,
     )
     rows = []
     for epoch in range(int(epochs)):
+        t_epoch0 = time.perf_counter()
         _reset_epoch_state(ctx, session, model)
         t0 = time.perf_counter()
         train_metrics = _train_epoch(ctx, session, model, head, task, optimizer)
+        train_wall = float(time.perf_counter() - t0)
         train_metrics = dict(train_metrics)
-        train_metrics["seconds"] = float(time.perf_counter() - t0)
+        train_metrics["seconds"] = float(train_metrics.get("stage_wall_seconds", train_wall))
         dtdg_sum_keys = {"loss"} if str(ctx.config["graph"]["mode"]) == "dtdg" else set()
         train_time_keys = {key for key in train_metrics if key.endswith("seconds")}
         train_sum_keys = set(dtdg_sum_keys)
@@ -99,11 +108,31 @@ def _train_eval(ctx: Any, session: TrainingSession, *, epochs: int) -> dict[str,
         if "backend_batches" in train_metrics:
             train_sum_keys.add("backend_batches")
         train_metrics = _reduce_metrics(train_metrics, device=torch.device(ctx.device), time_keys=train_time_keys, sum_keys=train_sum_keys)
+        t_val0 = time.perf_counter()
         val_metrics = _eval_with_model(ctx, session, model, head, task, split="val")
+        val_wall = float(time.perf_counter() - t_val0)
         val_metrics = _reduce_metrics(val_metrics, device=torch.device(ctx.device), sum_keys=dtdg_sum_keys)
+        t_test0 = time.perf_counter()
         test_metrics = _eval_with_model(ctx, session, model, head, task, split="test")
+        test_wall = float(time.perf_counter() - t_test0)
         test_metrics = _reduce_metrics(test_metrics, device=torch.device(ctx.device), sum_keys=dtdg_sum_keys)
-        row = {"epoch": epoch, "train": train_metrics, "val": val_metrics, "test": test_metrics}
+        epoch_wall = float(time.perf_counter() - t_epoch0)
+        train_seconds = float(train_metrics.get("seconds", train_wall))
+        other_wall = max(0.0, epoch_wall - train_wall - val_wall - test_wall)
+        row = {
+            "epoch": epoch,
+            "train": train_metrics,
+            "val": val_metrics,
+            "test": test_metrics,
+            "timing": {
+                "epoch_wall_seconds": epoch_wall,
+                "train_call_wall_seconds": train_wall,
+                "train_reported_seconds": train_seconds,
+                "val_wall_seconds": val_wall,
+                "test_wall_seconds": test_wall,
+                "other_wall_seconds": other_wall,
+            },
+        }
         rows.append(row)
         if int(ctx.rank) == 0:
             print(json.dumps({"rank": int(ctx.rank), **row}, sort_keys=True), flush=True)
@@ -141,7 +170,7 @@ def _train_epoch(ctx: Any, session: TrainingSession, model: torch.nn.Module, hea
 
     if head is None:
         raise RuntimeError("temporal_sampling path requires a head")
-    commit = CTDGMemoryCommitHook() if bool(ctx.config.get("runtime", {}).get("commit_memory", True)) else None
+    commit = _build_ctdg_memory_commit(session, enabled=bool(ctx.config.get("runtime", {}).get("commit_memory", True)))
     return train_epoch(session, model, head, task, optimizer, memory_commit=commit)
 
 
@@ -169,7 +198,7 @@ def _eval_with_model(ctx: Any, session: TrainingSession, model: torch.nn.Module,
 
     if head is None:
         raise RuntimeError("temporal_sampling path requires a head")
-    commit = CTDGMemoryCommitHook() if bool(ctx.config.get("runtime", {}).get("eval_updates_memory", False)) else None
+    commit = _build_ctdg_memory_commit(session, enabled=bool(ctx.config.get("runtime", {}).get("eval_updates_memory", False)))
     return evaluate(session, model, head, task, split=split, memory_commit=commit)
 
 
@@ -185,9 +214,38 @@ def _predict(ctx: Any, session: TrainingSession, *, split: str) -> dict[str, int
 
     if head is None:
         raise RuntimeError("temporal_sampling path requires a head")
-    commit = CTDGMemoryCommitHook() if bool(ctx.config.get("runtime", {}).get("predict_updates_memory", True)) else None
+    commit = _build_ctdg_memory_commit(session, enabled=bool(ctx.config.get("runtime", {}).get("predict_updates_memory", True)))
     outputs = predict(session, model, head, split=split, memory_commit=commit)
     return {"batches": len(outputs)}
+
+
+def _build_ctdg_memory_commit(session: TrainingSession, *, enabled: bool) -> CTDGMemoryCommitHook | None:
+    if not enabled:
+        return None
+    backend = getattr(session, "backend", None)
+    runtime = getattr(backend, "_runtime", None)
+    replica_index = None
+    mailbox_replica_index = None
+    mailbox_runtime = None
+    runtime_cfg = getattr(getattr(session, "ctx", None), "config", {}).get("runtime", {})
+    async_memory_cfg = dict(runtime_cfg.get("async_memory", {})) if isinstance(runtime_cfg.get("async_memory", {}), dict) else {}
+    if runtime is not None and bool(runtime_cfg.get("memory_replica_push", False)):
+        replica_index = getattr(runtime, "_cached_memory_replica_index", None)
+        if replica_index is None:
+            replica_index = build_memory_replica_index(dist=getattr(runtime, "dist", {}))
+            setattr(runtime, "_cached_memory_replica_index", replica_index)
+    if runtime is not None and bool(runtime_cfg.get("mailbox_replica_push", runtime_cfg.get("memory_replica_push", False))):
+        mailbox_replica_index = getattr(runtime, "_cached_mailbox_replica_index", None)
+        if mailbox_replica_index is None:
+            mailbox_replica_index = build_memory_replica_index(dist=getattr(runtime, "dist", {}))
+            setattr(runtime, "_cached_mailbox_replica_index", mailbox_replica_index)
+        mailbox_runtime = getattr(runtime, "mailbox_runtime", None)
+    return CTDGMemoryCommitHook(
+        memory_replica_index=replica_index,
+        mailbox_replica_index=mailbox_replica_index,
+        mailbox_runtime=mailbox_runtime,
+        wait_mode=str(async_memory_cfg.get("commit_order", "legacy")),
+    )
 
 
 def _is_edge_prediction(task_name: str) -> bool:
@@ -195,11 +253,30 @@ def _is_edge_prediction(task_name: str) -> bool:
 
 
 def _gradient_sync_enabled(ctx: Any) -> bool:
+    return _gradient_sync_mode(ctx) != "none"
+
+
+def _gradient_sync_mode(ctx: Any) -> str:
     if not dist.is_initialized() or dist.get_world_size() <= 1:
-        return False
+        return "none"
     runtime_cfg = ctx.config.get("runtime", {})
     raw = runtime_cfg.get("gradient_sync", runtime_cfg.get("sync_gradients", "async"))
-    return str(raw).strip().lower() not in {"0", "false", "none", "off", "disabled"}
+    mode = str(raw).strip().lower()
+    if mode in {"0", "false", "none", "off", "disabled"}:
+        return "none"
+    if mode == "ddp":
+        return "ddp"
+    return "async"
+
+
+def _wrap_ddp(module: torch.nn.Module, ctx: Any) -> torch.nn.Module:
+    if hasattr(module, "module"):
+        return module
+    device = torch.device(ctx.device)
+    find_unused = bool(ctx.config.get("runtime", {}).get("ddp_find_unused_parameters", False))
+    if device.type == "cuda":
+        return DDP(module, device_ids=[device.index], output_device=device.index, find_unused_parameters=find_unused)
+    return DDP(module, find_unused_parameters=find_unused)
 
 
 def _sync_module_state(module: torch.nn.Module) -> None:

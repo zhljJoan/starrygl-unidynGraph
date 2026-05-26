@@ -1,0 +1,72 @@
+{
+  "graph": {
+    "source": "/mnt/data/zlj/tgl_data/DATA/wikitalk",
+    "random_node_feat_dim": 172,
+    "random_node_feat_seed": 0
+  },
+  "model": {
+    "name": "general",
+    "hidden_dim": 100,
+    "dim_time": 100,
+    "gnn_arch": "transformer_attention",
+    "layers": 1,
+    "att_head": 2,
+    "memory_update": "gru",
+    "memory_history": 1,
+    "combine_node_feature": true,
+    "dropout": 0.2,
+    "att_dropout": 0.2
+  },
+  "gnn": {
+    "history": 1,
+    "sampling": {
+      "fanouts": [
+        20
+      ],
+      "policy": "recent"
+    }
+  },
+  "task": {
+    "name": "edge_prediction",
+    "batch_size": 3000
+  },
+  "preprocess": {
+    "use_new_pipeline": true,
+    "partition_algorithm": "speed_partition",
+    "hot_ratio": 0.1,
+    "chunks_per_rank": 2,
+    "build_feature": true,
+    "batch_size": 3000,
+    "train_ratio": 0.7,
+    "val_ratio": 0.15
+  },
+  "runtime": {
+    "build_sampler": true,
+    "sampler_workers": 4,
+    "torch_num_threads": 1,
+    "torch_num_interop_threads": 1,
+    "omp_num_threads": 1,
+    "mkl_num_threads": 1,
+    "openblas_num_threads": 1,
+    "build_feature_runtime": true,
+    "build_memory_runtime": true,
+    "build_mailbox_runtime": true,
+    "memory_dim": 100,
+    "mailbox_size": 1,
+    "negative_ratio": 1,
+    "negative_sampler_policy": "local_remote",
+    "negative_dst_pool": "global_dst",
+    "negative_train_remote_dst_prob": 0.1,
+    "predict_updates_memory": true,
+    "eval_updates_memory": true,
+    "commit_memory": true,
+    "reset_memory_each_epoch": true,
+    "gradient_sync": "async",
+    "mailbox_msg_dim": 200
+  },
+  "train": {
+    "epochs": 10,
+    "lr": 0.0004,
+    "weight_decay": 0.0001
+  }
+}

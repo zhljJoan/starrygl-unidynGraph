@@ -84,6 +84,10 @@
   - DGL blocks are materialized directly from CSC via `dgl.create_block(("csc", ...))`; do not switch back to COO conversion.
   - Block fields follow the current contract: `srcdata["__ID"]`, `dstdata["__ID"]` are compute row ids; `srcdata["ID"]`, `dstdata["ID"]` are global node ids; `edata["__ID"]` is edge compute row id; `edata["ID"]` is global edge id.
   - `SampleOutput` / `RootSet.groups` drive remapping of `pos_src`, `pos_dst`, and `neg_dst` to embedding row indices.
+  - Native sampled export now prefers `get_sampling_output_compact()` over the older full `get_sampling_output()` layout build when the sampler exposes it.
+  - `get_sampling_output_compact()` stays on the C++ path and returns the same `NativeSamplingOutput` contract, but its hot path is narrowed to root initialization, layer-local source/edge indexing, and CSC fill.
+  - Native compact profile stats are exposed through the runtime profile stream: `compact_total_seconds`, `compact_root_seconds`, `compact_index_seconds`, and `compact_fill_seconds`.
+  - Current best verified CTDG sampled implementation still keeps per-layer node and edge dedup in the compact builder; removing node dedup inflated encode time and regressed end-to-end runtime, so that experiment should not be revived blindly.
 - CTDG feature and state prefetch:
   - Node feature, edge feature, memory, and mailbox reads are submitted after sampling and patched before yielding the batch.
   - Node feature patches `srcdata["h"]`; edge feature patches `edata["f"]`; memory patches `srcdata["mem"]` / `srcdata["mem_ts"]`; mailbox patches `srcdata["mem_input"]` / `srcdata["mail_ts"]`.
@@ -117,8 +121,22 @@
   - `tools/atc_run.py eval` and `tools/atc_run.py predict` reuse the same config/runtime.
   - `predict` can update CTDG memory between test batches via `runtime.predict_updates_memory`; outputs are emitted before the memory commit.
 
+## Current Performance Status
+- CTDG/WikiTalk sampled route (`configs/ctdg_wikitalk_tgn_speed_hot01_bs12000.json`, 4 GPU, unified entry) is the current performance focus.
+- The large Python-side batch build hotspot has already been removed:
+  - Training windows (`split_event_pos`) are precomputed in preprocess.
+  - Runtime caches graph-side tensors for batch materialization instead of redoing repeated `.cpu()`/dtype conversions.
+  - Memory commit waiting is moved out of the per-batch hook so it can overlap with the next batch.
+- Native sampler compact export is now the main sampled hot path:
+  - Before compact optimization, steady-state `backend_get_sampling_output_seconds` was around `6.2s+` and `backend_sampling_native_seconds` around `8.0s+`.
+  - With the current compact builder and profile-guided caching, steady-state `backend_get_sampling_output_seconds` is around `4.1s`, and `backend_sampling_native_seconds` around `5.8s`.
+  - Recent verified 3-epoch WikiTalk run showed train seconds around `16.00s`, `15.89s`, and `15.88s`.
+- Current dominant remaining native hotspot inside the compact builder is `compact_index_seconds` at roughly `3.3s`; `compact_fill_seconds` is already small (`~0.15s`).
+- A more aggressive experiment that removed per-layer source dedup reduced compact indexing work but caused much larger sampled blocks and pushed `stage_encode_seconds` up sharply, regressing end-to-end runtime; keep the current compact implementation instead.
+
 ## Near-Term Migration Priorities
 - Consolidate all smoke scripts onto `tools/atc_run.py` after model/task coverage reaches parity.
 - Productionize sampled-block support for DTDG-family temporal-sampling models beyond the current GCN encoder.
 - Replace remaining preprocessing Python per-node/per-update loops in rank memory route construction with vectorized/native builders.
+- Continue CTDG sampled native optimization around `compact_index_seconds`; prioritize better layer-local `(node, ts)` / edge indexing strategies before touching CSC fill or reintroducing Python tensor dedup.
 - Once the new CTDG and DTDG paths are stable, remove unused legacy fallback and any task adapter abstraction that is not carrying real behavior.

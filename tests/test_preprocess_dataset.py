@@ -66,6 +66,20 @@ def test_event_can_generate_deterministic_random_node_features() -> None:
     assert torch.equal(first["node_feat"], second["node_feat"])
 
 
+def test_event_can_generate_deterministic_random_edge_features() -> None:
+    data = {
+        "src": torch.tensor([0, 1]),
+        "dst": torch.tensor([1, 2]),
+        "ts": torch.tensor([0.0, 1.0]),
+    }
+
+    first = build_dataset(data=data, mode="event", random_edge_feat_dim=172, random_edge_feat_seed=11)
+    second = build_dataset(data=data, mode="event", random_edge_feat_dim=172, random_edge_feat_seed=11)
+
+    assert first["edge_feat"].shape == (2, 172)
+    assert torch.equal(first["edge_feat"], second["edge_feat"])
+
+
 def test_snapshot_list_build_overlapped_windows() -> None:
     data = {
         "snapshots": [

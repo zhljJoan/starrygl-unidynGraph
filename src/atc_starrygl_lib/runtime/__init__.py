@@ -1,5 +1,6 @@
 """Runtime index metadata shared by CTDG/DTDG data planes."""
 
+from .async_queue import AsyncWorkQueue
 from .index import (
     CTDGNodeTable,
     DTDGNodeTable,
@@ -10,6 +11,7 @@ from .index import (
 )
 
 __all__ = [
+    "AsyncWorkQueue",
     "CTDGNodeTable",
     "DTDGNodeTable",
     "DistIndexTables",

@@ -2,8 +2,14 @@ from pathlib import Path
 
 import torch
 
+from atc_starrygl_lib.comm.dist_index import dist_index_is_shared, dist_index_loc, dist_index_part, encode_dist_index
 from atc_starrygl_lib.core.types import ArtifactBundle, RuntimeContext
-from atc_starrygl_lib.ctdg.runtime.backend import MemShareTemporalSamplingBackend
+from atc_starrygl_lib.ctdg.runtime.backend import (
+    MemShareTemporalSamplingBackend,
+    _build_sampler_temporal_graph,
+    _populate_commit_rows,
+    build_memory_replica_index,
+)
 
 
 def test_new_pipeline_runtime_reader_iterates_rank_local_event_batches(tmp_path: Path) -> None:
@@ -203,7 +209,7 @@ def test_new_pipeline_runtime_prefetches_sampling_and_patches_features(tmp_path:
     assert [b.graph[0].srcdata["mem_input"].tolist() for b in batches] == [[[20.0, 21.0]], [[21.0, 22.0]]]
     assert [b.graph[0].srcdata["mail_ts"].tolist() for b in batches] == [[[200.0]], [[201.0]]]
     assert [b.pos_src.tolist() for b in batches] == [[0], [0]]
-    assert [b.pos_dst.tolist() for b in batches] == [[2], [2]]
+    assert [b.pos_dst.tolist() for b in batches] == [[1], [1]]
     assert [call["roots"] for call in sampler.calls] == [[0, 2], [1, 3]]
     assert [call["groups"] for call in sampler.calls] == [
         {"pos_src": (0, 1), "pos_dst": (1, 2)},
@@ -229,6 +235,7 @@ def test_new_pipeline_runtime_builds_default_sampler_feature_memory_and_mailbox_
         "edge_owner": torch.tensor([0], dtype=torch.long),
         "node_to_chunk": torch.tensor([0, 0], dtype=torch.long),
         "chunk_owner": torch.tensor([0], dtype=torch.long),
+        "master_dist_index": torch.tensor([10, 11], dtype=torch.long),
     }
     rank = {
         "rank": 0,
@@ -266,6 +273,8 @@ def test_new_pipeline_runtime_builds_default_sampler_feature_memory_and_mailbox_
                     "build_feature_runtime": True,
                     "build_memory_runtime": True,
                     "build_mailbox_runtime": True,
+                    "memory_use_shared_reads": True,
+                    "mailbox_use_shared_reads": True,
                     "memory_dim": 4,
                     "mailbox_size": 2,
                     "mailbox_msg_dim": 8,
@@ -294,15 +303,68 @@ def test_new_pipeline_runtime_builds_default_sampler_feature_memory_and_mailbox_
     )
 
     assert built["graph_name"] == "wiki"
-    assert built["graph_data"].edge_part.tolist() == [0]
+    assert built["graph_data"].row.tolist() == [0, 1]
+    assert built["graph_data"].col.tolist() == [1, 0]
+    assert built["graph_data"].edge_ids.tolist() == [0, 0]
+    assert built["graph_data"].timestamps.tolist() == [1.0, 1.0]
+    assert built["graph_data"].edge_part.tolist() == [0, 0]
     assert built["graph_data"].node_part.tolist() == [0, 0]
     assert built["config"].fanouts == (2, 3)
     assert built["config"].num_layers == 2
     assert backend._runtime.feature_runtime is not None
     assert backend._runtime.memory_runtime is not None
     assert backend._runtime.mailbox_runtime is not None
+    assert torch.equal(backend._runtime.memory_runtime.index.read_dist_index, rank["read_dist_index"])
+    assert torch.equal(backend._runtime.mailbox_runtime.index.read_dist_index, rank["read_dist_index"])
     assert backend._runtime.memory_runtime.store.memory.shape == (2, 4)
     assert backend._runtime.mailbox_runtime.store.mailbox.shape == (2, 2, 8)
+
+
+def test_build_sampler_temporal_graph_can_disable_reverse_edges() -> None:
+    graph = {
+        "src": torch.tensor([0, 2], dtype=torch.long),
+        "dst": torch.tensor([1, 3], dtype=torch.long),
+        "ts": torch.tensor([10, 20], dtype=torch.long),
+        "edge_ids": torch.tensor([100, 101], dtype=torch.long),
+    }
+
+    out = _build_sampler_temporal_graph(
+        graph=graph,
+        num_nodes=4,
+        node_part=None,
+        edge_owner=torch.tensor([0, 1], dtype=torch.long),
+        add_reverse_edges=False,
+    )
+
+    assert out.row.tolist() == [0, 2]
+    assert out.col.tolist() == [1, 3]
+    assert out.edge_ids.tolist() == [100, 101]
+    assert out.timestamps.tolist() == [10, 20]
+    assert out.edge_part.tolist() == [0, 1]
+
+
+def test_build_memory_replica_index_targets_only_remote_shared_rows() -> None:
+    dist = {
+        "master_dist_index": torch.cat(
+            [
+                encode_dist_index(torch.tensor([0], dtype=torch.long), torch.tensor([0], dtype=torch.long), shared=True),
+                encode_dist_index(torch.tensor([1], dtype=torch.long), torch.tensor([1], dtype=torch.long), shared=True),
+            ],
+            dim=0,
+        ),
+        "replica_node_ids_by_part": [
+            torch.tensor([0], dtype=torch.long),
+            torch.tensor([0, 1], dtype=torch.long),
+        ],
+    }
+
+    replica_index = build_memory_replica_index(dist=dist)
+
+    assert replica_index is not None
+    assert replica_index.replica_ptr.tolist() == [0, 1, 1]
+    assert dist_index_part(replica_index.replica_target_index).tolist() == [1]
+    assert dist_index_loc(replica_index.replica_target_index).tolist() == [0]
+    assert dist_index_is_shared(replica_index.replica_target_index).tolist() == [True]
 
 
 def test_new_pipeline_runtime_attaches_negative_roots_before_sampling(tmp_path: Path) -> None:
@@ -410,6 +472,26 @@ def test_new_pipeline_runtime_attaches_negative_weights(tmp_path: Path) -> None:
 
     batch = next(backend.iter_batches("train"))
     assert batch.neg_weight.tolist() == [4.0]
+
+
+def test_populate_commit_rows_uses_first_block_node_time_mapping() -> None:
+    block = _FakeBlock()
+    block.srcdata["ID"] = torch.tensor([10, 11, 10, 12], dtype=torch.long)
+    block.srcdata["ts"] = torch.tensor([1.0, 2.0, 2.0, 2.0], dtype=torch.float32)
+    from atc_starrygl_lib.core.types import Batch
+    batch = Batch(
+        split="train",
+        roots=torch.tensor([10, 11, 10, 12], dtype=torch.long),
+        graph=[[block]],
+        src=torch.tensor([10, 11], dtype=torch.long),
+        dst=torch.tensor([10, 12], dtype=torch.long),
+        ts=torch.tensor([1.0, 2.0], dtype=torch.float32),
+    )
+
+    _populate_commit_rows(batch)
+
+    assert batch.commit_src_rows is not None and batch.commit_src_rows.tolist() == [0, 1]
+    assert batch.commit_dst_rows is not None and batch.commit_dst_rows.tolist() == [0, 3]
 
 
 class _FakeBlock:

@@ -62,14 +62,24 @@ class MemoryRuntime:
         push_comm: DynamicPushComm,
         *,
         world_size: int,
+        direct_node_id_io: bool = False,
     ) -> None:
         self.index = index
         self.store = store
         self.fetch_comm = fetch_comm
         self.push_comm = push_comm
         self.world_size = int(world_size)
+        self.direct_node_id_io = bool(direct_node_id_io)
 
     def build_read_layout_from_sampling(self, output: SamplingOutput) -> MemoryReadLayout:
+        if self.direct_node_id_io and self.world_size <= 1:
+            node_ids = output.node_comm.node_gids.long().contiguous()
+            count = int(node_ids.numel())
+            return MemoryReadLayout(
+                read_index=node_ids,
+                read_ptr=torch.tensor([0, count], dtype=torch.long, device=node_ids.device),
+                compute_to_memory=output.node_comm.compute_to_comm.to(node_ids.device).long().contiguous(),
+            )
         read_idx = self.index.read_for(output.node_comm.node_gids)
         rank = dist_index_part(read_idx)
         order = torch.argsort(rank, stable=True)
@@ -84,6 +94,11 @@ class MemoryRuntime:
         )
 
     def submit_read(self, layout: MemoryReadLayout) -> AsyncTensorHandle:
+        if self.direct_node_id_io and self.world_size <= 1:
+            rows = layout.read_index.long().to(self.store.device)
+            memory, ts = self.store.gather_rows(rows)
+            payload = torch.cat([memory, ts.reshape(-1, 1).to(memory.dtype)], dim=1)
+            return AsyncTensorHandle(works=[], recv_tensors=(payload.to(layout.read_index.device),))
         return self.fetch_comm.submit_row_fetch(layout.read_index, layout.read_ptr, self._gather_memory_payload)
 
     def reset_state(self) -> None:
@@ -98,6 +113,14 @@ class MemoryRuntime:
         return payload[:, :-1].contiguous(), payload[:, -1].contiguous()
 
     def build_write_layout(self, node_ids: Tensor, source_pos: Optional[Tensor] = None) -> MemoryWriteLayout:
+        if self.direct_node_id_io and self.world_size <= 1:
+            target = node_ids.long().contiguous()
+            source = torch.arange(target.numel(), dtype=torch.long, device=target.device) if source_pos is None else source_pos.to(target.device).long()
+            return MemoryWriteLayout(
+                target_index=target,
+                target_ptr=torch.tensor([0, int(target.numel())], dtype=torch.long, device=target.device),
+                source_pos=source.contiguous(),
+            )
         target = self.index.master_for(node_ids)
         source = torch.arange(target.numel(), dtype=torch.long, device=target.device) if source_pos is None else source_pos.to(target.device).long()
         rank = dist_index_part(target)
@@ -120,12 +143,22 @@ class MemoryRuntime:
         return MemoryWriteHandle(runtime=self, handle=self.submit_write(layout, memory, ts))
 
     def apply_write(self, target_index: Tensor, memory: Tensor, ts: Tensor) -> None:
-        self.store.update_rows(dist_index_loc(target_index), memory, ts)
+        rows = target_index.long() if self.direct_node_id_io and self.world_size <= 1 else dist_index_loc(target_index)
+        self.store.update_rows(rows, memory, ts)
 
     def build_replica_push_layout(self, node_ids: Tensor, replica_index: ReplicaPushIndex, source_pos: Optional[Tensor] = None) -> ReplicaPushLayout:
         return build_replica_push_layout(node_ids, replica_index, world_size=self.world_size, source_pos=source_pos)
 
     def submit_replica_push(self, layout: ReplicaPushLayout, memory: Tensor, ts: Tensor) -> AsyncTensorHandle:
+        if self.direct_node_id_io and self.world_size <= 1:
+            return AsyncTensorHandle(
+                works=[],
+                recv_tensors=(
+                    layout.target_index.long().contiguous(),
+                    memory.index_select(0, layout.source_pos.to(memory.device)),
+                    ts.index_select(0, layout.source_pos.to(ts.device)),
+                ),
+            )
         return self.push_comm.submit_push(
             layout.target_index,
             layout.target_ptr,
@@ -137,7 +170,8 @@ class MemoryRuntime:
         return MemoryReplicaHandle(runtime=self, handle=self.submit_replica_push(layout, memory, ts))
 
     def apply_replica_push(self, target_index: Tensor, memory: Tensor, ts: Tensor) -> None:
-        self.store.update_rows(dist_index_loc(target_index), memory, ts)
+        rows = target_index.long() if self.direct_node_id_io and self.world_size <= 1 else dist_index_loc(target_index)
+        self.store.update_rows(rows, memory, ts)
 
     def _gather_memory_payload(self, rows: Tensor, _time_slices: Tensor | None = None) -> Tensor:
         memory, ts = self.store.gather_rows(rows)

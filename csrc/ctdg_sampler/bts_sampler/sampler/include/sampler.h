@@ -52,6 +52,8 @@ class ParallelSampler
         double compact_index_seconds = 0.0;
         double compact_fill_seconds = 0.0;
         vector<unsigned int> loc_seeds;
+        vector<int64_t> edge_lid_dense;
+        vector<EdgeIDType> edge_lid_touched;
         ParallelSampler(TemporalNeighborBlock& _tnb, NodeIDType _num_nodes, EdgeIDType _num_edges, int _threads, 
                         vector<int>& _fanouts, int _num_layers, string _policy, int _local_part, th::Tensor _part, th::Tensor _node_part,double _p) :
                         tnb(_tnb), num_nodes(_num_nodes), num_edges(_num_edges), threads(_threads), 
@@ -68,6 +70,9 @@ class ParallelSampler
             }
             for(int i = 0; i < threads; i++){
                 loc_seeds.push_back(i);
+            }
+            if(num_edges > 0){
+                edge_lid_dense.assign(static_cast<size_t>(num_edges), -1);
             }
         }
 
@@ -166,13 +171,13 @@ void ParallelSampler :: neighbor_sample_from_nodes_static_layer(th::Tensor nodes
             // uniform_int_distribution<> u(0, tnb.deg[node]-1);            
             // while(temp_s.size()!=fanout && temp_s.size()<tnb.neighbors_set[node].size()){
             for(int i=0;i<fanout;i++){
-                //ѭ��ѡ��fanout���ھ�
+                //Ñ­»·Ñ¡Ôñfanout¸öÁÚ¾Ó
                 NodeIDType indice;
-                if(policy == "weighted"){//���Ǳ�Ȩ����Ϣ
+                if(policy == "weighted"){//¿¼ÂÇ±ßÈ¨ÖØÐÅÏ¢
                     const vector<WeightType>& ew = tnb.edge_weight[node];
                     indice = sample_multinomial(ew, e);
                 }
-                else if(policy == "uniform"){//���Ȳ���
+                else if(policy == "uniform"){//¾ùÔÈ²ÉÑù
                     // indice = u(e);
                     indice = rand_r(&loc_seeds[tid]) % (nei.size());
                 }
@@ -180,7 +185,7 @@ void ParallelSampler :: neighbor_sample_from_nodes_static_layer(th::Tensor nodes
                 auto chosen_e_iter = edge.begin() + indice;
                 if(part_unique){
                     auto rst = temp_s.insert(*chosen_n_iter);
-                    if(rst.second){ //���ظ�
+                    if(rst.second){ //²»ÖØ¸´
                         eid_threads[tid].emplace_back(*chosen_e_iter);
                         node_s_threads[tid].insert(*chosen_n_iter);
                         if(!tnb.neighbors_set.empty() && temp_s.size()<fanout && temp_s.size()<tnb.neighbors_set[node].size()) fanout++;
@@ -383,7 +388,7 @@ void ParallelSampler :: neighbor_sample_from_nodes_with_before_layer(
             }
         }
         else{
-            //��ѡ�ھӱߴ����ȳ��Ļ���Ҫ���ѡ��fanout���ھ�
+            //¿ÉÑ¡ÁÚ¾Ó±ß´óÓÚÉÈ³öµÄ»°ÐèÒªËæ»úÑ¡Ôñfanout¸öÁÚ¾Ó
             tgb_i[tid].src_index.insert(tgb_i[tid].src_index.end(), fanout, i);
             uniform_int_distribution<> u(start_index, end_index-1);
             //cout<<end_index<<endl;
@@ -516,9 +521,9 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
     out.edge_ts.reserve(estimated_edges);
 
     phmap::flat_hash_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> node_lid;
-    phmap::flat_hash_map<EdgeIDType, int64_t> edge_lid;
     node_lid.reserve(estimated_nodes);
-    edge_lid.reserve(estimated_edges);
+    edge_lid_touched.clear();
+    edge_lid_touched.reserve(estimated_edges);
 
     auto add_node = [&](NodeIDType gid, TimeStampType ts) -> int64_t {
         NodeInstanceKey key{gid, ts};
@@ -532,10 +537,12 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
     };
 
     auto add_edge = [&](EdgeIDType gid, TimeStampType ts) -> int64_t {
-        auto it = edge_lid.find(gid);
-        if(it != edge_lid.end()) return it->second;
+        AT_ASSERTM(gid >= 0 && gid < num_edges, "edge gid out of range");
+        int64_t& cached = edge_lid_dense[static_cast<size_t>(gid)];
+        if(cached >= 0) return cached;
         int64_t lid = static_cast<int64_t>(out.edge_gids.size());
-        edge_lid.emplace(gid, lid);
+        cached = lid;
+        edge_lid_touched.emplace_back(gid);
         out.edge_gids.emplace_back(gid);
         out.edge_ts.emplace_back(ts);
         return lid;
@@ -662,6 +669,9 @@ NativeSamplingOutput ParallelSampler::get_sampling_output(th::Tensor root_nodes,
         out.edge_layer_ptr.emplace_back(static_cast<int64_t>(out.edge_gids.size()));
         frontier_lids.swap(next_frontier_lids);
     }
+    for(EdgeIDType gid : edge_lid_touched){
+        edge_lid_dense[static_cast<size_t>(gid)] = -1;
+    }
     return out;
 }
 
@@ -702,9 +712,9 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
     out.root_lids.reserve(root_nodes.size(0));
 
     phmap::flat_hash_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> node_lid;
-    phmap::flat_hash_map<EdgeIDType, int64_t> edge_lid;
     node_lid.reserve(estimated_nodes);
-    edge_lid.reserve(estimated_edges);
+    edge_lid_touched.clear();
+    edge_lid_touched.reserve(estimated_edges);
 
     auto add_node = [&](NodeIDType gid, TimeStampType ts) -> int64_t {
         NodeInstanceKey key{gid, ts};
@@ -718,10 +728,12 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
     };
 
     auto add_edge = [&](EdgeIDType gid, TimeStampType ts) -> int64_t {
-        auto it = edge_lid.find(gid);
-        if(it != edge_lid.end()) return it->second;
+        AT_ASSERTM(gid >= 0 && gid < num_edges, "edge gid out of range");
+        int64_t& cached = edge_lid_dense[static_cast<size_t>(gid)];
+        if(cached >= 0) return cached;
         int64_t lid = static_cast<int64_t>(out.edge_gids.size());
-        edge_lid.emplace(gid, lid);
+        cached = lid;
+        edge_lid_touched.emplace_back(gid);
         out.edge_gids.emplace_back(gid);
         out.edge_ts.emplace_back(ts);
         return lid;
@@ -778,15 +790,55 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
         vector<int64_t> next_frontier_lids(static_cast<size_t>(block.sample_nodes.size()), -1);
         vector<int64_t> edge_src_idx(static_cast<size_t>(edge_count), -1);
         vector<int64_t> edge_lid_cache(static_cast<size_t>(edge_count), -1);
+        phmap::flat_hash_map<NodeInstanceKey, int64_t, NodeInstanceKeyHash> local_node_index;
+        local_node_index.reserve(static_cast<size_t>(edge_count));
+        const bool has_sample_node_ts = !block.sample_nodes_ts.empty();
+        NodeInstanceKey last_node_key{};
+        int64_t last_src_idx = -1;
+        int64_t last_src_lid = -1;
+        bool has_last_node = false;
+        EdgeIDType last_edge_gid = 0;
+        int64_t last_edge_lid = -1;
+        bool has_last_edge = false;
 
         for(int64_t j = 0; j < edge_count; j++){
-            const TimeStampType src_ts = block.sample_nodes_ts.empty() ? 0 : block.sample_nodes_ts[j];
-            const int64_t src_lid = add_node(block.sample_nodes[j], src_ts);
-            const int64_t src_idx = static_cast<int64_t>(mfg.src_lids.size());
-            mfg.src_lids.emplace_back(src_lid);
+            const TimeStampType src_ts = has_sample_node_ts ? block.sample_nodes_ts[j] : 0;
+            const NodeInstanceKey node_key{block.sample_nodes[j], src_ts};
+            int64_t src_idx = -1;
+            int64_t src_lid = -1;
+            if(has_last_node && node_key == last_node_key){
+                src_idx = last_src_idx;
+                src_lid = last_src_lid;
+            } else {
+                auto node_res = local_node_index.emplace(node_key, -1);
+                src_idx = node_res.first->second;
+                if(node_res.second){
+                    src_lid = add_node(node_key.node, node_key.ts);
+                    src_idx = static_cast<int64_t>(mfg.src_lids.size());
+                    node_res.first->second = src_idx;
+                    mfg.src_lids.emplace_back(src_lid);
+                } else {
+                    src_lid = mfg.src_lids[static_cast<size_t>(src_idx)];
+                }
+                last_node_key = node_key;
+                last_src_idx = src_idx;
+                last_src_lid = src_lid;
+                has_last_node = true;
+            }
             edge_src_idx[static_cast<size_t>(j)] = src_idx;
             next_frontier_lids[static_cast<size_t>(j)] = src_lid;
-            edge_lid_cache[static_cast<size_t>(j)] = add_edge(block.eid[j], src_ts);
+
+            const EdgeIDType edge_gid = block.eid[j];
+            int64_t edge_lid_val = -1;
+            if(has_last_edge && edge_gid == last_edge_gid){
+                edge_lid_val = last_edge_lid;
+            } else {
+                edge_lid_val = add_edge(edge_gid, src_ts);
+                last_edge_gid = edge_gid;
+                last_edge_lid = edge_lid_val;
+                has_last_edge = true;
+            }
+            edge_lid_cache[static_cast<size_t>(j)] = edge_lid_val;
         }
         compact_index_seconds += omp_get_wtime() - index_start_time;
 
@@ -811,6 +863,9 @@ NativeSamplingOutput ParallelSampler::get_sampling_output_compact(th::Tensor roo
     }
 
     compact_total_seconds += omp_get_wtime() - total_start_time;
+    for(EdgeIDType gid : edge_lid_touched){
+        edge_lid_dense[static_cast<size_t>(gid)] = -1;
+    }
     return out;
 }
 

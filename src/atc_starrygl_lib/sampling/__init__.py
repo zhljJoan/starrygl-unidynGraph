@@ -1,6 +1,6 @@
 from .memshare_native import MemShareNativeSampler, MemShareNativeSamplerFactory, build_temporal_neighbor_block
 from .native import NativeSamplerConfig, NativeSamplerFactory, NativeSamplerUnavailable, NativeTemporalSampler, TemporalGraphData
-from .negative import NegativeSampler, NegativeSamplingRequest, NegativeSamplingResult, PoolNegativeSampler, RandomNegativeSampler
+from .negative import MemShareLocalNegativeSampler, NegativeSampler, NegativeSamplingRequest, NegativeSamplingResult, PoolNegativeSampler, RandomNegativeSampler
 from .temporal import (
     EdgeCommLayout,
     EdgeComputeLayout,
@@ -29,6 +29,7 @@ __all__ = [
     "NegativeSampler",
     "NegativeSamplingRequest",
     "NegativeSamplingResult",
+    "MemShareLocalNegativeSampler",
     "PoolNegativeSampler",
     "PositiveEdges",
     "RandomNegativeSampler",

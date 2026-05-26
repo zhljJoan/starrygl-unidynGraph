@@ -48,6 +48,8 @@ class Batch:
     edge_feat: Optional[Tensor] = None
     pos_src: Optional[Tensor] = None
     pos_dst: Optional[Tensor] = None
+    commit_src_rows: Optional[Tensor] = None
+    commit_dst_rows: Optional[Tensor] = None
     neg_src: Optional[Tensor] = None
     neg_dst: Optional[Tensor] = None
     neg_weight: Optional[Tensor] = None

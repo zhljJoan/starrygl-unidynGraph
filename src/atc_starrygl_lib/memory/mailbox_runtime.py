@@ -61,14 +61,24 @@ class MailboxRuntime:
         push_comm: DynamicPushComm,
         *,
         world_size: int,
+        direct_node_id_io: bool = False,
     ) -> None:
         self.index = index
         self.store = store
         self.fetch_comm = fetch_comm
         self.push_comm = push_comm
         self.world_size = int(world_size)
+        self.direct_node_id_io = bool(direct_node_id_io)
 
     def build_read_layout_from_sampling(self, output: SamplingOutput) -> MailboxReadLayout:
+        if self.direct_node_id_io and self.world_size <= 1:
+            node_ids = output.node_comm.node_gids.long().contiguous()
+            count = int(node_ids.numel())
+            return MailboxReadLayout(
+                read_index=node_ids,
+                read_ptr=torch.tensor([0, count], dtype=torch.long, device=node_ids.device),
+                compute_to_mailbox=output.node_comm.compute_to_comm.to(node_ids.device).long().contiguous(),
+            )
         read_idx = self.index.read_for(output.node_comm.node_gids)
         rank = dist_index_part(read_idx)
         order = torch.argsort(rank, stable=True)
@@ -83,6 +93,11 @@ class MailboxRuntime:
         )
 
     def submit_read(self, layout: MailboxReadLayout) -> AsyncTensorHandle:
+        if self.direct_node_id_io and self.world_size <= 1:
+            rows = layout.read_index.long().to(self.store.mailbox.device)
+            mailbox, mailbox_ts = self.store.gather_rows(rows)
+            payload = torch.cat([mailbox.flatten(1), mailbox_ts.to(mailbox.dtype)], dim=1)
+            return AsyncTensorHandle(works=[], recv_tensors=(payload.to(layout.read_index.device),))
         return self.fetch_comm.submit_row_fetch(layout.read_index, layout.read_ptr, self._gather_mailbox_payload)
 
     def reset_state(self) -> None:
@@ -102,6 +117,14 @@ class MailboxRuntime:
         return mailbox, mailbox_ts
 
     def build_write_layout(self, node_ids: Tensor, source_pos: Optional[Tensor] = None) -> MailboxWriteLayout:
+        if self.direct_node_id_io and self.world_size <= 1:
+            target = node_ids.long().contiguous()
+            source = torch.arange(target.numel(), dtype=torch.long, device=target.device) if source_pos is None else source_pos.to(target.device).long()
+            return MailboxWriteLayout(
+                target_index=target,
+                target_ptr=torch.tensor([0, int(target.numel())], dtype=torch.long, device=target.device),
+                source_pos=source.contiguous(),
+            )
         target = self.index.master_for(node_ids)
         source = torch.arange(target.numel(), dtype=torch.long, device=target.device) if source_pos is None else source_pos.to(target.device).long()
         rank = dist_index_part(target)
@@ -124,9 +147,19 @@ class MailboxRuntime:
         return MailboxWriteHandle(runtime=self, handle=self.submit_write(layout, msg, ts))
 
     def apply_write(self, target_index: Tensor, msg: Tensor, ts: Tensor) -> None:
-        self.store.append_rows(dist_index_loc(target_index), msg, ts)
+        rows = target_index.long() if self.direct_node_id_io and self.world_size <= 1 else dist_index_loc(target_index)
+        self.store.append_rows(rows, msg, ts)
 
     def submit_replica_push(self, layout: ReplicaPushLayout, mailbox: Tensor, mailbox_ts: Tensor) -> AsyncTensorHandle:
+        if self.direct_node_id_io and self.world_size <= 1:
+            return AsyncTensorHandle(
+                works=[],
+                recv_tensors=(
+                    layout.target_index.long().contiguous(),
+                    mailbox.index_select(0, layout.source_pos.to(mailbox.device)),
+                    mailbox_ts.index_select(0, layout.source_pos.to(mailbox_ts.device)),
+                ),
+            )
         return self.push_comm.submit_push(
             layout.target_index,
             layout.target_ptr,
@@ -138,7 +171,11 @@ class MailboxRuntime:
         return MailboxReplicaHandle(runtime=self, handle=self.submit_replica_push(layout, mailbox, mailbox_ts))
 
     def apply_replica_push(self, target_index: Tensor, mailbox: Tensor, mailbox_ts: Tensor) -> None:
-        rows = dist_index_loc(target_index).long().to(self.store.mailbox.device)
+        rows = (
+            target_index.long().to(self.store.mailbox.device)
+            if self.direct_node_id_io and self.world_size <= 1
+            else dist_index_loc(target_index).long().to(self.store.mailbox.device)
+        )
         self.store.mailbox[rows] = mailbox.to(device=self.store.mailbox.device, dtype=self.store.mailbox.dtype)
         self.store.mailbox_ts[rows] = mailbox_ts.to(device=self.store.mailbox_ts.device, dtype=self.store.mailbox_ts.dtype)
 

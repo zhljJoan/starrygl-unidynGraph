@@ -92,6 +92,80 @@ def test_rank_artifacts_encode_layout_and_update_contract() -> None:
     assert route1["recv_local_row"].tolist() == [0, 1]
 
 
+def test_rank_artifacts_collapse_repeated_hot_node_updates_within_slice() -> None:
+    plan = _dist_plan()
+    plan["num_edges"] = 3
+    plan["edge_owner"] = torch.tensor([0, 0, 0])
+    plan["edge_ids_by_part"] = [
+        torch.tensor([0, 1, 2]),
+        torch.empty(0, dtype=torch.long),
+    ]
+    dist, ranks = build_all_rank_artifacts(
+        dist_plan=plan,
+        src=torch.tensor([1, 1, 0]),
+        dst=torch.tensor([0, 0, 1]),
+        ts=torch.tensor([1.0, 2.0, 3.0]),
+        time_ptr_2=torch.tensor([[0, 3]]),
+    )
+    r0, r1 = ranks
+
+    # Rank 0 owns all three local events in this slice. Node 0 is a replicated hot
+    # node and appears in every event, but the preprocess update contract keeps only
+    # one update row per node per slice and records the latest timestamp.
+    assert r0["local_edge_ids"].tolist() == [0, 1, 2]
+    assert r0["update_node_ptr"].tolist() == [0, 2]
+    assert r0["update_node_ids"].tolist() == [0, 1]
+    assert r0["update_node_ts"].tolist() == [3.0, 3.0]
+
+    route0 = r0["memory_route"]
+    assert route0["send_ptr"].tolist() == [0, 1]
+    assert route0["send_update_pos"].tolist() == [0]
+    assert route0["send_rank"].tolist() == [1]
+
+    route1 = r1["memory_route"]
+    assert route1["recv_ptr"].tolist() == [0, 1]
+    assert route1["recv_rank"].tolist() == [0]
+    assert route1["recv_local_row"].tolist() == [0]
+
+    # The shared node update arriving at rank 1 is likewise collapsed to one row,
+    # so no per-event incremental state is preserved across the three hits.
+    assert dist["edge_dist_index"].numel() == 3
+
+
+def test_rank_artifacts_preserve_repeated_hot_node_updates_when_enabled() -> None:
+    plan = _dist_plan()
+    plan["num_edges"] = 3
+    plan["edge_owner"] = torch.tensor([0, 0, 0])
+    plan["edge_ids_by_part"] = [
+        torch.tensor([0, 1, 2]),
+        torch.empty(0, dtype=torch.long),
+    ]
+    _, ranks = build_all_rank_artifacts(
+        dist_plan=plan,
+        src=torch.tensor([1, 1, 0]),
+        dst=torch.tensor([0, 0, 1]),
+        ts=torch.tensor([1.0, 2.0, 3.0]),
+        time_ptr_2=torch.tensor([[0, 3]]),
+        preserve_replica_history=True,
+    )
+    r0, r1 = ranks
+
+    assert r0["preserve_replica_history"] is True
+    assert r0["update_node_ptr"].tolist() == [0, 6]
+    assert r0["update_node_ids"].tolist() == [1, 1, 0, 0, 0, 1]
+    assert r0["update_node_ts"].tolist() == [1.0, 2.0, 3.0, 1.0, 2.0, 3.0]
+
+    route0 = r0["memory_route"]
+    assert route0["send_ptr"].tolist() == [0, 3]
+    assert route0["send_update_pos"].tolist() == [2, 3, 4]
+    assert route0["send_rank"].tolist() == [1, 1, 1]
+
+    route1 = r1["memory_route"]
+    assert route1["recv_ptr"].tolist() == [0, 3]
+    assert route1["recv_rank"].tolist() == [0, 0, 0]
+    assert route1["recv_local_row"].tolist() == [0, 0, 0]
+
+
 def test_rank_artifacts_build_local_split_time_ptr() -> None:
     _, ranks = build_all_rank_artifacts(
         dist_plan=_dist_plan(),
