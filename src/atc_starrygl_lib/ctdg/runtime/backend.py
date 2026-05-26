@@ -402,6 +402,7 @@ class _CTDGArtifactRuntime:
             "backend_submit_edge_feature_seconds": 0.0,
             "backend_submit_memory_seconds": 0.0,
             "backend_submit_mailbox_seconds": 0.0,
+            "backend_submit_memory_mailbox_seconds": 0.0,
             "backend_materialize_seconds": 0.0,
             "backend_materialize_create_seconds": 0.0,
             "backend_materialize_move_seconds": 0.0,
@@ -410,6 +411,7 @@ class _CTDGArtifactRuntime:
             "backend_wait_edge_feature_seconds": 0.0,
             "backend_wait_memory_seconds": 0.0,
             "backend_wait_mailbox_seconds": 0.0,
+            "backend_wait_memory_mailbox_seconds": 0.0,
             "backend_patch_inputs_seconds": 0.0,
             "backend_batches": 0.0,
             "backend_remap_src_mismatch_count": 0.0,
@@ -650,10 +652,12 @@ class _CTDGArtifactRuntime:
         if batch.pos_dst is not None and batch.commit_dst_rows is not None and batch.pos_dst.numel() == batch.commit_dst_rows.numel():
             self._profile_stats["backend_remap_dst_mismatch_count"] += float((batch.pos_dst != batch.commit_dst_rows).sum().item())
 
-    def _submit_runtime_reads(self, output: Any) -> dict[str, tuple[Any, Any, Any]]:
+    def _submit_runtime_reads(self, output: Any) -> dict[str, tuple[Any, ...]]:
         total_t0 = time.perf_counter()
-        reads: dict[str, tuple[Any, Any, Any]] = {}
+        reads: dict[str, tuple[Any, ...]] = {}
         node_layout_cache: dict[tuple[int, int, int], FeatureReadLayout] = {}
+        memory_read: tuple[Any, MemoryReadLayout] | None = None
+        mailbox_read: tuple[Any, MailboxReadLayout] | None = None
         if self.feature_runtime is not None:
             t0 = time.perf_counter()
             if hasattr(self.feature_runtime, "index") and hasattr(self.feature_runtime, "world_size"):
@@ -701,9 +705,7 @@ class _CTDGArtifactRuntime:
             else:
                 layout = self.memory_runtime.build_read_layout_from_sampling(output)
             self._profile_stats["backend_build_memory_layout_seconds"] += float(time.perf_counter() - t0)
-            t0 = time.perf_counter()
-            reads["memory"] = (self.memory_runtime, layout, self.memory_runtime.submit_read(layout))
-            self._profile_stats["backend_submit_memory_seconds"] += float(time.perf_counter() - t0)
+            memory_read = (self.memory_runtime, layout)
         if self.mailbox_runtime is not None:
             t0 = time.perf_counter()
             if (
@@ -726,13 +728,30 @@ class _CTDGArtifactRuntime:
             else:
                 layout = self.mailbox_runtime.build_read_layout_from_sampling(output)
             self._profile_stats["backend_build_mailbox_layout_seconds"] += float(time.perf_counter() - t0)
+            mailbox_read = (self.mailbox_runtime, layout)
+        if memory_read is not None and mailbox_read is not None and _can_combine_memory_mailbox_read(memory_read[1], mailbox_read[1]):
             t0 = time.perf_counter()
-            reads["mailbox"] = (self.mailbox_runtime, layout, self.mailbox_runtime.submit_read(layout))
-            self._profile_stats["backend_submit_mailbox_seconds"] += float(time.perf_counter() - t0)
+            reads["memory_mailbox"] = (
+                memory_read[0],
+                memory_read[1],
+                mailbox_read[0],
+                mailbox_read[1],
+                _submit_combined_memory_mailbox_read(memory_read[0], mailbox_read[0], memory_read[1]),
+            )
+            self._profile_stats["backend_submit_memory_mailbox_seconds"] += float(time.perf_counter() - t0)
+        else:
+            if memory_read is not None:
+                t0 = time.perf_counter()
+                reads["memory"] = (memory_read[0], memory_read[1], memory_read[0].submit_read(memory_read[1]))
+                self._profile_stats["backend_submit_memory_seconds"] += float(time.perf_counter() - t0)
+            if mailbox_read is not None:
+                t0 = time.perf_counter()
+                reads["mailbox"] = (mailbox_read[0], mailbox_read[1], mailbox_read[0].submit_read(mailbox_read[1]))
+                self._profile_stats["backend_submit_mailbox_seconds"] += float(time.perf_counter() - t0)
         self._profile_stats["backend_submit_reads_seconds"] += float(time.perf_counter() - total_t0)
         return reads
 
-    def _wait_and_patch_runtime_reads(self, mfgs: Any, reads: dict[str, tuple[Any, Any, Any]]) -> None:
+    def _wait_and_patch_runtime_reads(self, mfgs: Any, reads: dict[str, tuple[Any, ...]]) -> None:
         feature = None
         edge_feature = None
         memory = None
@@ -749,6 +768,17 @@ class _CTDGArtifactRuntime:
             t0 = time.perf_counter()
             edge_feature = runtime.wait_edge_fetch(handle, layout)
             self._profile_stats["backend_wait_edge_feature_seconds"] += float(time.perf_counter() - t0)
+        if "memory_mailbox" in reads:
+            memory_runtime, memory_layout, mailbox_runtime, mailbox_layout, handle = reads["memory_mailbox"]
+            t0 = time.perf_counter()
+            memory, memory_ts, mailbox, mailbox_ts = _wait_combined_memory_mailbox_read(
+                memory_runtime,
+                memory_layout,
+                mailbox_runtime,
+                mailbox_layout,
+                handle,
+            )
+            self._profile_stats["backend_wait_memory_mailbox_seconds"] += float(time.perf_counter() - t0)
         if "memory" in reads:
             runtime, layout, handle = reads["memory"]
             t0 = time.perf_counter()
@@ -855,6 +885,74 @@ def _cached_node_feature_layout(
     )
     cache[key] = layout
     return layout
+
+
+def _can_combine_memory_mailbox_read(memory_layout: MemoryReadLayout, mailbox_layout: MailboxReadLayout) -> bool:
+    return (
+        hasattr(memory_layout, "read_index")
+        and hasattr(memory_layout, "read_ptr")
+        and hasattr(memory_layout, "compute_to_memory")
+        and hasattr(mailbox_layout, "read_index")
+        and hasattr(mailbox_layout, "read_ptr")
+        and hasattr(mailbox_layout, "compute_to_mailbox")
+        and _same_tensor_storage(memory_layout.read_index, mailbox_layout.read_index)
+        and _same_tensor_storage(memory_layout.read_ptr, mailbox_layout.read_ptr)
+        and _same_tensor_storage(memory_layout.compute_to_memory, mailbox_layout.compute_to_mailbox)
+    )
+
+
+def _same_tensor_storage(left: torch.Tensor, right: torch.Tensor) -> bool:
+    return (
+        left.device == right.device
+        and left.dtype == right.dtype
+        and tuple(left.shape) == tuple(right.shape)
+        and int(left.data_ptr()) == int(right.data_ptr())
+    )
+
+
+def _submit_combined_memory_mailbox_read(
+    memory_runtime: MemoryRuntime,
+    mailbox_runtime: MailboxRuntime,
+    layout: MemoryReadLayout,
+) -> Any:
+    def _gather(rows: torch.Tensor, time_slices: torch.Tensor | None = None) -> torch.Tensor:
+        del time_slices
+        memory, ts = memory_runtime.store.gather_rows(rows)
+        mailbox, mailbox_ts = mailbox_runtime.store.gather_rows(rows)
+        return torch.cat(
+            [
+                memory,
+                ts.reshape(-1, 1).to(memory.dtype),
+                mailbox.flatten(1).to(memory.dtype),
+                mailbox_ts.to(memory.dtype),
+            ],
+            dim=1,
+        )
+
+    return memory_runtime.fetch_comm.submit_row_fetch(layout.read_index, layout.read_ptr, _gather)
+
+
+def _wait_combined_memory_mailbox_read(
+    memory_runtime: MemoryRuntime,
+    memory_layout: MemoryReadLayout,
+    mailbox_runtime: MailboxRuntime,
+    mailbox_layout: MailboxReadLayout,
+    handle: Any,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    del mailbox_layout
+    (payload,) = handle.wait()
+    payload = payload.index_select(0, memory_layout.compute_to_memory.to(payload.device))
+    mem_dim = int(memory_runtime.store.memory.size(1))
+    mailbox_size = int(mailbox_runtime.store.mailbox.size(1))
+    msg_dim = int(mailbox_runtime.store.mailbox.size(2))
+    mail_width = mailbox_size * msg_dim
+    memory = payload[:, :mem_dim].contiguous()
+    memory_ts = payload[:, mem_dim].contiguous()
+    mail_begin = mem_dim + 1
+    mail_end = mail_begin + mail_width
+    mailbox = payload[:, mail_begin:mail_end].reshape(payload.size(0), mailbox_size, msg_dim).contiguous()
+    mailbox_ts = payload[:, mail_end : mail_end + mailbox_size].reshape(payload.size(0), mailbox_size).contiguous()
+    return memory, memory_ts, mailbox, mailbox_ts
 
 
 def _negative_dst_pool(*, graph: dict[str, Any], runtime_cfg: dict[str, Any]) -> torch.Tensor | None:
