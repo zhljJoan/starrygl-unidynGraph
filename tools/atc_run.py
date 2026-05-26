@@ -299,10 +299,18 @@ def _wrap_ddp(module: torch.nn.Module, ctx: Any) -> torch.nn.Module:
     if hasattr(module, "module"):
         return module
     device = torch.device(ctx.device)
-    find_unused = bool(ctx.config.get("runtime", {}).get("ddp_find_unused_parameters", False))
+    runtime_cfg = dict(ctx.config.get("runtime", {}))
+    find_unused = bool(runtime_cfg.get("ddp_find_unused_parameters", False))
+    static_graph = bool(runtime_cfg.get("ddp_static_graph", False))
     if device.type == "cuda":
-        return DDP(module, device_ids=[device.index], output_device=device.index, find_unused_parameters=find_unused)
-    return DDP(module, find_unused_parameters=find_unused)
+        return DDP(
+            module,
+            device_ids=[device.index],
+            output_device=device.index,
+            find_unused_parameters=find_unused,
+            static_graph=static_graph,
+        )
+    return DDP(module, find_unused_parameters=find_unused, static_graph=static_graph)
 
 
 def _sync_module_state(module: torch.nn.Module) -> None:
