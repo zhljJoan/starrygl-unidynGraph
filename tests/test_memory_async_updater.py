@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import torch
 
-from atc_starrygl_lib.memory import AsyncCommitHandle, AsyncMemoryUpdateSpec, RuntimeAsyncMemoryUpdater, SharedHistoricalCache
+from atc_starrygl_lib.comm.layouts import MemoryWriteLayout
+from atc_starrygl_lib.memory import AsyncCommitHandle, AsyncMemoryCommitter, AsyncMemoryUpdateSpec, RuntimeAsyncMemoryUpdater, SharedHistoricalCache
 from atc_starrygl_lib.memory.async_updater import _build_mailbox_messages
 from atc_starrygl_lib.memory.mailbox import MailboxStore
 from atc_starrygl_lib.memory.shared_sync import ReplicaPushIndex
@@ -137,6 +138,104 @@ def test_runtime_async_memory_updater_submits_mailbox_only_shared_payload() -> N
     )
 
 
+def test_runtime_async_memory_updater_compacts_latest_node_payloads_before_p2p() -> None:
+    base = _BaseUpdater()
+    committer = _FakeCommitter()
+    updater = RuntimeAsyncMemoryUpdater(base, committer=committer, use_staged_commit=True)
+
+    base.last_updated_nid = torch.tensor([0, 1, 0, 1], dtype=torch.long)
+    base.last_updated_ts = torch.tensor([1.0, 1.0, 3.0, 2.0], dtype=torch.float32)
+    base.last_updated_memory = torch.tensor(
+        [
+            [10.0, 0.0],
+            [20.0, 0.0],
+            [30.0, 0.0],
+            [40.0, 0.0],
+        ],
+        dtype=torch.float32,
+    )
+    spec = AsyncMemoryUpdateSpec.from_edges(
+        torch.tensor([0, 1], dtype=torch.long),
+        torch.tensor([1, 0], dtype=torch.long),
+        torch.tensor([1.0, 3.0], dtype=torch.float32),
+        src_rows=torch.tensor([0, 3], dtype=torch.long),
+        dst_rows=torch.tensor([1, 2], dtype=torch.long),
+    )
+
+    updater.forward("mfg", None)
+    updater.submit_commit(spec)
+
+    memory_nodes, memory_values, memory_ts = committer.p2p_memory_submissions[-1]
+    assert memory_nodes.tolist() == [0, 1]
+    assert memory_values.tolist() == [[30.0, 0.0], [40.0, 0.0]]
+    assert memory_ts.tolist() == [3.0, 2.0]
+    mailbox_nodes, mailbox_msg, mailbox_ts = committer.p2p_mailbox_submissions[-1]
+    assert mailbox_nodes.tolist() == [0, 1]
+    assert mailbox_ts.tolist() == [3.0, 3.0]
+    assert mailbox_msg.tolist() == [[30.0, 0.0, 40.0, 0.0], [40.0, 0.0, 30.0, 0.0]]
+
+
+def test_runtime_async_memory_updater_uses_precomputed_commit_rows_without_compaction() -> None:
+    base = _BaseUpdater()
+    committer = _FakeCommitter()
+    updater = RuntimeAsyncMemoryUpdater(base, committer=committer, use_staged_commit=True)
+
+    base.last_updated_nid = torch.tensor([0, 1, 0, 1], dtype=torch.long)
+    base.last_updated_ts = torch.tensor([1.0, 1.0, 3.0, 2.0], dtype=torch.float32)
+    base.last_updated_memory = torch.tensor(
+        [
+            [10.0, 0.0],
+            [20.0, 0.0],
+            [30.0, 0.0],
+            [40.0, 0.0],
+        ],
+        dtype=torch.float32,
+    )
+    spec = AsyncMemoryUpdateSpec(
+        memory_nodes=torch.tensor([0, 1], dtype=torch.long),
+        memory_rows=torch.tensor([2, 3], dtype=torch.long),
+        mailbox_nodes=torch.tensor([0, 1], dtype=torch.long),
+        mailbox_self_rows=torch.tensor([2, 3], dtype=torch.long),
+        mailbox_peer_rows=torch.tensor([3, 2], dtype=torch.long),
+        mailbox_ts=torch.tensor([3.0, 2.0], dtype=torch.float32),
+        precomputed_commit=True,
+    )
+
+    updater.forward("mfg", None)
+    updater.submit_commit(spec)
+
+    memory_nodes, memory_values, memory_ts = committer.p2p_memory_submissions[-1]
+    assert memory_nodes.tolist() == [0, 1]
+    assert memory_values.tolist() == [[30.0, 0.0], [40.0, 0.0]]
+    assert memory_ts.tolist() == [3.0, 2.0]
+    mailbox_nodes, mailbox_msg, mailbox_ts = committer.p2p_mailbox_submissions[-1]
+    assert mailbox_nodes.tolist() == [0, 1]
+    assert mailbox_msg.tolist() == [[30.0, 0.0, 40.0, 0.0], [40.0, 0.0, 30.0, 0.0]]
+    assert mailbox_ts.tolist() == [3.0, 2.0]
+
+
+def test_async_memory_committer_uses_precomputed_write_layout() -> None:
+    runtime = _FakeMemoryRuntime()
+    committer = AsyncMemoryCommitter(runtime)
+    layout = MemoryWriteLayout(
+        target_index=torch.tensor([20, 10], dtype=torch.long),
+        target_ptr=torch.tensor([0, 1, 2], dtype=torch.long),
+        source_pos=torch.tensor([1, 0], dtype=torch.long),
+    )
+
+    committer.submit_p2p_memory(
+        torch.tensor([0, 1], dtype=torch.long),
+        torch.tensor([[1.0], [2.0]], dtype=torch.float32),
+        torch.tensor([3.0, 4.0], dtype=torch.float32),
+        write_layout=layout,
+    )
+
+    assert runtime.build_write_layout_called is False
+    assert runtime.last_layout is layout
+    assert runtime.last_memory.tolist() == [[1.0], [2.0]]
+    assert runtime.last_ts.tolist() == [3.0, 4.0]
+
+
 def test_runtime_async_memory_updater_delta_compensation_toggle() -> None:
     base = _BaseUpdater()
     cache = SharedHistoricalCache(memory_dim=2, num_nodes=4, alpha=0.1, times_threshold=10)
@@ -216,6 +315,8 @@ class _FakeCommitter:
         self.applied: list[str] = []
         self.shared_submissions: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor, ReplicaPushIndex | None]] = []
         self.shared_mailbox_submissions: list[tuple[list[int], list[int]]] = []
+        self.p2p_memory_submissions: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
+        self.p2p_mailbox_submissions: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
 
     def submit_shared(
         self,
@@ -252,13 +353,33 @@ class _FakeCommitter:
             )
         return AsyncCommitHandle(memory_replica_handle=_RecordingHandle("shared", self.applied))
 
-    def submit_p2p_memory(self, updated_nodes, updated_memory, updated_ts):
+    def submit_p2p_memory(self, updated_nodes, updated_memory, updated_ts, *, write_layout=None):
         self.event_log.append("submit_p2p_memory")
+        self.p2p_memory_submissions.append((updated_nodes.clone(), updated_memory.clone(), updated_ts.clone()))
         return AsyncCommitHandle(memory_handle=_RecordingHandle("memory", self.applied))
 
     def submit_p2p_mailbox(self, mailbox_nodes, mailbox_msg, mailbox_ts):
         self.event_log.append("submit_p2p_mailbox")
+        self.p2p_mailbox_submissions.append((mailbox_nodes.clone(), mailbox_msg.clone(), mailbox_ts.clone()))
         return AsyncCommitHandle(mailbox_handle=_RecordingHandle("mailbox", self.applied))
+
+
+class _FakeMemoryRuntime:
+    def __init__(self) -> None:
+        self.build_write_layout_called = False
+        self.last_layout = None
+        self.last_memory = None
+        self.last_ts = None
+
+    def build_write_layout(self, updated_nodes):
+        self.build_write_layout_called = True
+        raise AssertionError("build_write_layout should not be called")
+
+    def write(self, layout, memory, ts):
+        self.last_layout = layout
+        self.last_memory = memory.clone()
+        self.last_ts = ts.clone()
+        return _RecordingHandle("memory", [])
 
 
 def _replica_index_for_nodes(nodes: list[int]) -> ReplicaPushIndex:

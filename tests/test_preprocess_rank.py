@@ -79,6 +79,12 @@ def test_rank_artifacts_encode_layout_and_update_contract() -> None:
     assert r0["update_node_ids"].tolist() == [0, 1, 2]
     assert r0["update_node_ts"].tolist() == [1.0, 2.0, 2.0]
     assert r0["update_local_row"].tolist() == [0, 2, 1]
+    write0 = r0["memory_write_route"]
+    assert write0["ptr"].tolist() == [0, 3, 3]
+    assert write0["target_ptr"].tolist() == [[0, 2, 3], [0, 0, 0]]
+    assert write0["source_pos"].tolist() == [0, 1, 2]
+    assert dist_index_part(write0["target_index"]).tolist() == [0, 0, 1]
+    assert dist_index_loc(write0["target_index"]).tolist() == [0, 2, 1]
 
     route0 = r0["memory_route"]
     assert route0["send_ptr"].tolist() == [0, 2, 2]
@@ -116,6 +122,8 @@ def test_rank_artifacts_collapse_repeated_hot_node_updates_within_slice() -> Non
     assert r0["update_node_ptr"].tolist() == [0, 2]
     assert r0["update_node_ids"].tolist() == [0, 1]
     assert r0["update_node_ts"].tolist() == [3.0, 3.0]
+    assert r0["update_event_pos"].tolist() == [2, 2]
+    assert r0["update_endpoint"].tolist() == [0, 1]
 
     route0 = r0["memory_route"]
     assert route0["send_ptr"].tolist() == [0, 1]

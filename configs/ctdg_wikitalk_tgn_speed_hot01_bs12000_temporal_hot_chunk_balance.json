@@ -2,9 +2,7 @@
   "graph": {
     "source": "/mnt/data/zlj/tgl_data/DATA/wikitalk",
     "random_node_feat_dim": 172,
-    "random_node_feat_seed": 0,
-    "random_edge_feat_dim": 172,
-    "random_edge_feat_seed": 0
+    "random_node_feat_seed": 0
   },
   "model": {
     "name": "general",
@@ -25,8 +23,7 @@
       "fanouts": [
         20
       ],
-      "policy": "boundary_recent_decay",
-      "probability": 0.1
+      "policy": "recent"
     }
   },
   "task": {
@@ -35,9 +32,11 @@
   },
   "preprocess": {
     "use_new_pipeline": true,
-    "partition_algorithm": "speed_partition",
+    "partition_algorithm": "temporal_hot_chunk_balance",
     "hot_ratio": 0.1,
     "chunks_per_rank": 2,
+    "chunk_affinity_weight": 0.02,
+    "chunk_local_search_iters": 512,
     "build_feature": true,
     "batch_size": 12000,
     "train_ratio": 0.7,
@@ -52,6 +51,7 @@
     "mkl_num_threads": 1,
     "openblas_num_threads": 1,
     "build_feature_runtime": true,
+    "feature_device": "cuda",
     "build_memory_runtime": true,
     "build_mailbox_runtime": true,
     "memory_dim": 100,
@@ -65,8 +65,7 @@
     "commit_memory": true,
     "reset_memory_each_epoch": true,
     "gradient_sync": "async",
-    "train_compute_metrics": false,
-    "mailbox_msg_dim": 372
+    "mailbox_msg_dim": 200
   },
   "train": {
     "epochs": 10,

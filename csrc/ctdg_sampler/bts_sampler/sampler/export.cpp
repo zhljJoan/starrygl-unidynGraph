@@ -79,7 +79,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def("root_lids", [](const NativeSamplingOutput &out) { return vecToTensor<int64_t>(out.root_lids).clone(); })
         .def("edge_gids", [](const NativeSamplingOutput &out) { return vecToTensor<EdgeIDType>(out.edge_gids).clone(); })
         .def("edge_ts", [](const NativeSamplingOutput &out) { return vecToTensor<TimeStampType>(out.edge_ts).clone(); })
-        .def("edge_layer_ptr", [](const NativeSamplingOutput &out) { return vecToTensor<int64_t>(out.edge_layer_ptr).clone(); });
+        .def("edge_layer_ptr", [](const NativeSamplingOutput &out) { return vecToTensor<int64_t>(out.edge_layer_ptr).clone(); })
+        .def("edge_read_index", [](const NativeSamplingOutput &out) { return vecToTensor<int64_t>(out.edge_read_index).clone(); })
+        .def("edge_read_ptr", [](const NativeSamplingOutput &out) { return vecToTensor<int64_t>(out.edge_read_ptr).clone(); })
+        .def("compute_to_edge_feature", [](const NativeSamplingOutput &out) { return vecToTensor<int64_t>(out.compute_to_edge_feature).clone(); });
 
     py::class_<TemporalNeighborBlock>(m, "TemporalNeighborBlock")
         .def(py::init<vector<vector<NodeIDType>>&, 
@@ -119,6 +122,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def("get_sampling_output", &ParallelSampler::get_sampling_output)
         .def("get_sampling_output_compact", &ParallelSampler::get_sampling_output_compact)
         .def("get_sampling_output_parallel", &ParallelSampler::get_sampling_output_parallel)
+        .def("set_edge_read_dist_index", &ParallelSampler::set_edge_read_dist_index)
         .def("sample_unique", &ParallelSampler::sample_unique)
         .def_readonly("dist_nid",&ParallelSampler::dist_nid,py::return_value_policy::reference)
         .def_readonly("dist_eid",&ParallelSampler::dist_eid,py::return_value_policy::reference)
@@ -129,7 +133,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def_readonly("compact_total_seconds", &ParallelSampler::compact_total_seconds)
         .def_readonly("compact_root_seconds", &ParallelSampler::compact_root_seconds)
         .def_readonly("compact_index_seconds", &ParallelSampler::compact_index_seconds)
-        .def_readonly("compact_fill_seconds", &ParallelSampler::compact_fill_seconds);
+        .def_readonly("compact_fill_seconds", &ParallelSampler::compact_fill_seconds)
+        .def_readonly("compact_index_edges", &ParallelSampler::compact_index_edges)
+        .def_readonly("compact_index_unique_nodes", &ParallelSampler::compact_index_unique_nodes)
+        .def_readonly("compact_index_frontier_nodes", &ParallelSampler::compact_index_frontier_nodes)
+        .def_readonly("compact_index_unique_edges", &ParallelSampler::compact_index_unique_edges);
 
     py::class_<ParallelTppRComputer>(m, "ParallelTppRComputer")
         .def(py::init<TemporalNeighborBlock &, NodeIDType, EdgeIDType, int,

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +13,13 @@ from .dist import build_dist_plan
 from .feature import build_all_feature_artifacts
 from .partition_data import build_all_partition_data_artifacts
 from .rank import build_all_rank_artifacts
+
+
+def _timed_stage(name: str, t0: float) -> float:
+    now = time.perf_counter()
+    if os.environ.get("ATC_PREPROCESS_TIMING"):
+        print(json.dumps({"preprocess_stage": name, "seconds": now - t0}), flush=True)
+    return now
 
 
 def run_preprocess_pipeline(
@@ -34,7 +43,11 @@ def run_preprocess_pipeline(
     node_count_weight = float(dataset_kwargs.pop("node_count_weight", 1.0))
     speed_beta = float(dataset_kwargs.pop("speed_beta", 0.5))
     speed_topk_type = str(dataset_kwargs.pop("speed_topk_type", "degree"))
+    chunk_affinity_weight = float(dataset_kwargs.pop("chunk_affinity_weight", 0.05))
+    chunk_local_search_iters = int(dataset_kwargs.pop("chunk_local_search_iters", 2000))
+    t_stage = time.perf_counter()
     graph = build_dataset(data=data, mode=mode, **dataset_kwargs)
+    t_stage = _timed_stage("dataset", t_stage)
     dist = build_dist_plan(
         src=graph["src"],
         dst=graph["dst"],
@@ -49,7 +62,10 @@ def run_preprocess_pipeline(
         node_count_weight=node_count_weight,
         speed_beta=speed_beta,
         speed_topk_type=speed_topk_type,
+        chunk_affinity_weight=chunk_affinity_weight,
+        chunk_local_search_iters=chunk_local_search_iters,
     )
+    t_stage = _timed_stage("dist", t_stage)
     dist, ranks = build_all_rank_artifacts(
         dist_plan=dist,
         src=graph["src"],
@@ -60,6 +76,7 @@ def run_preprocess_pipeline(
         split=graph["split"],
         preserve_replica_history=preserve_replica_history,
     )
+    t_stage = _timed_stage("rank_artifacts", t_stage)
     feats = build_all_feature_artifacts(
         rank_artifacts=ranks,
         node_feat=graph.get("node_feat"),
@@ -69,6 +86,7 @@ def run_preprocess_pipeline(
         node_feat_time_varying=bool(graph.get("node_feat_time_varying", False)),
         node_label_time_varying=bool(graph.get("node_label_time_varying", False)),
     ) if build_feature else []
+    t_stage = _timed_stage("feature_artifacts", t_stage)
     pds = build_all_partition_data_artifacts(
         rank_artifacts=ranks,
         dist_plan=dist,

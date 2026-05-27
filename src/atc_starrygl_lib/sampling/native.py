@@ -15,6 +15,7 @@ class NativeSamplerConfig:
     policy: str = "recent"
     workers: int = 1
     local_part: int = 0
+    world_size: int = 1
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class TemporalGraphData:
     num_nodes: int
     node_part: Optional[Tensor] = None
     edge_part: Optional[Tensor] = None
+    edge_read_dist_index: Optional[Tensor] = None
 
 
 class NativeTemporalSampler(Protocol):

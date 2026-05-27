@@ -71,6 +71,11 @@ class MemShareNativeSampler(NativeTemporalSampler):
             node_part.to(torch.int32).contiguous(),
             float(self.probability),
         )
+        if self.graph.edge_read_dist_index is not None and hasattr(self._sampler, "set_edge_read_dist_index"):
+            self._sampler.set_edge_read_dist_index(
+                self.graph.edge_read_dist_index.long().cpu().contiguous(),
+                int(self.config.world_size),
+            )
         self.reset_profile_stats()
 
     def sample(self, request: TemporalSamplingRequest) -> SamplingOutput:
@@ -168,6 +173,10 @@ class MemShareNativeSampler(NativeTemporalSampler):
                 "compact_root_seconds",
                 "compact_index_seconds",
                 "compact_fill_seconds",
+                "compact_index_edges",
+                "compact_index_unique_nodes",
+                "compact_index_frontier_nodes",
+                "compact_index_unique_edges",
             ):
                 if hasattr(self._sampler, key):
                     out[key] = float(getattr(self._sampler, key))
@@ -228,6 +237,7 @@ def _convert_native_sampling_output(native: Any, request: TemporalSamplingReques
     )
     node_comm = _build_compat_node_comm(node_compute)
     edge_comm = _build_compat_edge_comm(edge_compute)
+    _attach_native_edge_read_layout(native, edge_comm, edge_gids)
     return SamplingOutput(
         mfgs=mfgs,
         node_compute=node_compute,
@@ -236,6 +246,21 @@ def _convert_native_sampling_output(native: Any, request: TemporalSamplingReques
         edge_comm=edge_comm,
         metadata={"native": "memshare_bts_layout", **(request.meta or {})},
     )
+
+
+def _attach_native_edge_read_layout(native: Any, edge_comm: EdgeCommLayout, edge_gids: Tensor) -> None:
+    if not all(hasattr(native, name) for name in ("edge_read_index", "edge_read_ptr", "compute_to_edge_feature")):
+        return
+    read_index = native.edge_read_index().long().contiguous()
+    read_ptr = native.edge_read_ptr().long().contiguous()
+    compute_to_feature = native.compute_to_edge_feature().long().contiguous()
+    if read_ptr.numel() == 0:
+        return
+    if read_index.numel() != edge_gids.numel() or compute_to_feature.numel() != edge_gids.numel():
+        return
+    edge_comm.read_index = read_index
+    edge_comm.read_ptr = read_ptr
+    edge_comm.compute_to_feature = compute_to_feature
 
 
 def _block_nodes(block: Any) -> Optional[Tensor]:

@@ -91,7 +91,12 @@ class CTDGFeatureRuntime(SampledFeatureRuntime):
         already_rank_grouped: bool = False,
         deduplicate: bool = False,
     ) -> FeatureReadLayout | None:
-        if output.edge_comm is None or self.edge_dist_index is None:
+        if output.edge_comm is None:
+            return None
+        direct = _edge_direct_feature_layout(output.edge_comm)
+        if direct is not None:
+            return direct
+        if self.edge_dist_index is None:
             return None
         return build_feature_read_layout_from_comm(
             output.edge_comm.edge_gids,
@@ -154,3 +159,17 @@ def _flatten(items: Any) -> list[Any]:
             out.extend(_flatten(item))
         return out
     return [items]
+
+
+def _edge_direct_feature_layout(edge_comm: Any) -> FeatureReadLayout | None:
+    read_index = getattr(edge_comm, "read_index", None)
+    read_ptr = getattr(edge_comm, "read_ptr", None)
+    compute_to_feature = getattr(edge_comm, "compute_to_feature", None)
+    if read_index is None or read_ptr is None or compute_to_feature is None:
+        return None
+    return FeatureReadLayout(
+        read_index=read_index.long().contiguous(),
+        read_ptr=read_ptr.long().contiguous(),
+        compute_to_feature=compute_to_feature.long().contiguous(),
+        time_slices=None,
+    )

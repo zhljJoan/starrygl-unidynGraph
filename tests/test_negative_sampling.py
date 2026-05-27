@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch
 
 from atc_starrygl_lib.ctdg.runtime.backend import _rank_negative_dst_pools
-from atc_starrygl_lib.sampling.negative import MemShareLocalNegativeSampler, NegativeSamplingRequest
+from atc_starrygl_lib.sampling.negative import MemShareLocalNegativeSampler, NegativeSamplingRequest, PoolNegativeSampler
 
 
 def test_memshare_local_negative_sampler_returns_expected_weights() -> None:
@@ -29,6 +29,32 @@ def test_memshare_local_negative_sampler_returns_expected_weights() -> None:
         assert torch.allclose(out.weight[local_mask], torch.full_like(out.weight[local_mask], expected_local))
     if (~local_mask).any():
         assert torch.allclose(out.weight[~local_mask], torch.full_like(out.weight[~local_mask], expected_remote))
+
+
+def test_pool_negative_sampler_importance_corrects_local_remote_mixture() -> None:
+    sampler = PoolNegativeSampler(train_remote_dst_prob=0.25, correction="importance")
+    req = NegativeSamplingRequest(
+        pos_src=torch.arange(64, dtype=torch.long),
+        pos_dst=torch.arange(64, dtype=torch.long),
+        num_nodes=100,
+        ratio=1,
+        split="train",
+        dst_pool=torch.arange(8, dtype=torch.long),
+        local_dst_pool=torch.tensor([0, 1], dtype=torch.long),
+        remote_dst_pool=torch.tensor([2, 3, 4, 5, 6, 7], dtype=torch.long),
+        generator=torch.Generator().manual_seed(0),
+    )
+
+    out = sampler.sample(req)
+
+    assert out.weight is not None
+    remote_mask = out.neg_dst >= 2
+    assert remote_mask.any()
+    assert (~remote_mask).any()
+    expected_local = (2.0 / 8.0) / 0.75
+    expected_remote = (6.0 / 8.0) / 0.25
+    assert torch.allclose(out.weight[~remote_mask], torch.full_like(out.weight[~remote_mask], expected_local))
+    assert torch.allclose(out.weight[remote_mask], torch.full_like(out.weight[remote_mask], expected_remote))
 
 
 def test_memshare_local_policy_builds_rank_dst_pools() -> None:

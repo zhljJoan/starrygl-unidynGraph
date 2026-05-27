@@ -326,6 +326,32 @@ class CTDGMemoryCommitHook:
         ) if batch.src is not None and batch.dst is not None and batch.ts is not None else AsyncMemoryUpdateSpec(
             wait_apply=self.wait_apply,
         )
+        if batch.commit_memory_nodes is not None and batch.commit_memory_rows is not None:
+            spec.memory_nodes = batch.commit_memory_nodes
+            spec.memory_rows = batch.commit_memory_rows
+            spec.precomputed_commit = True
+            spec.memory_write_target_index = batch.commit_memory_target_index
+            spec.memory_write_target_ptr = batch.commit_memory_target_ptr
+            spec.memory_write_source_pos = batch.commit_memory_source_pos
+        if (
+            batch.commit_mailbox_nodes is not None
+            and batch.commit_mailbox_self_rows is not None
+            and batch.commit_mailbox_peer_rows is not None
+            and batch.commit_mailbox_ts is not None
+        ):
+            spec.mailbox_nodes = batch.commit_mailbox_nodes
+            spec.mailbox_self_rows = batch.commit_mailbox_self_rows
+            spec.mailbox_peer_rows = batch.commit_mailbox_peer_rows
+            spec.mailbox_ts = batch.commit_mailbox_ts
+            spec.precomputed_commit = True
+            spec.mailbox_write_target_index = batch.commit_mailbox_target_index
+            spec.mailbox_write_target_ptr = batch.commit_mailbox_target_ptr
+            spec.mailbox_write_source_pos = batch.commit_mailbox_source_pos
+            if batch.edge_feat is not None and batch.commit_mailbox_edge_pos is not None:
+                spec.mailbox_edge_feat = batch.edge_feat.index_select(
+                    0,
+                    batch.commit_mailbox_edge_pos.to(batch.edge_feat.device).long(),
+                )
         spec.memory_replica_index = self.memory_replica_index
         self._populate_mailbox_replica_spec(updater, spec)
         self._profile_stats["memory_commit_build_seconds"] += float(time.perf_counter() - t_build)
@@ -369,17 +395,36 @@ class CTDGMemoryCommitHook:
         updated_memory = getattr(updater, "last_updated_memory", None)
         if updated_nid is None or updated_memory is None:
             return
-        mailbox_nodes = torch.cat([spec.src, spec.dst], dim=0).long().contiguous()
-        if spec.src_rows is not None and spec.dst_rows is not None:
-            src_rows = _checked_rows(spec.src_rows, updated_memory, name="src_rows")
-            dst_rows = _checked_rows(spec.dst_rows, updated_memory, name="dst_rows")
-            if _rows_match_nodes(updated_nid, src_rows, spec.src) and _rows_match_nodes(updated_nid, dst_rows, spec.dst):
-                mailbox_msg = _build_mailbox_messages_from_rows(updated_memory, src_rows, dst_rows, spec.edge_feat)
+        if (
+            spec.mailbox_nodes is not None
+            and spec.mailbox_self_rows is not None
+            and spec.mailbox_peer_rows is not None
+            and spec.mailbox_ts is not None
+        ):
+            mailbox_nodes = spec.mailbox_nodes.long().contiguous()
+            self_rows = _checked_rows(spec.mailbox_self_rows, updated_memory, name="mailbox_self_rows")
+            peer_rows = _checked_rows(spec.mailbox_peer_rows, updated_memory, name="mailbox_peer_rows")
+            self_mem = updated_memory.index_select(0, self_rows).reshape(int(self_rows.numel()), -1)
+            peer_mem = updated_memory.index_select(0, peer_rows).reshape(int(peer_rows.numel()), -1)
+            mailbox_msg = torch.cat([self_mem, peer_mem], dim=-1)
+            if spec.mailbox_edge_feat is not None:
+                edge = spec.mailbox_edge_feat.to(self_mem.device, dtype=self_mem.dtype).reshape(int(self_rows.numel()), -1)
+                mailbox_msg = torch.cat([mailbox_msg, edge], dim=-1)
+            mailbox_ts = spec.mailbox_ts.reshape(-1).contiguous()
+        else:
+            mailbox_nodes = torch.cat([spec.src, spec.dst], dim=0).long().contiguous()
+            if spec.src_rows is not None and spec.dst_rows is not None:
+                src_rows = _checked_rows(spec.src_rows, updated_memory, name="src_rows")
+                dst_rows = _checked_rows(spec.dst_rows, updated_memory, name="dst_rows")
+                if _rows_match_nodes(updated_nid, src_rows, spec.src) and _rows_match_nodes(updated_nid, dst_rows, spec.dst):
+                    mailbox_msg = _build_mailbox_messages_from_rows(updated_memory, src_rows, dst_rows, spec.edge_feat)
+                else:
+                    mailbox_msg = _build_mailbox_messages(updated_nid, updated_memory, spec.src, spec.dst, spec.edge_feat)
             else:
                 mailbox_msg = _build_mailbox_messages(updated_nid, updated_memory, spec.src, spec.dst, spec.edge_feat)
-        else:
-            mailbox_msg = _build_mailbox_messages(updated_nid, updated_memory, spec.src, spec.dst, spec.edge_feat)
-        mailbox_ts = torch.cat([spec.ts, spec.ts], dim=0).contiguous()
+            mailbox_ts = torch.cat([spec.ts, spec.ts], dim=0).contiguous()
+        if mailbox_nodes.numel() == 0:
+            return
         target = self.mailbox_runtime.index.master_for(mailbox_nodes).long()
         rank = int(dist.get_rank()) if dist.is_available() and dist.is_initialized() else 0
         local_owner = dist_index_part(target) == rank
@@ -421,6 +466,7 @@ class CTDGMemoryCommitHook:
         spec.mailbox_nodes = mailbox_nodes
         spec.mailbox_snapshot = snapshot.to(mailbox_nodes.device)
         spec.mailbox_snapshot_ts = snapshot_ts.to(mailbox_nodes.device)
+        return
 
     @staticmethod
     def _wait_pending_with_updater(updater: Any) -> None:

@@ -25,6 +25,16 @@ def build_dataset(
     val_num_windows: int | None = None,
     test_batch_size: int | None = None,
     test_num_windows: int | None = None,
+    split_mode: str = "fixed",
+    adaptive_split: bool = False,
+    adaptive_split_graph_feature: float = 0.5,
+    adaptive_split_alpha: float = 1.0,
+    adaptive_split_beta: float = 0.5,
+    adaptive_split_aggl: float | None = None,
+    adaptive_split_enable_drop: bool = False,
+    adaptive_split_drop_rate: float = 0.8,
+    adaptive_split_window_size: int = 1000,
+    adaptive_split_fallback: bool = True,
     lags: int = 1,
     random_node_feat_dim: int = 0,
     random_node_feat_seed: int = 0,
@@ -65,6 +75,9 @@ def build_dataset(
     split_time_ptr: dict[str, Tensor] | None = None
     if mode == "event":
         split_time_ptr = _event_split_time_ptr(
+            src=src,
+            dst=dst,
+            ts=ts,
             split=split,
             batch_size=batch_size,
             num_windows=num_windows,
@@ -74,6 +87,16 @@ def build_dataset(
             val_num_windows=val_num_windows,
             test_batch_size=test_batch_size,
             test_num_windows=test_num_windows,
+            split_mode=split_mode,
+            adaptive_split=adaptive_split,
+            adaptive_split_graph_feature=adaptive_split_graph_feature,
+            adaptive_split_alpha=adaptive_split_alpha,
+            adaptive_split_beta=adaptive_split_beta,
+            adaptive_split_aggl=adaptive_split_aggl,
+            adaptive_split_enable_drop=adaptive_split_enable_drop,
+            adaptive_split_drop_rate=adaptive_split_drop_rate,
+            adaptive_split_window_size=adaptive_split_window_size,
+            adaptive_split_fallback=adaptive_split_fallback,
         )
         time_ptr_2 = torch.cat([split_time_ptr["train"], split_time_ptr["val"], split_time_ptr["test"]], dim=0)
     elif mode == "snapshot":
@@ -447,6 +470,9 @@ def _event_time_ptr(*, num_edges: int, batch_size: int | None, num_windows: int 
 
 def _event_split_time_ptr(
     *,
+    src: Tensor,
+    dst: Tensor,
+    ts: Tensor,
     split: Tensor,
     batch_size: int | None,
     num_windows: int | None,
@@ -456,8 +482,22 @@ def _event_split_time_ptr(
     val_num_windows: int | None,
     test_batch_size: int | None,
     test_num_windows: int | None,
+    split_mode: str = "fixed",
+    adaptive_split: bool = False,
+    adaptive_split_graph_feature: float = 0.5,
+    adaptive_split_alpha: float = 1.0,
+    adaptive_split_beta: float = 0.5,
+    adaptive_split_aggl: float | None = None,
+    adaptive_split_enable_drop: bool = False,
+    adaptive_split_drop_rate: float = 0.8,
+    adaptive_split_window_size: int = 1000,
+    adaptive_split_fallback: bool = True,
 ) -> dict[str, Tensor]:
     split = split.to(torch.uint8).cpu()
+    src = src.long().cpu().contiguous()
+    dst = dst.long().cpu().contiguous()
+    ts = ts.cpu().contiguous()
+    use_adaptive = bool(adaptive_split) or str(split_mode).strip().lower() in {"adaptive", "adaptive_split", "auto"}
     split_cfg = {
         0: (train_batch_size if train_batch_size is not None else batch_size, train_num_windows if train_num_windows is not None else num_windows),
         1: (val_batch_size if val_batch_size is not None else batch_size, val_num_windows if val_num_windows is not None else num_windows),
@@ -471,13 +511,105 @@ def _event_split_time_ptr(
             out[names[sid]] = torch.zeros((0, 2), dtype=torch.long)
             continue
         bsz, nw = split_cfg[sid]
-        local_ptr = _event_time_ptr(num_edges=int(idx.numel()), batch_size=bsz, num_windows=nw)
+        if use_adaptive:
+            local_ptr = _event_adaptive_time_ptr(
+                src=src.index_select(0, idx),
+                dst=dst.index_select(0, idx),
+                ts=ts.index_select(0, idx),
+                batch_size=bsz,
+                num_windows=nw,
+                graph_feature=float(adaptive_split_graph_feature),
+                alpha=float(adaptive_split_alpha),
+                beta=float(adaptive_split_beta),
+                aggl=adaptive_split_aggl,
+                enable_drop=bool(adaptive_split_enable_drop),
+                drop_rate=float(adaptive_split_drop_rate),
+                window_size=int(adaptive_split_window_size),
+                fallback=bool(adaptive_split_fallback),
+            )
+        else:
+            local_ptr = _event_time_ptr(num_edges=int(idx.numel()), batch_size=bsz, num_windows=nw)
         start = int(idx[0])
         rows: list[list[int]] = []
         for begin, end in local_ptr.tolist():
             rows.append([start + int(begin), start + int(end)])
         out[names[sid]] = torch.tensor(rows, dtype=torch.long) if rows else torch.zeros((0, 2), dtype=torch.long)
     return out
+
+
+def _event_adaptive_time_ptr(
+    *,
+    src: Tensor,
+    dst: Tensor,
+    ts: Tensor,
+    batch_size: int | None,
+    num_windows: int | None,
+    graph_feature: float,
+    alpha: float,
+    beta: float,
+    aggl: float | None,
+    enable_drop: bool,
+    drop_rate: float,
+    window_size: int,
+    fallback: bool,
+) -> Tensor:
+    num_edges = int(src.numel())
+    if num_edges <= 1:
+        return _event_time_ptr(num_edges=num_edges, batch_size=batch_size, num_windows=num_windows)
+    if batch_size is None:
+        batch_size = max(1, int(math.ceil(num_edges / max(1, int(num_windows or 1)))))
+    try:
+        from atc_starrygl_lib.lib.loader import load_adaptive_split_module
+
+        native = load_adaptive_split_module()
+        aggl_value = _adaptive_aggl(src=src, dst=dst) if aggl is None else float(aggl)
+        result = native.adaptive_split(
+            src.long().contiguous(),
+            dst.long().contiguous(),
+            ts.to(torch.float64).contiguous(),
+            int(batch_size),
+            float(graph_feature),
+            float(alpha),
+            float(beta),
+            float(aggl_value),
+            bool(enable_drop),
+            float(drop_rate),
+            int(window_size),
+        )
+        group_index = result.group_index.long().cpu().contiguous()
+        if bool(enable_drop):
+            keep = result.keep_indices.long().cpu().contiguous()
+            expected = torch.arange(num_edges, dtype=torch.long)
+            if int(keep.numel()) != num_edges or not torch.equal(keep, expected):
+                raise ValueError("adaptive split edge dropping is not supported by split_time_ptr artifacts")
+        return _time_ptr_from_group_index(group_index, num_edges=num_edges)
+    except Exception:
+        if not fallback:
+            raise
+        return _event_time_ptr(num_edges=num_edges, batch_size=batch_size, num_windows=num_windows)
+
+
+def _adaptive_aggl(*, src: Tensor, dst: Tensor) -> float:
+    if src.numel() == 0:
+        return 0.0
+    touched = torch.unique(torch.cat([src.long(), dst.long()], dim=0), sorted=False)
+    return float(touched.numel()) / float(max(1, int(src.numel()) * 2))
+
+
+def _time_ptr_from_group_index(group_index: Tensor, *, num_edges: int) -> Tensor:
+    if int(group_index.numel()) != int(num_edges):
+        raise ValueError("adaptive split group_index length does not match edge count")
+    if num_edges == 0:
+        return torch.zeros((0, 2), dtype=torch.long)
+    changes = (group_index[1:] != group_index[:-1]).nonzero(as_tuple=True)[0] + 1
+    boundaries = torch.cat(
+        [
+            torch.zeros((1,), dtype=torch.long),
+            changes.long(),
+            torch.tensor([int(num_edges)], dtype=torch.long),
+        ]
+    )
+    return torch.stack([boundaries[:-1], boundaries[1:]], dim=1).long().contiguous()
 
 
 def _snapshot_time_ptr(*, snapshot_ptr: Tensor, lags: int) -> Tensor:

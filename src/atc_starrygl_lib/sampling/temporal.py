@@ -124,6 +124,9 @@ class EdgeCommLayout:
     compute_to_comm: Tensor
     time_ptr: Optional[Tensor] = None
     replica_mask: Optional[Tensor] = None
+    read_index: Optional[Tensor] = None
+    read_ptr: Optional[Tensor] = None
+    compute_to_feature: Optional[Tensor] = None
 
 
 @dataclass

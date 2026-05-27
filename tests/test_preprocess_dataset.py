@@ -51,6 +51,27 @@ def test_event_split_then_batch_with_per_split_configs() -> None:
     assert out["time_ptr_2"].tolist() == [[0, 2], [2, 4], [4, 6], [6, 7], [7, 8], [8, 9], [9, 10]]
 
 
+def test_event_adaptive_split_mode_builds_split_time_ptr() -> None:
+    data = {
+        "src": torch.tensor([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]),
+        "dst": torch.tensor([1, 0, 1, 0, 1, 0, 1, 0, 1, 0]),
+        "ts": torch.arange(10).float(),
+    }
+
+    out = build_dataset(
+        data=data,
+        mode="event",
+        train_ratio=1.0,
+        val_ratio=0.0,
+        batch_size=3,
+        split_mode="adaptive",
+        adaptive_split_fallback=False,
+    )
+
+    assert out["split_time_ptr"]["train"].tolist() == [[0, 3], [3, 6], [6, 10]]
+    assert out["time_ptr_2"].tolist() == [[0, 3], [3, 6], [6, 10]]
+
+
 def test_event_can_generate_deterministic_random_node_features() -> None:
     data = {
         "src": torch.tensor([0, 1]),

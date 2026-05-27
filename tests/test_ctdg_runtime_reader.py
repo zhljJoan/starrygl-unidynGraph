@@ -6,6 +6,7 @@ from atc_starrygl_lib.comm.dist_index import dist_index_is_shared, dist_index_lo
 from atc_starrygl_lib.core.types import ArtifactBundle, RuntimeContext
 from atc_starrygl_lib.ctdg.runtime.backend import (
     MemShareTemporalSamplingBackend,
+    _attach_precomputed_commit_roots,
     _remap_batch_root_indices,
     _build_sampler_temporal_graph,
     _populate_commit_rows,
@@ -385,6 +386,54 @@ def test_native_compact_sampling_uses_unique_head_rows_with_root_inverse() -> No
     assert out.mfgs[0].dst_lids.tolist() == [0, 1]
 
 
+def test_native_compact_sampling_exports_edge_feature_read_layout() -> None:
+    graph_data = _build_sampler_temporal_graph(
+        graph={
+            "src": torch.tensor([0, 0], dtype=torch.long),
+            "dst": torch.tensor([1, 2], dtype=torch.long),
+            "ts": torch.tensor([1, 1], dtype=torch.long),
+            "edge_ids": torch.tensor([0, 1], dtype=torch.long),
+        },
+        num_nodes=3,
+        node_part=None,
+        edge_owner=torch.tensor([1, 0], dtype=torch.long),
+        add_reverse_edges=False,
+        edge_read_dist_index=encode_dist_index(
+            torch.tensor([3, 1], dtype=torch.long),
+            torch.tensor([1, 0], dtype=torch.long),
+        ),
+    )
+    sampler = MemShareNativeSamplerFactory(graph_name="unit_edge_read_layout").build(
+        graph_data,
+        NativeSamplerConfig(
+            fanouts=(2,),
+            num_layers=1,
+            policy="recent",
+            workers=1,
+            world_size=2,
+        ),
+    )
+
+    out = sampler.sample(
+        TemporalSamplingRequest(
+            roots=RootSet(
+                nodes=torch.tensor([1, 2], dtype=torch.long),
+                ts=torch.tensor([2, 2], dtype=torch.long),
+                groups={},
+            ),
+            fanouts=(),
+            num_layers=0,
+            policy="runtime",
+        )
+    )
+
+    assert out.edge_compute.edge_gids.tolist() == [0, 1]
+    assert out.edge_comm.read_ptr.tolist() == [0, 1, 2]
+    assert dist_index_part(out.edge_comm.read_index).tolist() == [0, 1]
+    assert dist_index_loc(out.edge_comm.read_index).tolist() == [1, 3]
+    assert out.edge_comm.compute_to_feature.tolist() == [1, 0]
+
+
 def test_build_memory_replica_index_targets_only_remote_shared_rows() -> None:
     dist = {
         "master_dist_index": torch.cat(
@@ -579,6 +628,80 @@ def test_remap_batch_root_indices_uses_sampling_inverse_mapping() -> None:
     assert batch.pos_src is not None and batch.pos_src.tolist() == [0]
     assert batch.pos_dst is not None and batch.pos_dst.tolist() == [0]
     assert batch.neg_dst is not None and batch.neg_dst.tolist() == [1]
+
+
+def test_remap_batch_root_indices_maps_precomputed_commit_roots() -> None:
+    from atc_starrygl_lib.core.types import Batch
+
+    batch = Batch(
+        split="train",
+        roots=torch.tensor([10, 11, 12, 13], dtype=torch.long),
+        timestamps=torch.tensor([1.0, 1.0, 2.0, 2.0], dtype=torch.float32),
+        graph=[[_FakeBlock()]],
+        commit_memory_nodes=torch.tensor([11, 13], dtype=torch.long),
+        commit_memory_root_pos=torch.tensor([1, 3], dtype=torch.long),
+        commit_mailbox_nodes=torch.tensor([11, 13], dtype=torch.long),
+        commit_mailbox_self_root_pos=torch.tensor([1, 3], dtype=torch.long),
+        commit_mailbox_peer_root_pos=torch.tensor([3, 1], dtype=torch.long),
+        commit_mailbox_edge_pos=torch.tensor([1, 1], dtype=torch.long),
+        commit_mailbox_ts=torch.tensor([1.0, 2.0], dtype=torch.float32),
+    )
+    output = _FakeSamplingOutput(
+        idx=0,
+        groups={},
+        root_lids=torch.tensor([7, 8, 9, 10], dtype=torch.long),
+    )
+
+    _remap_batch_root_indices(batch, output)
+    _populate_commit_rows(batch)
+
+    assert batch.commit_memory_rows is not None and batch.commit_memory_rows.tolist() == [8, 10]
+    assert batch.commit_mailbox_self_rows is not None and batch.commit_mailbox_self_rows.tolist() == [8, 10]
+    assert batch.commit_mailbox_peer_rows is not None and batch.commit_mailbox_peer_rows.tolist() == [10, 8]
+    assert batch.commit_src_rows is None
+    assert batch.commit_dst_rows is None
+
+
+def test_attach_precomputed_commit_roots_adds_memory_write_layout() -> None:
+    from atc_starrygl_lib.core.types import Batch
+
+    batch = Batch(
+        split="train",
+        roots=torch.tensor([10, 11, 12, 13], dtype=torch.long),
+        timestamps=torch.tensor([1.0, 2.0, 1.0, 2.0], dtype=torch.float32),
+    )
+    rank = {
+        "update_node_ptr": torch.tensor([0, 2], dtype=torch.long),
+        "update_node_ids": torch.tensor([10, 13], dtype=torch.long),
+        "update_node_ts": torch.tensor([1.0, 2.0], dtype=torch.float32),
+        "update_event_pos": torch.tensor([0, 1], dtype=torch.long),
+        "update_endpoint": torch.tensor([0, 1], dtype=torch.long),
+        "memory_write_route": {
+            "ptr": torch.tensor([0, 2], dtype=torch.long),
+            "target_ptr": torch.tensor([[0, 1, 2]], dtype=torch.long),
+            "target_index": encode_dist_index(
+                torch.tensor([5, 7], dtype=torch.long),
+                torch.tensor([0, 1], dtype=torch.long),
+            ),
+            "source_pos": torch.tensor([0, 1], dtype=torch.long),
+        },
+    }
+
+    _attach_precomputed_commit_roots(
+        batch,
+        rank_artifact=rank,
+        window_index=0,
+        event_pos=torch.tensor([0, 1], dtype=torch.long),
+        num_edges=2,
+        device=torch.device("cpu"),
+    )
+
+    assert batch.commit_memory_nodes is not None and batch.commit_memory_nodes.tolist() == [10, 13]
+    assert batch.commit_memory_source_pos is not None and batch.commit_memory_source_pos.tolist() == [0, 1]
+    assert batch.commit_memory_target_ptr is not None and batch.commit_memory_target_ptr.tolist() == [0, 1, 2]
+    assert batch.commit_memory_target_index is not None
+    assert dist_index_part(batch.commit_memory_target_index).tolist() == [0, 1]
+    assert dist_index_loc(batch.commit_memory_target_index).tolist() == [5, 7]
 
 
 class _FakeBlock:

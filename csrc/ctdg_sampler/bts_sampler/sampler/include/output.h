@@ -60,6 +60,9 @@ class NativeSamplingOutput
         vector<EdgeIDType> edge_gids;
         vector<TimeStampType> edge_ts;
         vector<int64_t> edge_layer_ptr;
+        vector<int64_t> edge_read_index;
+        vector<int64_t> edge_read_ptr;
+        vector<int64_t> compute_to_edge_feature;
 
         NativeSamplingOutput(){}
 };

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import os
+import time
 from typing import Any, Literal
 
 import torch
@@ -8,7 +11,14 @@ from torch import Tensor
 from atc_starrygl_lib.lib import is_bts_sampler_available, load_bts_sampler_module
 
 DIST_FORMAT = "atc_dist_v1"
-PartitionAlgorithm = Literal["metis", "speed_partition", "chunk_load_balance"]
+PartitionAlgorithm = Literal["metis", "speed_partition", "chunk_load_balance", "temporal_hot_chunk_balance"]
+
+
+def _timed_dist_stage(name: str, t0: float) -> float:
+    now = time.perf_counter()
+    if os.environ.get("ATC_PREPROCESS_TIMING"):
+        print(json.dumps({"dist_stage": name, "seconds": now - t0}), flush=True)
+    return now
 
 
 def build_dist_plan(
@@ -26,6 +36,8 @@ def build_dist_plan(
     node_count_weight: float = 1.0,
     speed_beta: float = 0.5,
     speed_topk_type: str = "degree",
+    chunk_affinity_weight: float = 0.05,
+    chunk_local_search_iters: int = 2000,
 ) -> dict[str, Any]:
     """Build the shared global partition plan for CTDG and DTDG.
 
@@ -42,6 +54,7 @@ def build_dist_plan(
     chunks_per_rank = int(chunks_per_rank)
     num_edges = int(src.numel())
     speed_layout: dict[str, Any] = {}
+    t_stage = time.perf_counter()
     if algorithm == "speed_partition":
         speed = run_speed_partition(
             src=src,
@@ -53,6 +66,7 @@ def build_dist_plan(
             topk_ratio=float(hot_ratio),
             topk_type=str(speed_topk_type),
         )
+        t_stage = _timed_dist_stage("speed_partition", t_stage)
         node_owner = speed["node_owner"].long()
         edge_owner = speed["edge_owner"].long()
         replica_mask = speed["replica_mask"].bool()
@@ -66,6 +80,7 @@ def build_dist_plan(
             chunks_per_rank=chunks_per_rank,
             world_size=world_size,
         )
+        t_stage = _timed_dist_stage("local_metis_chunks", t_stage)
     elif algorithm == "metis":
         node_owner = run_metis_partition(src=src, dst=dst, num_nodes=num_nodes, world_size=world_size)
         replica_mask, hot_node_ids, node_master = normalize_replica(
@@ -105,10 +120,62 @@ def build_dist_plan(
             hot_topk=int(hot_topk),
         )
         edge_owner = chunk_owner.index_select(0, node_to_chunk.index_select(0, dst))
+    elif algorithm == "temporal_hot_chunk_balance":
+        speed = run_speed_partition(
+            src=src,
+            dst=dst,
+            ts=ts_cpu,
+            num_nodes=num_nodes,
+            world_size=world_size,
+            beta=float(speed_beta),
+            topk_ratio=float(hot_ratio),
+            topk_type=str(speed_topk_type),
+        )
+        t_stage = _timed_dist_stage("speed_partition", t_stage)
+        base_node_owner = speed["node_owner"].long()
+        hot_node_ids = speed["hot_node_ids"].long()
+        node_to_chunk, chunk_ptr, chunk_nodes, base_chunk_owner = build_local_load_balanced_chunks(
+            src=src,
+            dst=dst,
+            node_owner=base_node_owner,
+            chunks_per_rank=chunks_per_rank,
+            world_size=world_size,
+        )
+        t_stage = _timed_dist_stage("local_load_balanced_chunks", t_stage)
+        num_chunks = int(base_chunk_owner.numel())
+        chunk_load = compute_chunk_event_load(
+            src=src,
+            dst=dst,
+            node_to_chunk=node_to_chunk,
+            time_ptr_2=time_ptr_2,
+            num_chunks=num_chunks,
+        )
+        t_stage = _timed_dist_stage("chunk_event_load", t_stage)
+        chunk_owner = assign_chunks_temporal_hot_balance(
+            chunk_load=chunk_load,
+            src=src,
+            dst=dst,
+            node_to_chunk=node_to_chunk,
+            hot_node_ids=hot_node_ids,
+            world_size=world_size,
+            chunks_per_rank=chunks_per_rank,
+            affinity_weight=float(chunk_affinity_weight),
+            local_search_iters=int(chunk_local_search_iters),
+            initial_owner=base_chunk_owner,
+        )
+        t_stage = _timed_dist_stage("chunk_assignment", t_stage)
+        node_owner = chunk_owner.index_select(0, node_to_chunk)
+        replica_mask, hot_node_ids, node_master = normalize_replica(
+            src=src,
+            dst=dst,
+            node_owner=node_owner,
+            hot_node_ids=hot_node_ids,
+        )
+        edge_owner = chunk_owner.index_select(0, node_to_chunk.index_select(0, dst))
     else:
         raise ValueError(f"unsupported partition algorithm: {algorithm}")
 
-    if algorithm != "chunk_load_balance":
+    if algorithm not in {"chunk_load_balance", "temporal_hot_chunk_balance"}:
         chunk_load = compute_chunk_load(
             src=src,
             dst=dst,
@@ -180,6 +247,50 @@ def build_global_metis_chunks(*, src: Tensor, dst: Tensor, num_nodes: int, num_c
     return run_metis_partition(src=src, dst=dst, num_nodes=int(num_nodes), world_size=int(num_chunks))
 
 
+def build_local_load_balanced_chunks(
+    *,
+    src: Tensor,
+    dst: Tensor,
+    node_owner: Tensor,
+    chunks_per_rank: int,
+    world_size: int,
+) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    """Split each rank's nodes into cheap load-balanced chunks.
+
+    This is intentionally lighter than per-rank METIS.  The base rank owner
+    still comes from the fast native partitioner; chunks only add a finer
+    static unit for temporal reassignment experiments.
+    """
+
+    src = src.long().cpu().contiguous()
+    dst = dst.long().cpu().contiguous()
+    node_owner = node_owner.long().cpu().contiguous()
+    chunks_per_rank = int(chunks_per_rank)
+    world_size = int(world_size)
+    num_nodes = int(node_owner.numel())
+    num_chunks = world_size * chunks_per_rank
+    if chunks_per_rank <= 0:
+        raise ValueError("chunks_per_rank must be positive")
+    degree = torch.zeros(num_nodes, dtype=torch.long)
+    ones = torch.ones(int(src.numel()), dtype=torch.long)
+    degree.scatter_add_(0, src, ones)
+    degree.scatter_add_(0, dst, ones)
+    node_to_chunk = torch.empty(num_nodes, dtype=torch.long)
+    for rank in range(world_size):
+        nodes = (node_owner == rank).nonzero(as_tuple=True)[0]
+        if nodes.numel() == 0:
+            continue
+        if chunks_per_rank == 1:
+            node_to_chunk[nodes] = rank * chunks_per_rank
+            continue
+        order = nodes[torch.argsort(degree.index_select(0, nodes), descending=True, stable=True)]
+        local_chunk = torch.arange(int(order.numel()), dtype=torch.long) % chunks_per_rank
+        node_to_chunk[order] = rank * chunks_per_rank + local_chunk
+    chunk_ptr, chunk_nodes = build_chunk_csr(node_to_chunk=node_to_chunk, num_chunks=num_chunks)
+    chunk_owner = torch.arange(num_chunks, dtype=torch.long) // chunks_per_rank
+    return node_to_chunk, chunk_ptr, chunk_nodes, chunk_owner
+
+
 def build_chunk_csr(*, node_to_chunk: Tensor, num_chunks: int) -> tuple[Tensor, Tensor]:
     node_to_chunk = node_to_chunk.long().cpu().contiguous()
     order = torch.argsort(node_to_chunk, stable=True)
@@ -223,6 +334,29 @@ def compute_chunk_load(
     return load
 
 
+def compute_chunk_event_load(
+    *,
+    src: Tensor,
+    dst: Tensor,
+    node_to_chunk: Tensor,
+    time_ptr_2: Tensor,
+    num_chunks: int,
+) -> Tensor:
+    del src
+    dst = dst.long().cpu()
+    node_to_chunk = node_to_chunk.long().cpu()
+    time_ptr_2 = time_ptr_2.long().cpu()
+    load = torch.zeros(int(time_ptr_2.size(0)), int(num_chunks), dtype=torch.float32)
+    for t in range(int(time_ptr_2.size(0))):
+        begin = int(time_ptr_2[t, 0])
+        end = int(time_ptr_2[t, 1])
+        if end <= begin:
+            continue
+        chunks = node_to_chunk.index_select(0, dst[begin:end])
+        load[t] = torch.bincount(chunks, minlength=int(num_chunks)).float()
+    return load
+
+
 def assign_chunks_by_load(chunk_load: Tensor, *, world_size: int) -> Tensor:
     chunk_load = chunk_load.float().cpu()
     mean = chunk_load.mean(dim=0)
@@ -232,6 +366,221 @@ def assign_chunks_by_load(chunk_load: Tensor, *, world_size: int) -> Tensor:
     for idx, cid in enumerate(order.tolist()):
         owner[int(cid)] = int(idx % int(world_size))
     return owner
+
+
+def assign_chunks_temporal_hot_balance(
+    *,
+    chunk_load: Tensor,
+    src: Tensor,
+    dst: Tensor,
+    node_to_chunk: Tensor,
+    hot_node_ids: Tensor | None,
+    world_size: int,
+    chunks_per_rank: int,
+    affinity_weight: float = 0.05,
+    local_search_iters: int = 2000,
+    initial_owner: Tensor | None = None,
+) -> Tensor:
+    """Assign chunks with per-time-slice balance and non-hot endpoint locality.
+
+    The hard capacity is exactly ``chunks_per_rank`` chunks per rank.  Locality
+    is a soft term based on chunk-to-chunk edge affinity with hot endpoints
+    exempted, so the assignment complements hot-node replication instead of
+    competing with it.
+    """
+
+    chunk_load = chunk_load.float().cpu().contiguous()
+    src = src.long().cpu().contiguous()
+    dst = dst.long().cpu().contiguous()
+    node_to_chunk = node_to_chunk.long().cpu().contiguous()
+    world_size = int(world_size)
+    chunks_per_rank = int(chunks_per_rank)
+    num_chunks = int(chunk_load.size(1))
+    if world_size <= 0 or chunks_per_rank <= 0:
+        raise ValueError("world_size and chunks_per_rank must be positive")
+    if num_chunks != world_size * chunks_per_rank:
+        raise ValueError("temporal_hot_chunk_balance requires num_chunks == world_size * chunks_per_rank")
+
+    affinity = _non_hot_chunk_affinity(
+        src=src,
+        dst=dst,
+        node_to_chunk=node_to_chunk,
+        hot_node_ids=hot_node_ids,
+        num_chunks=num_chunks,
+    )
+    if initial_owner is None:
+        owner = _greedy_temporal_chunk_assign(
+            chunk_load=chunk_load,
+            affinity=affinity,
+            world_size=world_size,
+            chunks_per_rank=chunks_per_rank,
+            affinity_weight=float(affinity_weight),
+        )
+    else:
+        owner = initial_owner.long().cpu().contiguous()
+        if int(owner.numel()) != num_chunks:
+            raise ValueError("initial_owner must have one value per chunk")
+        counts = torch.bincount(owner, minlength=world_size)
+        if counts.numel() < world_size or any(int(v) != chunks_per_rank for v in counts[:world_size].tolist()):
+            raise ValueError("initial_owner must satisfy the fixed chunks_per_rank capacity")
+    if int(local_search_iters) > 0:
+        owner = _refine_chunk_assignment_by_swaps(
+            owner=owner,
+            chunk_load=chunk_load,
+            affinity=affinity,
+            world_size=world_size,
+            affinity_weight=float(affinity_weight),
+            max_iters=int(local_search_iters),
+        )
+    return owner.long().contiguous()
+
+
+def _greedy_temporal_chunk_assign(
+    *,
+    chunk_load: Tensor,
+    affinity: Tensor,
+    world_size: int,
+    chunks_per_rank: int,
+    affinity_weight: float,
+) -> Tensor:
+    target = chunk_load.sum(dim=1) / float(world_size)
+    rank_load = torch.zeros(int(world_size), int(chunk_load.size(0)), dtype=torch.float32)
+    rank_count = torch.zeros(int(world_size), dtype=torch.long)
+    owner = torch.full((int(chunk_load.size(1)),), -1, dtype=torch.long)
+    scalar = torch.linalg.vector_norm(chunk_load.t(), dim=1)
+    order = torch.argsort(scalar, descending=True, stable=True).tolist()
+    for cid in order:
+        best_rank = 0
+        best_score = None
+        load = chunk_load[:, int(cid)]
+        for rank in range(int(world_size)):
+            if int(rank_count[rank]) >= int(chunks_per_rank):
+                continue
+            load_score = torch.mean((rank_load[rank] + load - target) ** 2).item()
+            locality_score = _assigned_affinity_cut_delta(
+                cid=int(cid),
+                rank=int(rank),
+                owner=owner,
+                affinity=affinity,
+            )
+            score = float(load_score) + float(affinity_weight) * float(locality_score)
+            if best_score is None or score < best_score:
+                best_score = score
+                best_rank = int(rank)
+        owner[int(cid)] = int(best_rank)
+        rank_load[best_rank] += load
+        rank_count[best_rank] += 1
+    return owner
+
+
+def _refine_chunk_assignment_by_swaps(
+    *,
+    owner: Tensor,
+    chunk_load: Tensor,
+    affinity: Tensor,
+    world_size: int,
+    affinity_weight: float,
+    max_iters: int,
+) -> Tensor:
+    owner = owner.long().cpu().clone()
+    chunks_by_rank = [(owner == rank).nonzero(as_tuple=True)[0].long().tolist() for rank in range(int(world_size))]
+    best_score = _chunk_assignment_objective(
+        owner=owner,
+        chunk_load=chunk_load,
+        affinity=affinity,
+        world_size=world_size,
+        affinity_weight=affinity_weight,
+    )
+    stale = 0
+    max_stale = max(100, int(max_iters) // 10)
+    for step in range(int(max_iters)):
+        rank_a = step % int(world_size)
+        rank_b = (step * 7 + 1) % int(world_size)
+        if rank_a == rank_b or not chunks_by_rank[rank_a] or not chunks_by_rank[rank_b]:
+            continue
+        pos_a = (step * 13) % len(chunks_by_rank[rank_a])
+        pos_b = (step * 17) % len(chunks_by_rank[rank_b])
+        a = int(chunks_by_rank[rank_a][pos_a])
+        b = int(chunks_by_rank[rank_b][pos_b])
+        trial = owner.clone()
+        trial[a], trial[b] = trial[b].clone(), trial[a].clone()
+        score = _chunk_assignment_objective(
+            owner=trial,
+            chunk_load=chunk_load,
+            affinity=affinity,
+            world_size=world_size,
+            affinity_weight=affinity_weight,
+        )
+        if score + 1e-6 < best_score:
+            owner = trial
+            chunks_by_rank[rank_a][pos_a] = b
+            chunks_by_rank[rank_b][pos_b] = a
+            best_score = score
+            stale = 0
+        else:
+            stale += 1
+            if stale >= max_stale:
+                break
+    return owner
+
+
+def _chunk_assignment_objective(
+    *,
+    owner: Tensor,
+    chunk_load: Tensor,
+    affinity: Tensor,
+    world_size: int,
+    affinity_weight: float,
+) -> float:
+    target = chunk_load.sum(dim=1) / float(world_size)
+    load_score = 0.0
+    for rank in range(int(world_size)):
+        chunks = (owner == rank).nonzero(as_tuple=True)[0]
+        current = chunk_load[:, chunks].sum(dim=1) if chunks.numel() else torch.zeros_like(target)
+        load_score += float(torch.mean((current - target) ** 2).item())
+    cut_score = 0.0
+    nz = torch.nonzero(torch.triu(affinity, diagonal=1) > 0, as_tuple=False)
+    for row in nz:
+        i, j = int(row[0]), int(row[1])
+        if int(owner[i]) != int(owner[j]):
+            cut_score += float(affinity[i, j].item())
+    return float(load_score) + float(affinity_weight) * cut_score
+
+
+def _assigned_affinity_cut_delta(*, cid: int, rank: int, owner: Tensor, affinity: Tensor) -> float:
+    assigned = (owner >= 0).nonzero(as_tuple=True)[0]
+    if assigned.numel() == 0:
+        return 0.0
+    weights = affinity[int(cid)].index_select(0, assigned)
+    remote = owner.index_select(0, assigned) != int(rank)
+    return float(weights[remote].sum().item())
+
+
+def _non_hot_chunk_affinity(
+    *,
+    src: Tensor,
+    dst: Tensor,
+    node_to_chunk: Tensor,
+    hot_node_ids: Tensor | None,
+    num_chunks: int,
+) -> Tensor:
+    hot = torch.zeros(int(node_to_chunk.numel()), dtype=torch.bool)
+    if hot_node_ids is not None and int(hot_node_ids.numel()) > 0:
+        hot[hot_node_ids.long().cpu()] = True
+    src_chunk = node_to_chunk.index_select(0, src.long())
+    dst_chunk = node_to_chunk.index_select(0, dst.long())
+    keep = src_chunk != dst_chunk
+    keep = keep & ~(hot.index_select(0, src.long()) | hot.index_select(0, dst.long()))
+    affinity = torch.zeros(int(num_chunks), int(num_chunks), dtype=torch.float32)
+    if bool(keep.any().item()):
+        a = src_chunk[keep].long()
+        b = dst_chunk[keep].long()
+        flat_ab = a * int(num_chunks) + b
+        flat_ba = b * int(num_chunks) + a
+        ones = torch.ones(int(flat_ab.numel()), dtype=torch.float32)
+        affinity.view(-1).scatter_add_(0, flat_ab, ones)
+        affinity.view(-1).scatter_add_(0, flat_ba, ones)
+    return affinity
 
 
 def normalize_replica(

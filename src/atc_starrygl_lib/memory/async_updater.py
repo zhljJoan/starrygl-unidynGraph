@@ -7,6 +7,7 @@ import torch
 from torch import Tensor, nn
 import torch.distributed as dist
 
+from atc_starrygl_lib.comm.layouts import MailboxWriteLayout, MemoryWriteLayout
 from .mailbox_runtime import MailboxRuntime
 from .runtime import MemoryRuntime
 from .shared_sync import ReplicaPushIndex
@@ -196,7 +197,18 @@ class AsyncMemoryUpdateSpec:
     update_mailbox: bool = True
     memory_nodes: Tensor | None = None
     memory_rows: Tensor | None = None
+    memory_write_target_index: Tensor | None = None
+    memory_write_target_ptr: Tensor | None = None
+    memory_write_source_pos: Tensor | None = None
     mailbox_nodes: Tensor | None = None
+    mailbox_self_rows: Tensor | None = None
+    mailbox_peer_rows: Tensor | None = None
+    mailbox_edge_feat: Tensor | None = None
+    mailbox_ts: Tensor | None = None
+    mailbox_write_target_index: Tensor | None = None
+    mailbox_write_target_ptr: Tensor | None = None
+    mailbox_write_source_pos: Tensor | None = None
+    precomputed_commit: bool = False
     memory_replica_index: ReplicaPushIndex | None = None
     mailbox_replica_index: ReplicaPushIndex | None = None
     mailbox_snapshot: Tensor | None = None
@@ -240,8 +252,14 @@ class AsyncMemoryCommitter:
         updated_nodes: Tensor,
         updated_memory: Tensor,
         updated_ts: Tensor,
+        *,
+        write_layout: MemoryWriteLayout | None = None,
     ) -> AsyncCommitHandle:
-        mem_layout = self.memory_runtime.build_write_layout(updated_nodes)
+        mem_layout = (
+            write_layout
+            if write_layout is not None
+            else self.memory_runtime.build_write_layout(updated_nodes)
+        )
         mem_handle = self.memory_runtime.write(mem_layout, updated_memory, updated_ts)
         return AsyncCommitHandle(memory_handle=mem_handle)
 
@@ -250,10 +268,16 @@ class AsyncMemoryCommitter:
         mailbox_nodes: Tensor,
         mailbox_msg: Tensor,
         mailbox_ts: Tensor,
+        *,
+        write_layout: MailboxWriteLayout | None = None,
     ) -> AsyncCommitHandle:
         if self.mailbox_runtime is None:
             return AsyncCommitHandle()
-        mail_layout = self.mailbox_runtime.build_write_layout(mailbox_nodes)
+        mail_layout = (
+            write_layout
+            if write_layout is not None
+            else self.mailbox_runtime.build_write_layout(mailbox_nodes)
+        )
         mail_handle = self.mailbox_runtime.write(mail_layout, mailbox_msg, mailbox_ts)
         return AsyncCommitHandle(mailbox_handle=mail_handle)
 
@@ -305,6 +329,8 @@ class AsyncMemoryCommitter:
         mailbox_replica_index: Optional[ReplicaPushIndex] = None,
         mailbox_snapshot: Optional[Tensor] = None,
         mailbox_snapshot_ts: Optional[Tensor] = None,
+        memory_write_layout: MemoryWriteLayout | None = None,
+        mailbox_write_layout: MailboxWriteLayout | None = None,
     ) -> AsyncCommitHandle:
         return _merge_handles(
             self.submit_shared(
@@ -317,8 +343,18 @@ class AsyncMemoryCommitter:
                 mailbox_snapshot=mailbox_snapshot,
                 mailbox_snapshot_ts=mailbox_snapshot_ts,
             ),
-            self.submit_p2p_memory(updated_nodes, updated_memory, updated_ts),
-            self.submit_p2p_mailbox(mailbox_nodes, mailbox_msg, mailbox_ts)
+            self.submit_p2p_memory(
+                updated_nodes,
+                updated_memory,
+                updated_ts,
+                write_layout=memory_write_layout,
+            ),
+            self.submit_p2p_mailbox(
+                mailbox_nodes,
+                mailbox_msg,
+                mailbox_ts,
+                write_layout=mailbox_write_layout,
+            )
             if mailbox_nodes is not None and mailbox_msg is not None and mailbox_ts is not None
             else AsyncCommitHandle(),
         )
@@ -424,6 +460,8 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
                 mailbox_replica_index=prepared.spec.mailbox_replica_index,
                 mailbox_snapshot=prepared.spec.mailbox_snapshot,
                 mailbox_snapshot_ts=prepared.spec.mailbox_snapshot_ts,
+                memory_write_layout=prepared.memory_write_layout,
+                mailbox_write_layout=prepared.mailbox_write_layout,
             )
             self.pending_shared_handle = None
             self.pending_async_handle = None
@@ -502,15 +540,23 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             prepared.memory_nodes,
             prepared.memory_values,
             prepared.memory_ts,
+            write_layout=prepared.memory_write_layout,
         )
 
     def submit_p2p_mailbox(self, prepared: "_PreparedCommitInputs") -> AsyncCommitHandle:
         if prepared.mailbox_nodes is None or prepared.mailbox_msg is None or prepared.mailbox_ts is None:
             return AsyncCommitHandle()
+        if prepared.mailbox_write_layout is None:
+            return self.committer.submit_p2p_mailbox(
+                prepared.mailbox_nodes,
+                prepared.mailbox_msg,
+                prepared.mailbox_ts,
+            )
         return self.committer.submit_p2p_mailbox(
             prepared.mailbox_nodes,
             prepared.mailbox_msg,
             prepared.mailbox_ts,
+            write_layout=prepared.mailbox_write_layout,
         )
 
     def _prepare_commit_inputs(self, spec: AsyncMemoryUpdateSpec) -> "_PreparedCommitInputs":
@@ -548,12 +594,32 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             if memory_values is None or memory_ts is None:
                 raise RuntimeError("memory_nodes are not covered by updated node ids")
             memory_ts = memory_ts.reshape(-1)
+        if not spec.precomputed_commit:
+            memory_nodes, memory_values, memory_ts = _latest_payload_by_key(memory_nodes, memory_values, memory_ts)
+        memory_write_layout = _memory_write_layout_from_spec(spec)
 
-        mailbox_nodes = spec.mailbox_nodes
+        mailbox_nodes = None
         mailbox_msg = None
         mailbox_ts = None
-        if spec.update_mailbox and spec.src is not None and spec.dst is not None and spec.ts is not None:
-            mailbox_nodes = torch.cat([spec.src, spec.dst], dim=0) if mailbox_nodes is None else mailbox_nodes
+        if (
+            spec.update_mailbox
+            and spec.mailbox_nodes is not None
+            and spec.mailbox_self_rows is not None
+            and spec.mailbox_peer_rows is not None
+            and spec.mailbox_ts is not None
+        ):
+            mailbox_nodes = spec.mailbox_nodes
+            self_rows = _checked_rows(spec.mailbox_self_rows, updated, name="mailbox_self_rows")
+            peer_rows = _checked_rows(spec.mailbox_peer_rows, updated, name="mailbox_peer_rows")
+            self_mem = updated.index_select(0, self_rows).reshape(int(self_rows.numel()), -1)
+            peer_mem = updated.index_select(0, peer_rows).reshape(int(peer_rows.numel()), -1)
+            mailbox_msg = torch.cat([self_mem, peer_mem], dim=-1)
+            if spec.mailbox_edge_feat is not None:
+                edge = spec.mailbox_edge_feat.to(self_mem.device, dtype=self_mem.dtype).reshape(int(self_rows.numel()), -1)
+                mailbox_msg = torch.cat([mailbox_msg, edge], dim=-1)
+            mailbox_ts = spec.mailbox_ts.reshape(-1)
+        elif spec.update_mailbox and spec.src is not None and spec.dst is not None and spec.ts is not None:
+            mailbox_nodes = torch.cat([spec.src, spec.dst], dim=0)
             if spec.src_rows is not None and spec.dst_rows is not None:
                 src_rows = _checked_rows(spec.src_rows, updated, name="src_rows")
                 dst_rows = _checked_rows(spec.dst_rows, updated, name="dst_rows")
@@ -566,6 +632,9 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             else:
                 mailbox_msg = _build_mailbox_messages(nid, updated, spec.src, spec.dst, spec.edge_feat)
             mailbox_ts = torch.cat([spec.ts, spec.ts], dim=0)
+        if mailbox_nodes is not None and mailbox_msg is not None and mailbox_ts is not None and not spec.precomputed_commit:
+            mailbox_nodes, mailbox_msg, mailbox_ts = _latest_payload_by_key(mailbox_nodes, mailbox_msg, mailbox_ts)
+        mailbox_write_layout = _mailbox_write_layout_from_spec(spec)
         shared_nodes = None
         shared_memory = None
         shared_ts = None
@@ -589,8 +658,8 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         shared_mailbox_nodes = None
         shared_mailbox_snapshot = None
         shared_mailbox_snapshot_ts = None
-        if spec.mailbox_replica_index is not None and mailbox_nodes is not None:
-            shared_mailbox_nodes = mailbox_nodes
+        if spec.mailbox_replica_index is not None and (spec.mailbox_nodes is not None or mailbox_nodes is not None):
+            shared_mailbox_nodes = spec.mailbox_nodes if spec.mailbox_nodes is not None else mailbox_nodes
             shared_mailbox_snapshot = spec.mailbox_snapshot
             shared_mailbox_snapshot_ts = spec.mailbox_snapshot_ts
 
@@ -599,9 +668,11 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             memory_nodes=memory_nodes,
             memory_values=memory_values,
             memory_ts=memory_ts,
+            memory_write_layout=memory_write_layout,
             mailbox_nodes=mailbox_nodes,
             mailbox_msg=mailbox_msg,
             mailbox_ts=mailbox_ts,
+            mailbox_write_layout=mailbox_write_layout,
             shared_nodes=shared_nodes,
             shared_memory=shared_memory,
             shared_ts=shared_ts,
@@ -705,15 +776,49 @@ def _normalize_increment(x: Tensor, eps: float = 1e-12) -> Tensor:
     return x / norm
 
 
+def _memory_write_layout_from_spec(spec: AsyncMemoryUpdateSpec) -> MemoryWriteLayout | None:
+    if not spec.precomputed_commit:
+        return None
+    if (
+        spec.memory_write_target_index is None
+        or spec.memory_write_target_ptr is None
+        or spec.memory_write_source_pos is None
+    ):
+        return None
+    return MemoryWriteLayout(
+        target_index=spec.memory_write_target_index.long().contiguous(),
+        target_ptr=spec.memory_write_target_ptr.long().contiguous(),
+        source_pos=spec.memory_write_source_pos.long().contiguous(),
+    )
+
+
+def _mailbox_write_layout_from_spec(spec: AsyncMemoryUpdateSpec) -> MailboxWriteLayout | None:
+    if not spec.precomputed_commit:
+        return None
+    if (
+        spec.mailbox_write_target_index is None
+        or spec.mailbox_write_target_ptr is None
+        or spec.mailbox_write_source_pos is None
+    ):
+        return None
+    return MailboxWriteLayout(
+        target_index=spec.mailbox_write_target_index.long().contiguous(),
+        target_ptr=spec.mailbox_write_target_ptr.long().contiguous(),
+        source_pos=spec.mailbox_write_source_pos.long().contiguous(),
+    )
+
+
 @dataclass(slots=True)
 class _PreparedCommitInputs:
     spec: AsyncMemoryUpdateSpec
     memory_nodes: Tensor
     memory_values: Tensor
     memory_ts: Tensor
+    memory_write_layout: MemoryWriteLayout | None = None
     mailbox_nodes: Tensor | None = None
     mailbox_msg: Tensor | None = None
     mailbox_ts: Tensor | None = None
+    mailbox_write_layout: MailboxWriteLayout | None = None
     shared_nodes: Tensor | None = None
     shared_memory: Tensor | None = None
     shared_ts: Tensor | None = None
@@ -809,6 +914,32 @@ def _safe_index(nid: Tensor, query: Tensor, values: Tensor) -> Tensor | None:
     if not torch.equal(sorted_nid[rows], query_s):
         return None
     return values[order[rows]]
+
+
+def _latest_payload_by_key(key: Tensor, payload: Tensor, ts: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    key = key.long().reshape(-1)
+    ts = ts.reshape(-1)
+    if key.numel() <= 1:
+        return key.contiguous(), payload.contiguous(), ts.contiguous()
+    unique, inverse = torch.unique(key, return_inverse=True)
+    if unique.numel() == key.numel():
+        return key.contiguous(), payload.contiguous(), ts.contiguous()
+    if torch.is_floating_point(ts):
+        init_value: float | int = float("-inf")
+    else:
+        init_value = torch.iinfo(ts.dtype).min
+    latest_ts = torch.full((unique.numel(),), init_value, dtype=ts.dtype, device=ts.device)
+    latest_ts.scatter_reduce_(0, inverse.to(ts.device), ts, reduce="amax", include_self=True)
+    pos = torch.arange(key.numel(), dtype=torch.long, device=key.device)
+    sentinel = torch.full_like(pos, key.numel())
+    selected_pos = torch.where(ts.to(key.device) == latest_ts.to(key.device).index_select(0, inverse), pos, sentinel)
+    selected = torch.full((unique.numel(),), key.numel(), dtype=torch.long, device=key.device)
+    selected.scatter_reduce_(0, inverse, selected_pos, reduce="amin", include_self=True)
+    return (
+        unique.contiguous(),
+        payload.index_select(0, selected.to(payload.device)).contiguous(),
+        latest_ts.contiguous(),
+    )
 
 
 def _merge_handles(*handles: AsyncCommitHandle) -> AsyncCommitHandle:

@@ -5,7 +5,7 @@ from typing import Any
 import torch
 from torch import Tensor
 
-from atc_starrygl_lib.comm.dist_index import encode_dist_index
+from atc_starrygl_lib.comm.dist_index import dist_index_part, encode_dist_index
 
 RANK_FORMAT = "atc_rank_v1"
 
@@ -50,6 +50,7 @@ def build_all_rank_artifacts(
         )
         for layout in layouts
     ]
+    layouts = finalize_memory_write_routes(layouts=layouts, dist_plan=dist_plan)
     layouts = finalize_memory_routes(layouts=layouts, dist_plan=dist_plan)
     split_cpu = torch.full((int(time_ptr_2.size(0)),), 0, dtype=torch.uint8) if split is None else split.to(torch.uint8).cpu()
     rank_artifacts = [
@@ -86,6 +87,9 @@ def build_all_rank_artifacts(
             "update_node_ids": layout["update_node_ids"],
             "update_node_ts": layout["update_node_ts"],
             "update_local_row": layout["update_local_row"],
+            "update_event_pos": layout["update_event_pos"],
+            "update_endpoint": layout["update_endpoint"],
+            "memory_write_route": layout["memory_write_route"],
             "memory_route": layout["memory_route"],
         }
         for layout in layouts
@@ -289,6 +293,8 @@ def finalize_update_nodes(
     node_parts: list[Tensor] = []
     ts_parts: list[Tensor] = []
     row_parts: list[Tensor] = []
+    event_parts: list[Tensor] = []
+    endpoint_parts: list[Tensor] = []
     for begin, end in time_ptr_2.tolist():
         begin, end = int(begin), int(end)
         if end <= begin:
@@ -301,6 +307,8 @@ def finalize_update_nodes(
             continue
         cand_nodes = torch.cat([src.index_select(0, eids), dst.index_select(0, eids)], dim=0).long()
         cand_ts = torch.cat([ts.index_select(0, eids), ts.index_select(0, eids)], dim=0)
+        cand_events = torch.cat([eids, eids], dim=0).long()
+        cand_endpoints = torch.cat([torch.zeros_like(eids), torch.ones_like(eids)], dim=0).long()
         rows = local_row.index_select(0, cand_nodes)
         keep = rows >= 0
         if not bool(keep.any()):
@@ -312,17 +320,28 @@ def finalize_update_nodes(
             node_parts.append(kept_nodes)
             ts_parts.append(kept_ts)
             row_parts.append(local_row.index_select(0, kept_nodes).long())
+            event_parts.append(cand_events[keep].long().contiguous())
+            endpoint_parts.append(cand_endpoints[keep].long().contiguous())
             ptr.append(ptr[-1] + int(kept_nodes.numel()))
         else:
-            nodes, max_ts = _unique_nodes_with_max_ts(cand_nodes[keep], cand_ts[keep])
+            nodes, max_ts, events, endpoints = _unique_nodes_with_max_ts_pos(
+                cand_nodes[keep],
+                cand_ts[keep],
+                cand_events[keep],
+                cand_endpoints[keep],
+            )
             node_parts.append(nodes)
             ts_parts.append(max_ts)
             row_parts.append(local_row.index_select(0, nodes).long())
+            event_parts.append(events)
+            endpoint_parts.append(endpoints)
             ptr.append(ptr[-1] + int(nodes.numel()))
     layout["update_node_ptr"] = torch.tensor(ptr, dtype=torch.long)
     layout["update_node_ids"] = torch.cat(node_parts, dim=0).long().contiguous() if node_parts else torch.empty(0, dtype=torch.long)
     layout["update_node_ts"] = torch.cat(ts_parts, dim=0).contiguous() if ts_parts else torch.empty(0, dtype=ts.dtype)
     layout["update_local_row"] = torch.cat(row_parts, dim=0).long().contiguous() if row_parts else torch.empty(0, dtype=torch.long)
+    layout["update_event_pos"] = torch.cat(event_parts, dim=0).long().contiguous() if event_parts else torch.empty(0, dtype=torch.long)
+    layout["update_endpoint"] = torch.cat(endpoint_parts, dim=0).long().contiguous() if endpoint_parts else torch.empty(0, dtype=torch.long)
     return layout
 
 
@@ -365,6 +384,59 @@ def finalize_memory_routes(
                 recvs[dst_rank]["dist_index"][t].append(target_index.long().contiguous())
     for rank, layout in enumerate(layouts):
         layout["memory_route"] = _pack_memory_route(sends[rank], recvs[rank])
+    return layouts
+
+
+def finalize_memory_write_routes(
+    *,
+    layouts: list[dict[str, Any]],
+    dist_plan: dict[str, Any],
+) -> list[dict[str, Any]]:
+    master_index = dist_plan["master_dist_index"].long().cpu().contiguous()
+    world_size = int(dist_plan["world_size"])
+    for layout in layouts:
+        ptr = layout["update_node_ptr"].long().cpu()
+        update_nodes = layout["update_node_ids"].long().cpu()
+        flat_target: list[Tensor] = []
+        flat_source: list[Tensor] = []
+        flat_ptr = [0]
+        target_ptr_rows: list[Tensor] = []
+        for t in range(max(int(ptr.numel()) - 1, 0)):
+            begin, end = int(ptr[t]), int(ptr[t + 1])
+            if end <= begin:
+                target_ptr_rows.append(torch.zeros(world_size + 1, dtype=torch.long))
+                flat_ptr.append(flat_ptr[-1])
+                continue
+            nodes = update_nodes[begin:end].long()
+            target = master_index.index_select(0, nodes).long()
+            source = torch.arange(begin, end, dtype=torch.long)
+            rank = dist_index_part(target)
+            order = torch.argsort(rank, stable=True)
+            grouped_target = target.index_select(0, order).long().contiguous()
+            grouped_source = source.index_select(0, order).long().contiguous()
+            target_ptr = _ptr_from_rank(rank.index_select(0, order), world_size)
+            flat_target.append(grouped_target)
+            flat_source.append(grouped_source)
+            target_ptr_rows.append(target_ptr.long().cpu().contiguous())
+            flat_ptr.append(flat_ptr[-1] + int(grouped_target.numel()))
+        layout["memory_write_route"] = {
+            "ptr": torch.tensor(flat_ptr, dtype=torch.long),
+            "target_ptr": (
+                torch.stack(target_ptr_rows, dim=0).long().contiguous()
+                if target_ptr_rows
+                else torch.zeros((0, world_size + 1), dtype=torch.long)
+            ),
+            "target_index": (
+                torch.cat(flat_target, dim=0).long().contiguous()
+                if flat_target
+                else torch.empty(0, dtype=torch.long)
+            ),
+            "source_pos": (
+                torch.cat(flat_source, dim=0).long().contiguous()
+                if flat_source
+                else torch.empty(0, dtype=torch.long)
+            ),
+        }
     return layouts
 
 
@@ -451,6 +523,30 @@ def _unique_nodes_with_max_ts(nodes: Tensor, ts: Tensor) -> tuple[Tensor, Tensor
     max_ts = torch.full((int(unique.numel()),), -float("inf"), dtype=ts.dtype)
     max_ts.scatter_reduce_(0, inverse.long(), ts, reduce="amax", include_self=True)
     return unique.long().contiguous(), max_ts.contiguous()
+
+
+def _ptr_from_rank(rank: Tensor, world_size: int) -> Tensor:
+    counts = torch.bincount(rank.long(), minlength=int(world_size))
+    ptr = torch.zeros(int(world_size) + 1, dtype=torch.long, device=rank.device)
+    ptr[1:] = counts.cumsum(0)
+    return ptr
+
+
+def _unique_nodes_with_max_ts_pos(nodes: Tensor, ts: Tensor, events: Tensor, endpoints: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    unique, inverse = torch.unique(nodes.long(), sorted=True, return_inverse=True)
+    max_ts = torch.full((int(unique.numel()),), -float("inf"), dtype=ts.dtype)
+    max_ts.scatter_reduce_(0, inverse.long(), ts, reduce="amax", include_self=True)
+    pos = torch.arange(int(nodes.numel()), dtype=torch.long)
+    sentinel = torch.full_like(pos, int(nodes.numel()))
+    selected_pos = torch.where(ts == max_ts.index_select(0, inverse.long()), pos, sentinel)
+    selected = torch.full((int(unique.numel()),), int(nodes.numel()), dtype=torch.long)
+    selected.scatter_reduce_(0, inverse.long(), selected_pos, reduce="amin", include_self=True)
+    return (
+        unique.long().contiguous(),
+        max_ts.contiguous(),
+        events.long().index_select(0, selected).contiguous(),
+        endpoints.long().index_select(0, selected).contiguous(),
+    )
 
 
 def _empty_send_accum(num_slices: int) -> dict[str, list[list[Tensor]]]:

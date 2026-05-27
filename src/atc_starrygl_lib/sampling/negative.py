@@ -63,11 +63,18 @@ class RandomNegativeSampler:
 class PoolNegativeSampler:
     """Destination sampler with split-aware local/remote/global pools."""
 
-    def __init__(self, train_remote_dst_prob: float = 0.0, test_policy: str = "global", train_local_dst_prob: float | None = None) -> None:
+    def __init__(
+        self,
+        train_remote_dst_prob: float = 0.0,
+        test_policy: str = "global",
+        train_local_dst_prob: float | None = None,
+        correction: str = "balanced",
+    ) -> None:
         if train_local_dst_prob is not None:
             train_remote_dst_prob = 1.0 - float(train_local_dst_prob)
         self.train_remote_dst_prob = min(1.0, max(0.0, float(train_remote_dst_prob)))
         self.test_policy = str(test_policy)
+        self.correction = str(correction).strip().lower()
 
     def sample(self, request: NegativeSamplingRequest) -> NegativeSamplingResult:
         if request.ratio <= 0:
@@ -89,7 +96,13 @@ class PoolNegativeSampler:
                 neg_src=neg_src,
                 neg_dst=torch.where(mask, remote_dst, local_dst),
                 ratio=int(request.ratio),
-                weight=_balanced_binary_partition_weight(mask),
+                weight=_local_remote_weight(
+                    mask,
+                    correction=self.correction,
+                    remote_prob=self.train_remote_dst_prob,
+                    local_pool_size=int(request.local_dst_pool.numel()),
+                    remote_pool_size=0 if request.remote_dst_pool is None else int(request.remote_dst_pool.numel()),
+                ),
             )
 
         if self.test_policy == "rank_local" and request.local_dst_pool is not None and request.local_dst_pool.numel() > 0:
@@ -194,4 +207,46 @@ def _balanced_binary_partition_weight(mask: Tensor) -> Tensor | None:
     weight = torch.empty((count,), dtype=torch.float32, device=mask.device)
     weight[mask] = float(count) / (2.0 * float(remote_count))
     weight[~mask] = float(count) / (2.0 * float(local_count))
+    return weight
+
+
+def _local_remote_weight(
+    mask: Tensor,
+    *,
+    correction: str,
+    remote_prob: float,
+    local_pool_size: int,
+    remote_pool_size: int,
+) -> Tensor | None:
+    if correction in {"", "none", "off", "false", "0"}:
+        return None
+    if correction in {"importance", "probability", "prob", "pool", "density"}:
+        return _local_remote_importance_weight(
+            mask,
+            remote_prob=remote_prob,
+            local_pool_size=local_pool_size,
+            remote_pool_size=remote_pool_size,
+        )
+    return _balanced_binary_partition_weight(mask)
+
+
+def _local_remote_importance_weight(
+    mask: Tensor,
+    *,
+    remote_prob: float,
+    local_pool_size: int,
+    remote_pool_size: int,
+) -> Tensor | None:
+    if mask.numel() == 0 or local_pool_size <= 0 or remote_pool_size <= 0:
+        return None
+    p_remote = min(1.0, max(0.0, float(remote_prob)))
+    p_local = 1.0 - p_remote
+    if p_remote <= 0.0 or p_local <= 0.0:
+        return None
+    total = float(local_pool_size + remote_pool_size)
+    local_weight = (float(local_pool_size) / total) / p_local
+    remote_weight = (float(remote_pool_size) / total) / p_remote
+    weight = torch.empty(mask.shape, dtype=torch.float32, device=mask.device)
+    weight[mask] = float(remote_weight)
+    weight[~mask] = float(local_weight)
     return weight
