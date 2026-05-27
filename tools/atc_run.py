@@ -653,7 +653,7 @@ def _init_dist(device_arg: str | None) -> tuple[int, int, int]:
     local_rank = int(os.environ.get("LOCAL_RANK", "0"))
     if world_size <= 1:
         return rank, world_size, local_rank
-    use_cuda = (device_arg or "").startswith("cuda") and torch.cuda.is_available()
+    use_cuda = torch.cuda.is_available() and (device_arg is None or str(device_arg).startswith("cuda"))
     backend = "nccl" if use_cuda else "gloo"
     if backend == "nccl":
         torch.cuda.set_device(local_rank)
