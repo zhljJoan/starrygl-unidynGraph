@@ -862,10 +862,17 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             peer_rows = _checked_rows(spec.mailbox_peer_rows, updated, name="mailbox_peer_rows")
             self_mem = updated.index_select(0, self_rows).reshape(int(self_rows.numel()), -1)
             peer_mem = updated.index_select(0, peer_rows).reshape(int(peer_rows.numel()), -1)
-            mailbox_msg = torch.cat([self_mem, peer_mem], dim=-1)
+            num_rows = int(self_rows.numel())
+            mem_dim = int(self_mem.size(1))
+            edge_dim = 0
             if spec.mailbox_edge_feat is not None:
-                edge = spec.mailbox_edge_feat.to(self_mem.device, dtype=self_mem.dtype).reshape(int(self_rows.numel()), -1)
-                mailbox_msg = torch.cat([mailbox_msg, edge], dim=-1)
+                edge_dim = int(spec.mailbox_edge_feat.reshape(num_rows, -1).size(1))
+            mailbox_msg = self_mem.new_empty((num_rows, mem_dim * 2 + edge_dim))
+            mailbox_msg[:, :mem_dim] = self_mem
+            mailbox_msg[:, mem_dim : mem_dim * 2] = peer_mem
+            if spec.mailbox_edge_feat is not None:
+                edge = spec.mailbox_edge_feat.to(self_mem.device, dtype=self_mem.dtype).reshape(num_rows, -1)
+                mailbox_msg[:, mem_dim * 2 :] = edge
             mailbox_ts = spec.mailbox_ts.reshape(-1)
         elif spec.update_mailbox and spec.src is not None and spec.dst is not None and spec.ts is not None:
             mailbox_nodes = torch.cat([spec.src, spec.dst], dim=0)

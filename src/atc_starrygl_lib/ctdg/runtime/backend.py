@@ -282,6 +282,7 @@ class _CTDGArtifactRuntime:
         prefetch_batches: bool = True,
         prefetch_sample_lookahead: int = 2,
         prefetch_read_lookahead: int = 1,
+        prefetch_read_lookahead_train_only: bool = False,
         edge_feature_source: str = "store",
         synthetic_edge_feat_seed: int = 0,
         train_cross_partition_non_hot_keep_prob: float = 1.0,
@@ -310,6 +311,7 @@ class _CTDGArtifactRuntime:
         self.prefetch_batches = bool(prefetch_batches)
         self.prefetch_sample_lookahead = max(1, int(prefetch_sample_lookahead))
         self.prefetch_read_lookahead = max(1, int(prefetch_read_lookahead))
+        self.prefetch_read_lookahead_train_only = bool(prefetch_read_lookahead_train_only)
         self.edge_feature_source = str(edge_feature_source).strip().lower()
         self.synthetic_edge_feat_seed = int(synthetic_edge_feat_seed)
         self.train_cross_partition_non_hot_keep_prob = float(train_cross_partition_non_hot_keep_prob)
@@ -417,6 +419,7 @@ class _CTDGArtifactRuntime:
             prefetch_batches=bool(runtime_cfg.get("prefetch_batches", True)),
             prefetch_sample_lookahead=int(runtime_cfg.get("prefetch_sample_lookahead", 2)),
             prefetch_read_lookahead=int(runtime_cfg.get("prefetch_read_lookahead", 1)),
+            prefetch_read_lookahead_train_only=bool(runtime_cfg.get("prefetch_read_lookahead_train_only", False)),
             edge_feature_source=str(runtime_cfg.get("edge_feature_source", "store")),
             synthetic_edge_feat_seed=int(runtime_cfg.get("synthetic_edge_feat_seed", graph.get("random_edge_feat_seed", 0))),
             train_cross_partition_non_hot_keep_prob=float(
@@ -646,6 +649,8 @@ class _CTDGArtifactRuntime:
     ) -> Iterator[Batch]:
         sample_lookahead = self.prefetch_sample_lookahead
         read_lookahead = self.prefetch_read_lookahead
+        if self.prefetch_read_lookahead_train_only and split != "train":
+            read_lookahead = 1
         sample_queue: AsyncWorkQueue[tuple[Batch, Any]] = AsyncWorkQueue(max_workers=1)
         read_queue: AsyncWorkQueue[tuple[Batch, Any, dict[str, tuple[Any, Any, Any]]]] = AsyncWorkQueue(max_workers=1)
         try:
