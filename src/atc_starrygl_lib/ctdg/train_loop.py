@@ -38,6 +38,12 @@ def train_epoch(
     sync_timing = bool(runtime_cfg.get("profile_sync_timing", False))
     sync_device = str(getattr(getattr(session, "ctx", None), "device", ""))
     schedule_async_commit = bool(runtime_cfg.get("schedule_async_commit", False))
+    if (
+        schedule_async_commit
+        and memory_commit is not None
+        and not _commit_waits_at_batch_boundary(memory_commit)
+    ):
+        schedule_async_commit = False
 
     epoch_t0 = time.perf_counter()
     losses: list[float] = []
@@ -73,24 +79,43 @@ def train_epoch(
     if memory_commit is not None and schedule_async_commit:
         commit_queue = AsyncWorkQueue(max_workers=1)
     iterator = iter(session.iter_batches(split))
+    next_batch = _next_batch(iterator)
     try:
-        while True:
+        while next_batch is not None:
             t_commit_wait = time.perf_counter()
             if commit_queue is None:
                 _wait_pending_memory_commit(memory_commit)
             else:
                 if _commit_waits_at_batch_boundary(memory_commit):
-                    _drain_commit_queue(commit_queue, wait_all=False)
+                    _drain_commit_queue(commit_queue, wait_all=True)
             sync_stage["memory_commit_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
             stage["memory_commit_seconds"] += float(time.perf_counter() - t_commit_wait)
             t_wait = time.perf_counter()
-            try:
-                batch = next(iterator)
-            except StopIteration:
-                break
+            batch = next_batch
+            next_batch = _next_batch(iterator)
+            has_next_batch = next_batch is not None
             sync_stage["batch_wait_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
             stage["batch_wait_seconds"] += float(time.perf_counter() - t_wait)
             optimizer.zero_grad(set_to_none=True)
+            if _is_empty_edge_batch(batch):
+                t_backward = time.perf_counter()
+                loss = _zero_loss_from_modules(encoder, head, batch=batch)
+                loss.backward()
+                sync_stage["backward_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
+                stage["backward_seconds"] += float(time.perf_counter() - t_backward)
+                t_step = time.perf_counter()
+                optimizer.step()
+                sync_stage["optimizer_step_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
+                stage["optimizer_step_seconds"] += float(time.perf_counter() - t_step)
+                if memory_commit is not None:
+                    if commit_queue is None:
+                        _run_empty_memory_commit(memory_commit, encoder, batch, has_next_batch)
+                        sync_stage["memory_commit_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
+                    else:
+                        _drain_commit_queue(commit_queue, wait_all=False)
+                        commit_queue.submit(_run_empty_memory_commit, memory_commit, encoder, batch, has_next_batch)
+                stage["batches"] += 1.0
+                continue
             t_encode = time.perf_counter()
             emb = encode_batch(encoder, batch)
             sync_stage["encode_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
@@ -112,12 +137,12 @@ def train_epoch(
 
             if memory_commit is not None:
                 if commit_queue is None:
-                    memory_commit(encoder, batch)
+                    memory_commit(encoder, batch, has_next_batch=has_next_batch)
                     sync_stage["memory_commit_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
                 else:
                     # Keep one in-flight commit so i can overlap with i+1 compute.
                     _drain_commit_queue(commit_queue, wait_all=False)
-                    commit_queue.submit(_run_memory_commit, memory_commit, encoder, batch)
+                    commit_queue.submit(_run_memory_commit, memory_commit, encoder, batch, has_next_batch)
 
             losses.append(float(loss.detach().item()))
             if compute_train_metrics:
@@ -129,9 +154,10 @@ def train_epoch(
     finally:
         t_commit_wait = time.perf_counter()
         if commit_queue is None:
-            _wait_pending_memory_commit(memory_commit)
+            _flush_pending_memory_commit(memory_commit)
         else:
             _drain_commit_queue(commit_queue, wait_all=True)
+            _flush_pending_memory_commit(memory_commit)
             commit_queue.close()
         sync_stage["memory_commit_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
         stage["memory_commit_seconds"] += float(time.perf_counter() - t_commit_wait)
@@ -161,6 +187,7 @@ def train_epoch(
         out.update(backend.pop_profile_stats())
     if optimizer is not None and hasattr(optimizer, "pop_profile_stats"):
         out.update({f"stage_optimizer_{k}": float(v) for k, v in optimizer.pop_profile_stats().items()})
+    out.update(_component_breakdown(out))
     sync_stage["finalize_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
     out.update({f"stage_sync_{k}": float(v) for k, v in sync_stage.items()})
     out["stage_finalize_seconds"] = float(time.perf_counter() - t_finalize)
@@ -184,20 +211,19 @@ def evaluate(
     losses: list[float] = []
     metrics: defaultdict[str, list[float]] = defaultdict(list)
     iterator = iter(session.iter_batches(split))
-    while True:
+    next_batch = _next_batch(iterator)
+    while next_batch is not None:
         _wait_pending_memory_commit(memory_commit)
-        try:
-            batch = next(iterator)
-        except StopIteration:
-            break
+        batch = next_batch
+        next_batch = _next_batch(iterator)
         emb = encode_batch(encoder, batch)
         output = head(emb, batch)
         loss = task.compute_loss(output, batch)
         losses.append(float(loss.detach().item()))
         _append_metrics(metrics, task.compute_metrics(output, batch))
         if memory_commit is not None:
-            memory_commit(encoder, batch)
-    _wait_pending_memory_commit(memory_commit)
+            memory_commit(encoder, batch, has_next_batch=next_batch is not None)
+    _flush_pending_memory_commit(memory_commit)
 
     out = _mean_metrics(metrics)
     out["loss"] = _mean(losses)
@@ -218,17 +244,16 @@ def predict(
     head.eval()
     outputs: list[tuple[Any, Batch]] = []
     iterator = iter(session.iter_batches(split))
-    while True:
+    next_batch = _next_batch(iterator)
+    while next_batch is not None:
         _wait_pending_memory_commit(memory_commit)
-        try:
-            batch = next(iterator)
-        except StopIteration:
-            break
+        batch = next_batch
+        next_batch = _next_batch(iterator)
         output = head(encode_batch(encoder, batch), batch)
         outputs.append((output, batch))
         if memory_commit is not None:
-            memory_commit(encoder, batch)
-    _wait_pending_memory_commit(memory_commit)
+            memory_commit(encoder, batch, has_next_batch=next_batch is not None)
+    _flush_pending_memory_commit(memory_commit)
     return outputs
 
 
@@ -283,6 +308,8 @@ class CTDGMemoryCommitHook:
         self.last_updater = None
         self._profile_stats = {
             "memory_commit_build_seconds": 0.0,
+            "memory_commit_mailbox_edge_select_seconds": 0.0,
+            "memory_commit_replica_build_seconds": 0.0,
             "memory_commit_submit_seconds": 0.0,
             "memory_commit_wait_sync_seconds": 0.0,
             "memory_commit_row_path_count": 0.0,
@@ -307,13 +334,15 @@ class CTDGMemoryCommitHook:
         self.reset_profile_stats()
         return out
 
-    def __call__(self, encoder: torch.nn.Module, batch: Batch) -> None:
+    def __call__(self, encoder: torch.nn.Module, batch: Batch, *, has_next_batch: bool | None = None) -> None:
         t_build = time.perf_counter()
         updater = self.updater or _find_memory_updater(encoder)
         if updater is None:
             self._profile_stats["memory_commit_build_seconds"] += float(time.perf_counter() - t_build)
             return
         self.last_updater = updater
+        if self.wait_mode == "memshare":
+            self._wait_previous_memshare_commit(updater)
         edge_feat = _positive_edge_feature(batch)
         spec = AsyncMemoryUpdateSpec.from_edges(
             batch.src,
@@ -348,12 +377,16 @@ class CTDGMemoryCommitHook:
             spec.mailbox_write_target_ptr = batch.commit_mailbox_target_ptr
             spec.mailbox_write_source_pos = batch.commit_mailbox_source_pos
             if batch.edge_feat is not None and batch.commit_mailbox_edge_pos is not None:
+                t_edge = time.perf_counter()
                 spec.mailbox_edge_feat = batch.edge_feat.index_select(
                     0,
                     batch.commit_mailbox_edge_pos.to(batch.edge_feat.device).long(),
                 )
+                self._profile_stats["memory_commit_mailbox_edge_select_seconds"] += float(time.perf_counter() - t_edge)
         spec.memory_replica_index = self.memory_replica_index
+        t_replica = time.perf_counter()
         self._populate_mailbox_replica_spec(updater, spec)
+        self._profile_stats["memory_commit_replica_build_seconds"] += float(time.perf_counter() - t_replica)
         self._profile_stats["memory_commit_build_seconds"] += float(time.perf_counter() - t_build)
         t_submit = time.perf_counter()
         if hasattr(updater, "submit_commit"):
@@ -366,9 +399,52 @@ class CTDGMemoryCommitHook:
         self._profile_stats["memory_commit_submit_seconds"] += float(time.perf_counter() - t_submit)
         self.last_handle = handle
         t_wait = time.perf_counter()
-        if self.wait_apply or self.wait_mode == "memshare":
+        if self.wait_apply:
             self._wait_pending_with_updater(updater)
-        elif handle is not None and hasattr(handle, "wait_apply") and not self._updater_owns_handle_wait(updater):
+        elif self.wait_mode == "memshare" and has_next_batch is False:
+            self._wait_pending_with_updater(updater)
+        elif (
+            self.wait_mode != "memshare"
+            and handle is not None
+            and hasattr(handle, "wait_apply")
+            and not self._updater_owns_handle_wait(updater)
+        ):
+            handle.wait_apply()
+        self._profile_stats["memory_commit_wait_sync_seconds"] += float(time.perf_counter() - t_wait)
+
+    def commit_empty(self, encoder: torch.nn.Module, batch: Batch, *, has_next_batch: bool | None = None) -> None:
+        t_build = time.perf_counter()
+        updater = self.updater or _find_memory_updater(encoder)
+        if updater is None:
+            self._profile_stats["memory_commit_build_seconds"] += float(time.perf_counter() - t_build)
+            return
+        self.last_updater = updater
+        if self.wait_mode == "memshare":
+            self._wait_previous_memshare_commit(updater)
+        spec = AsyncMemoryUpdateSpec(wait_apply=self.wait_apply)
+        spec.memory_replica_index = self.memory_replica_index
+        if self.mailbox_replica_index is not None:
+            spec.mailbox_replica_index = self.mailbox_replica_index
+        self._profile_stats["memory_commit_build_seconds"] += float(time.perf_counter() - t_build)
+        t_submit = time.perf_counter()
+        if hasattr(updater, "submit_empty_commit"):
+            handle = updater.submit_empty_commit(spec)
+        else:
+            self._profile_stats["memory_commit_submit_seconds"] += float(time.perf_counter() - t_submit)
+            return
+        self._profile_stats["memory_commit_submit_seconds"] += float(time.perf_counter() - t_submit)
+        self.last_handle = handle
+        t_wait = time.perf_counter()
+        if self.wait_apply:
+            self._wait_pending_with_updater(updater)
+        elif self.wait_mode == "memshare" and has_next_batch is False:
+            self._wait_pending_with_updater(updater)
+        elif (
+            self.wait_mode != "memshare"
+            and handle is not None
+            and hasattr(handle, "wait_apply")
+            and not self._updater_owns_handle_wait(updater)
+        ):
             handle.wait_apply()
         self._profile_stats["memory_commit_wait_sync_seconds"] += float(time.perf_counter() - t_wait)
 
@@ -385,6 +461,18 @@ class CTDGMemoryCommitHook:
 
     def should_wait_at_batch_boundary(self) -> bool:
         return self.wait_mode == "legacy"
+
+    def _wait_previous_memshare_commit(self, updater: Any) -> None:
+        t_wait = time.perf_counter()
+        if hasattr(updater, "drain_before_submit"):
+            updater.drain_before_submit()
+        else:
+            self._wait_pending_with_updater(updater)
+        handle = self.last_handle
+        self.last_handle = None
+        if handle is not None and hasattr(handle, "wait_apply") and not self._updater_owns_handle_wait(updater):
+            handle.wait_apply()
+        self._profile_stats["memory_commit_wait_sync_seconds"] += float(time.perf_counter() - t_wait)
 
     def _populate_mailbox_replica_spec(self, updater: Any, spec: AsyncMemoryUpdateSpec) -> None:
         if self.mailbox_replica_index is None or self.mailbox_runtime is None:
@@ -512,6 +600,35 @@ def _mean(values: Iterable[float]) -> float:
     return float(sum(values) / len(values))
 
 
+def _component_breakdown(metrics: dict[str, float]) -> dict[str, float]:
+    sampling_seconds = float(metrics.get("backend_sampling_seconds", 0.0))
+    sampling_seconds += float(metrics.get("backend_batch_build_seconds", 0.0))
+    sampling_seconds += float(metrics.get("backend_negative_attach_seconds", 0.0))
+
+    communication_seconds = float(metrics.get("backend_submit_reads_seconds", 0.0))
+    communication_seconds += float(metrics.get("backend_wait_patch_seconds", 0.0))
+    communication_seconds += float(metrics.get("stage_memory_commit_submit_seconds", 0.0))
+    communication_seconds += float(metrics.get("stage_memory_commit_wait_sync_seconds", 0.0))
+    communication_seconds += float(metrics.get("stage_optimizer_sync_seconds", 0.0))
+    communication_seconds += float(metrics.get("stage_optimizer_all_reduce_seconds", 0.0))
+
+    training_seconds = float(metrics.get("stage_encode_seconds", 0.0))
+    training_seconds += float(metrics.get("stage_head_loss_seconds", 0.0))
+    training_seconds += float(metrics.get("stage_backward_seconds", 0.0))
+    training_seconds += float(metrics.get("stage_optimizer_step_seconds", 0.0))
+    training_seconds += float(metrics.get("stage_memory_commit_build_seconds", 0.0))
+    training_seconds += float(metrics.get("stage_memory_commit_seconds", 0.0))
+
+    stage_wall = float(metrics.get("stage_wall_seconds", 0.0))
+    accounted = sampling_seconds + communication_seconds + training_seconds
+    return {
+        "component_sampling_seconds": sampling_seconds,
+        "component_communication_seconds": communication_seconds,
+        "component_training_seconds": training_seconds,
+        "component_unaccounted_seconds": max(0.0, stage_wall - accounted),
+    }
+
+
 def _find_memory_updater(module: torch.nn.Module) -> Any:
     current: Any = module
     if hasattr(current, "module"):
@@ -537,6 +654,13 @@ def _wait_pending_memory_commit(memory_commit: Any) -> None:
         memory_commit.wait_pending()
 
 
+def _flush_pending_memory_commit(memory_commit: Any) -> None:
+    if memory_commit is None:
+        return
+    if hasattr(memory_commit, "wait_pending"):
+        memory_commit.wait_pending()
+
+
 def _commit_waits_at_batch_boundary(memory_commit: Any) -> bool:
     if memory_commit is None:
         return False
@@ -550,8 +674,44 @@ def _drain_commit_queue(queue: AsyncWorkQueue[None], *, wait_all: bool) -> None:
         queue.pop_result()
 
 
-def _run_memory_commit(memory_commit: Any, encoder: torch.nn.Module, batch: Batch) -> None:
-    memory_commit(encoder, batch)
+def _run_memory_commit(memory_commit: Any, encoder: torch.nn.Module, batch: Batch, has_next_batch: bool) -> None:
+    memory_commit(encoder, batch, has_next_batch=has_next_batch)
+
+
+def _run_empty_memory_commit(memory_commit: Any, encoder: torch.nn.Module, batch: Batch, has_next_batch: bool) -> None:
+    if hasattr(memory_commit, "commit_empty"):
+        memory_commit.commit_empty(encoder, batch, has_next_batch=has_next_batch)
+    else:
+        memory_commit(encoder, batch, has_next_batch=has_next_batch)
+
+
+def _next_batch(iterator: Iterable[Batch] | Any) -> Batch | None:
+    try:
+        return next(iterator)
+    except StopIteration:
+        return None
+
+
+def _is_empty_edge_batch(batch: Batch) -> bool:
+    return (
+        batch.pos_src is not None
+        and batch.pos_dst is not None
+        and int(batch.pos_src.numel()) == 0
+        and int(batch.pos_dst.numel()) == 0
+    )
+
+
+def _zero_loss_from_modules(*modules: torch.nn.Module, batch: Batch) -> Tensor:
+    loss = None
+    for module in modules:
+        for param in module.parameters():
+            if not param.requires_grad:
+                continue
+            term = param.sum() * 0.0
+            loss = term if loss is None else loss + term
+    if loss is not None:
+        return loss
+    return torch.zeros((), device=batch.roots.device, requires_grad=True)
 
 
 def _first_edge_feature(graph: Any) -> Tensor | None:

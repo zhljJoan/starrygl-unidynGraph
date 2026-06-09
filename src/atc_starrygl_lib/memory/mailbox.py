@@ -30,7 +30,7 @@ class Mailbox:
 class MailboxStore:
     """Row-indexed K-slot mailbox storage."""
 
-    def __init__(self, mailbox: Tensor, mailbox_ts: Tensor, next_pos: Tensor) -> None:
+    def __init__(self, mailbox: Tensor, mailbox_ts: Tensor, next_pos: Tensor, *, row_map: Tensor | None = None) -> None:
         if mailbox.dim() != 3:
             raise ValueError("mailbox must be [N, K, msg_dim]")
         if mailbox_ts.shape != mailbox.shape[:2]:
@@ -40,13 +40,14 @@ class MailboxStore:
         self.mailbox = mailbox
         self.mailbox_ts = mailbox_ts
         self.next_pos = next_pos
+        self.row_map = row_map
 
     @property
     def device(self) -> torch.device:
         return self.mailbox.device
 
     def gather_rows(self, rows: Tensor, _time_slices: Tensor | None = None) -> tuple[Tensor, Tensor]:
-        row = rows.long().to(self.mailbox.device)
+        row = self._physical_rows(rows)
         return self.mailbox.index_select(0, row).to(rows.device), self.mailbox_ts.index_select(0, row).to(rows.device)
 
     def reset_zeros(self) -> None:
@@ -55,7 +56,7 @@ class MailboxStore:
         self.next_pos.zero_()
 
     def append_rows(self, rows: Tensor, msg: Tensor, ts: Tensor, *, reduce: str = "max_ts") -> None:
-        row = rows.long().to(self.mailbox.device)
+        row = self._physical_rows(rows)
         message = msg.to(device=self.mailbox.device, dtype=self.mailbox.dtype)
         ts_in = ts.to(device=self.mailbox_ts.device, dtype=self.mailbox_ts.dtype).reshape(-1)
         if row.numel() != message.size(0) or row.numel() != ts_in.numel():
@@ -82,7 +83,7 @@ class MailboxStore:
         self.next_pos[row] = (pos + 1) % k
 
     def project_append_rows(self, rows: Tensor, msg: Tensor, ts: Tensor, *, reduce: str = "max_ts") -> tuple[Tensor, Tensor]:
-        row = rows.long().to(self.mailbox.device)
+        row = self._physical_rows(rows)
         message = msg.to(device=self.mailbox.device, dtype=self.mailbox.dtype)
         ts_in = ts.to(device=self.mailbox_ts.device, dtype=self.mailbox_ts.dtype).reshape(-1)
         if row.numel() != message.size(0) or row.numel() != ts_in.numel():
@@ -108,6 +109,17 @@ class MailboxStore:
         current_mail[torch.arange(int(row.numel()), device=row.device), pos] = message
         current_ts[torch.arange(int(row.numel()), device=row.device), pos] = ts_in
         return current_mail, current_ts
+
+    def replace_rows(self, rows: Tensor, mailbox: Tensor, mailbox_ts: Tensor) -> None:
+        row = self._physical_rows(rows)
+        self.mailbox[row] = mailbox.to(device=self.mailbox.device, dtype=self.mailbox.dtype)
+        self.mailbox_ts[row] = mailbox_ts.to(device=self.mailbox_ts.device, dtype=self.mailbox_ts.dtype)
+
+    def _physical_rows(self, rows: Tensor) -> Tensor:
+        row = rows.long().to(self.mailbox.device)
+        if self.row_map is None:
+            return row
+        return self.row_map.to(self.mailbox.device).index_select(0, row)
 
 
 def _latest_by_row(row: Tensor, msg: Tensor, ts: Tensor) -> tuple[Tensor, Tensor, Tensor]:

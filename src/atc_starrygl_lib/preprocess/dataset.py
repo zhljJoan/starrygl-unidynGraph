@@ -34,12 +34,17 @@ def build_dataset(
     adaptive_split_enable_drop: bool = False,
     adaptive_split_drop_rate: float = 0.8,
     adaptive_split_window_size: int = 1000,
+    adaptive_split_min_batch_size: int | None = None,
+    adaptive_split_max_batch_size: int | None = None,
+    adaptive_split_coherence_chunks: int = 0,
+    adaptive_split_max_chunk_entropy_ratio: float | None = None,
     adaptive_split_fallback: bool = True,
     lags: int = 1,
     random_node_feat_dim: int = 0,
     random_node_feat_seed: int = 0,
     random_edge_feat_dim: int = 0,
     random_edge_feat_seed: int = 0,
+    random_feature_seed_mode: str = "independent",
 ) -> dict[str, Any]:
     graph = _load_graph_like(data)
     if graph.get("split") is None:
@@ -96,6 +101,10 @@ def build_dataset(
             adaptive_split_enable_drop=adaptive_split_enable_drop,
             adaptive_split_drop_rate=adaptive_split_drop_rate,
             adaptive_split_window_size=adaptive_split_window_size,
+            adaptive_split_min_batch_size=adaptive_split_min_batch_size,
+            adaptive_split_max_batch_size=adaptive_split_max_batch_size,
+            adaptive_split_coherence_chunks=adaptive_split_coherence_chunks,
+            adaptive_split_max_chunk_entropy_ratio=adaptive_split_max_chunk_entropy_ratio,
             adaptive_split_fallback=adaptive_split_fallback,
         )
         time_ptr_2 = torch.cat([split_time_ptr["train"], split_time_ptr["val"], split_time_ptr["test"]], dim=0)
@@ -108,14 +117,24 @@ def build_dataset(
 
     num_nodes = int(graph.get("num_nodes", torch.cat([src, dst]).max().item() + 1 if num_edges > 0 else 0))
     node_feat = _cpu_opt(graph.get("node_feat"))
-    if node_feat is None and int(random_node_feat_dim) > 0:
+    seed_mode = str(random_feature_seed_mode).strip().lower()
+    shared_seed_mode = seed_mode in {"shared", "sequential", "shared_sequential", "bts"}
+    if shared_seed_mode:
         gen = torch.Generator()
-        gen.manual_seed(int(random_node_feat_seed))
-        node_feat = torch.randn((num_nodes, int(random_node_feat_dim)), generator=gen, dtype=torch.float32)
-    if edge_feat is None and int(random_edge_feat_dim) > 0:
-        gen = torch.Generator()
-        gen.manual_seed(int(random_edge_feat_seed))
-        edge_feat = torch.randn((num_edges, int(random_edge_feat_dim)), generator=gen, dtype=torch.float32)
+        gen.manual_seed(int(random_node_feat_seed if int(random_node_feat_dim) > 0 else random_edge_feat_seed))
+        if node_feat is None and int(random_node_feat_dim) > 0:
+            node_feat = torch.randn((num_nodes, int(random_node_feat_dim)), generator=gen, dtype=torch.float32)
+        if edge_feat is None and int(random_edge_feat_dim) > 0:
+            edge_feat = torch.randn((num_edges, int(random_edge_feat_dim)), generator=gen, dtype=torch.float32)
+    else:
+        if node_feat is None and int(random_node_feat_dim) > 0:
+            gen = torch.Generator()
+            gen.manual_seed(int(random_node_feat_seed))
+            node_feat = torch.randn((num_nodes, int(random_node_feat_dim)), generator=gen, dtype=torch.float32)
+        if edge_feat is None and int(random_edge_feat_dim) > 0:
+            gen = torch.Generator()
+            gen.manual_seed(int(random_edge_feat_seed))
+            edge_feat = torch.randn((num_edges, int(random_edge_feat_dim)), generator=gen, dtype=torch.float32)
 
     return {
         "format": DATASET_FORMAT,
@@ -491,6 +510,10 @@ def _event_split_time_ptr(
     adaptive_split_enable_drop: bool = False,
     adaptive_split_drop_rate: float = 0.8,
     adaptive_split_window_size: int = 1000,
+    adaptive_split_min_batch_size: int | None = None,
+    adaptive_split_max_batch_size: int | None = None,
+    adaptive_split_coherence_chunks: int = 0,
+    adaptive_split_max_chunk_entropy_ratio: float | None = None,
     adaptive_split_fallback: bool = True,
 ) -> dict[str, Tensor]:
     split = split.to(torch.uint8).cpu()
@@ -525,6 +548,10 @@ def _event_split_time_ptr(
                 enable_drop=bool(adaptive_split_enable_drop),
                 drop_rate=float(adaptive_split_drop_rate),
                 window_size=int(adaptive_split_window_size),
+                min_batch_size=adaptive_split_min_batch_size,
+                max_batch_size=adaptive_split_max_batch_size,
+                coherence_chunks=int(adaptive_split_coherence_chunks),
+                max_chunk_entropy_ratio=adaptive_split_max_chunk_entropy_ratio,
                 fallback=bool(adaptive_split_fallback),
             )
         else:
@@ -551,6 +578,10 @@ def _event_adaptive_time_ptr(
     enable_drop: bool,
     drop_rate: float,
     window_size: int,
+    min_batch_size: int | None,
+    max_batch_size: int | None,
+    coherence_chunks: int,
+    max_chunk_entropy_ratio: float | None,
     fallback: bool,
 ) -> Tensor:
     num_edges = int(src.numel())
@@ -582,11 +613,80 @@ def _event_adaptive_time_ptr(
             expected = torch.arange(num_edges, dtype=torch.long)
             if int(keep.numel()) != num_edges or not torch.equal(keep, expected):
                 raise ValueError("adaptive split edge dropping is not supported by split_time_ptr artifacts")
-        return _time_ptr_from_group_index(group_index, num_edges=num_edges)
+        ptr = _time_ptr_from_group_index(group_index, num_edges=num_edges)
+        return _refine_adaptive_time_ptr(
+            ptr,
+            src=src,
+            min_batch_size=min_batch_size,
+            max_batch_size=max_batch_size,
+            coherence_chunks=coherence_chunks,
+            max_chunk_entropy_ratio=max_chunk_entropy_ratio,
+        )
     except Exception:
         if not fallback:
             raise
         return _event_time_ptr(num_edges=num_edges, batch_size=batch_size, num_windows=num_windows)
+
+
+def _refine_adaptive_time_ptr(
+    ptr: Tensor,
+    *,
+    src: Tensor,
+    min_batch_size: int | None,
+    max_batch_size: int | None,
+    coherence_chunks: int,
+    max_chunk_entropy_ratio: float | None,
+) -> Tensor:
+    min_size = 1 if min_batch_size is None else max(1, int(min_batch_size))
+    max_size = 0 if max_batch_size is None else int(max_batch_size)
+    num_chunks = max(0, int(coherence_chunks))
+    entropy_limit = None if max_chunk_entropy_ratio is None else float(max_chunk_entropy_ratio)
+    if max_size <= 0 and (num_chunks <= 1 or entropy_limit is None or entropy_limit <= 0.0):
+        return ptr.long().cpu().contiguous()
+    if max_size > 0 and max_size < min_size:
+        raise ValueError("adaptive_split_max_batch_size must be >= adaptive_split_min_batch_size")
+
+    src = src.long().cpu().contiguous()
+    out: list[list[int]] = []
+    for raw_begin, raw_end in ptr.long().cpu().tolist():
+        begin = int(raw_begin)
+        raw_end = int(raw_end)
+        if raw_end <= begin:
+            continue
+        counts = torch.zeros(num_chunks, dtype=torch.long) if num_chunks > 1 else None
+        start = begin
+        for pos in range(begin, raw_end):
+            if counts is not None:
+                chunk = int(src[pos]) % num_chunks
+                counts[chunk] += 1
+            size = pos - start + 1
+            should_cut = False
+            if max_size > 0 and size >= max_size:
+                should_cut = True
+            elif size >= min_size and counts is not None and entropy_limit is not None:
+                if _chunk_entropy_ratio(counts) > entropy_limit:
+                    should_cut = True
+            if should_cut:
+                out.append([start, pos + 1])
+                start = pos + 1
+                if counts is not None:
+                    counts.zero_()
+        if start < raw_end:
+            if out and raw_end - start < min_size and (max_size <= 0 or out[-1][1] - out[-1][0] + raw_end - start <= max_size):
+                out[-1][1] = raw_end
+            else:
+                out.append([start, raw_end])
+    return torch.tensor(out, dtype=torch.long) if out else torch.zeros((0, 2), dtype=torch.long)
+
+
+def _chunk_entropy_ratio(counts: Tensor) -> float:
+    total = int(counts.sum().item())
+    active = int((counts > 0).sum().item())
+    if total <= 0 or active <= 1:
+        return 0.0
+    probs = counts[counts > 0].float() / float(total)
+    entropy = float((-(probs * torch.log(probs))).sum().item())
+    return entropy / math.log(float(active))
 
 
 def _adaptive_aggl(*, src: Tensor, dst: Tensor) -> float:

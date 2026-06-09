@@ -22,6 +22,14 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         py::arg("topk_ratio") = 0.01,
         py::arg("topk_type") = "decay",
         py::return_value_policy::move)
+    .def("assign_chunks_temporal_balance",
+        &assign_chunks_temporal_balance,
+        py::arg("chunk_load"),
+        py::arg("affinity"),
+        py::arg("world_size"),
+        py::arg("chunks_per_rank"),
+        py::arg("affinity_weight") = 0.05,
+        py::arg("local_search_iters") = 2000)
     .def("get_neighbors", 
         &get_neighbors, 
         py::return_value_policy::reference)    

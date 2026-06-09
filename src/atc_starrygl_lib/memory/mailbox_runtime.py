@@ -176,8 +176,7 @@ class MailboxRuntime:
             if self.direct_node_id_io and self.world_size <= 1
             else dist_index_loc(target_index).long().to(self.store.mailbox.device)
         )
-        self.store.mailbox[rows] = mailbox.to(device=self.store.mailbox.device, dtype=self.store.mailbox.dtype)
-        self.store.mailbox_ts[rows] = mailbox_ts.to(device=self.store.mailbox_ts.device, dtype=self.store.mailbox_ts.dtype)
+        self.store.replace_rows(rows, mailbox, mailbox_ts)
 
     def _gather_mailbox_payload(self, rows: Tensor, _time_slices: Tensor | None = None) -> Tensor:
         mailbox, mailbox_ts = self.store.gather_rows(rows)

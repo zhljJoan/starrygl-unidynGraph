@@ -4,6 +4,7 @@ from typing import Any
 
 import torch
 
+from atc_starrygl_lib.comm.dist_index import dist_index_is_shared, dist_index_loc
 from atc_starrygl_lib.core.errors import RegistryError
 from atc_starrygl_lib.core.registry import BackendRegistry
 from atc_starrygl_lib.core.types import ArtifactBundle, RuntimeContext
@@ -82,7 +83,14 @@ def _build_temporal_sampling_model(
     backend: Any,
     ctx: RuntimeContext,
 ) -> tuple[torch.nn.Module, torch.nn.Module | None]:
-    from atc_starrygl_lib.memory import AsyncMemoryCommitter, HistoricalBlend, RuntimeAsyncMemoryUpdater, SharedHistoricalCache
+    from atc_starrygl_lib.memory import (
+        AsyncMemoryCommitter,
+        HistoricalBlend,
+        HistoricalDeltaFilter,
+        RuntimeAsyncMemoryUpdater,
+        SharedHistoricalCache,
+    )
+    from atc_starrygl_lib.memory.sync_mode import resolve_memory_sync_mode
     from atc_starrygl_lib.models.ctdg import GeneralModel
     from atc_starrygl_lib.models.shared import EdgePredictHead, EdgeRegressHead, NodeClassifyHead, NodeRegressHead
 
@@ -105,18 +113,32 @@ def _build_temporal_sampling_model(
         if isinstance(runtime_cfg.get("async_memory", {}), dict)
         else {}
     )
+    historical_cfg = (
+        dict(runtime_cfg.get("historical", {}))
+        if isinstance(runtime_cfg.get("historical", {}), dict)
+        else {}
+    )
+    sync_cfg = resolve_memory_sync_mode(runtime_cfg)
     mailbox_msg_dim = int(
         runtime_cfg.get(
             "mailbox_msg_dim",
             mailbox_cfg.get("msg_dim", 2 * hidden_dim + max(int(dim_edge), 0)),
         )
     )
+    shared_memory_ssim = float(
+        runtime_cfg.get(
+            "shared_memory_ssim",
+            historical_cfg.get("shared_memory_ssim", historical_cfg.get("alpha", 0.0)),
+        )
+    )
+    memory_dim_time = int(model_cfg.get("memory_dim_time", model_cfg.get("dim_time", hidden_dim)))
+    gnn_dim_time = int(model_cfg.get("gnn_dim_time", model_cfg.get("dim_time", hidden_dim)))
     model_config = {
         "sample": {"history": int(model_cfg.get("history", 1))},
         "memory": {
             "type": "node",
             "dim_out": hidden_dim,
-            "dim_time": int(model_cfg.get("dim_time", hidden_dim)),
+            "dim_time": memory_dim_time,
             "input_dim": mailbox_msg_dim,
             "memory_update": str(model_cfg.get("memory_update", "gru")),
             "mailbox_size": int(model_cfg.get("memory_history", ctx.config.get("runtime", {}).get("mailbox_size", 1))),
@@ -124,7 +146,7 @@ def _build_temporal_sampling_model(
         },
         "gnn": {
             "arch": str(model_cfg.get("gnn_arch", "identity")),
-            "dim_time": int(model_cfg.get("dim_time", hidden_dim)),
+            "dim_time": gnn_dim_time,
             "att_head": int(model_cfg.get("att_head", 1)),
             "dim_out": hidden_dim,
             "layer": int(model_cfg.get("layers", 1)),
@@ -135,32 +157,58 @@ def _build_temporal_sampling_model(
         },
     }
     committer = AsyncMemoryCommitter(runtime.memory_runtime, runtime.mailbox_runtime)
-    historical_cfg = dict(runtime_cfg.get("historical", {})) if isinstance(runtime_cfg.get("historical", {}), dict) else {}
-    shared_filter_enabled = bool(async_memory_cfg.get("shared_filter", historical_cfg.get("enabled", False)))
-    historical_enabled = bool(shared_filter_enabled)
-    if shared_filter_enabled and "alpha" in historical_cfg:
-        historical_enabled = True
+    shared_filter_enabled = bool(sync_cfg["shared_filter"])
+    historical_enabled = bool(sync_cfg["historical_enabled"])
     historical_cache = None
+    historical_filter = None
     historical_blend = None
     if historical_enabled:
+        filter_index_scope = str(historical_cfg.get("filter_index_scope", "shared_local")).strip().lower()
+        filter_node_id_to_index = None
+        filter_num_nodes = int(graph.get("num_nodes", 0))
+        if filter_index_scope in {"shared_local", "shared-local", "shared"}:
+            memory_index = getattr(runtime.memory_runtime, "index", None)
+            read_dist_index = getattr(memory_index, "read_dist_index", None)
+            if read_dist_index is not None:
+                read_index = read_dist_index.long().cpu().contiguous()
+                shared_mask = dist_index_is_shared(read_index)
+                filter_node_id_to_index = torch.full_like(read_index, -1)
+                if bool(shared_mask.any().item()):
+                    filter_rows = dist_index_loc(read_index[shared_mask])
+                    filter_node_id_to_index[shared_mask] = filter_rows
+                    filter_num_nodes = int(filter_rows.max().item()) + 1
+                else:
+                    filter_num_nodes = 0
         historical_cache = SharedHistoricalCache(
             memory_dim=hidden_dim,
             num_nodes=int(graph.get("num_nodes", 0)),
-            alpha=float(historical_cfg.get("alpha", 0.0)),
+            alpha=shared_memory_ssim,
             times_threshold=int(historical_cfg.get("times_threshold", 10)),
             time_threshold=historical_cfg.get("time_threshold"),
+            preload_candidate_delta=bool(sync_cfg.get("preload_candidate_delta", False)),
         )
-        historical_blend = HistoricalBlend(memory_dim=hidden_dim, learnable_gamma=True)
+        historical_filter = HistoricalDeltaFilter(
+            memory_dim=hidden_dim,
+            num_nodes=filter_num_nodes,
+            preload_candidate_delta=bool(sync_cfg.get("preload_candidate_delta", False)),
+            node_id_to_index=filter_node_id_to_index,
+        )
+        if bool(sync_cfg.get("historical_blend", False)):
+            historical_blend = HistoricalBlend(memory_dim=hidden_dim, learnable_gamma=True)
     updater = RuntimeAsyncMemoryUpdater(
         torch.nn.Identity(),
         committer=committer,
         historical_blend=historical_blend,
         historical_cache=historical_cache,
-        use_staged_commit=bool(async_memory_cfg.get("staged_commit", False)),
+        historical_filter=historical_filter,
+        use_staged_commit=bool(sync_cfg["staged_commit"]),
         use_shared_filter=bool(shared_filter_enabled),
-        enable_delta_compensation=bool(async_memory_cfg.get("delta_compensation", False)),
+        enable_delta_compensation=bool(sync_cfg["delta_compensation"]),
         delta_compensation_gamma=float(async_memory_cfg.get("delta_compensation_gamma", 0.5)),
     )
+    setattr(runtime, "historical_cache_provider", historical_cache)
+    setattr(runtime, "historical_filter_provider", historical_filter)
+    setattr(runtime, "historical_updater_provider", updater)
     model = GeneralModel.from_config(
         dim_node=dim_node,
         dim_edge=dim_edge,

@@ -34,7 +34,7 @@ class HistoricalBlend(nn.Module):
             return updated
         gamma = torch.sigmoid(self.gamma)
         out = updated.clone()
-        pred = historical_memory + _normalize_increment(increment)
+        pred = historical_memory + increment
         out[shared_mask] = gamma * updated[shared_mask] + (1 - gamma) * pred[shared_mask]
         return out
 
@@ -50,24 +50,22 @@ class SharedHistoricalCache(nn.Module):
         alpha: float = 0.0,
         times_threshold: int = 10,
         time_threshold: float | None = None,
+        preload_candidate_delta: bool = False,
     ) -> None:
         super().__init__()
         self.memory_dim = int(memory_dim)
         self.alpha = float(alpha)
         self.times_threshold = int(times_threshold)
         self.time_threshold = None if time_threshold is None else float(time_threshold)
+        self.preload_candidate_delta = bool(preload_candidate_delta)
         self.register_buffer("historical_memory", torch.zeros(int(num_nodes), self.memory_dim))
         self.register_buffer("historical_ts", torch.zeros(int(num_nodes)))
         self.register_buffer("loss_count", torch.zeros(int(num_nodes), dtype=torch.long))
-        self.register_buffer("increment_sum", torch.zeros(int(num_nodes), self.memory_dim))
-        self.register_buffer("increment_count", torch.zeros(int(num_nodes), 1))
 
     def reset_state(self) -> None:
         self.historical_memory.zero_()
         self.historical_ts.zero_()
         self.loss_count.zero_()
-        self.increment_sum.zero_()
-        self.increment_count.zero_()
 
     def historical_check(self, index: Tensor, new_data: Tensor, ts: Tensor) -> Tensor:
         index = index.long().reshape(-1)
@@ -77,8 +75,6 @@ class SharedHistoricalCache(nn.Module):
         hist = self.historical_memory.index_select(0, index).to(device=new_data.device, dtype=new_data.dtype)
         hist_ts = self.historical_ts.index_select(0, index).to(device=ts.device, dtype=ts.dtype)
         loss = self.loss_count.index_select(0, index).to(device=index.device)
-        delta = new_data - hist
-        self._update_increment(index, delta)
 
         mask = _cosine_distance(new_data, hist) > self.alpha
         if self.time_threshold is not None:
@@ -96,34 +92,166 @@ class SharedHistoricalCache(nn.Module):
                 dtype=self.historical_ts.dtype,
             )
             self.loss_count[update_index] = 0
-            self.increment_sum[update_index] = 0
-            self.increment_count[update_index] = 0
         if (~mask).any():
             skipped = index[~mask].to(self.loss_count.device)
             self.loss_count[skipped] += 1
         return mask
 
-    def get_increment(self, index: Tensor) -> Tensor:
-        index = index.long().reshape(-1)
-        if index.numel() == 0:
-            return self.increment_sum.new_zeros((0, self.memory_dim))
-        self._ensure_capacity(int(index.max().item()) + 1, self.increment_sum.device, self.increment_sum.dtype)
-        denom = self.increment_count.index_select(0, index).clamp_min(1)
-        return self.increment_sum.index_select(0, index) / denom
+    def _ensure_capacity(self, size: int, device: torch.device, dtype: torch.dtype) -> None:
+        if int(self.historical_memory.size(0)) >= int(size):
+            return
+        current = int(self.historical_memory.size(0))
+        grow = int(size) - current
+        self.historical_memory = torch.cat(
+            [self.historical_memory, torch.zeros(grow, self.memory_dim, device=device, dtype=dtype)],
+            dim=0,
+        )
+        self.historical_ts = torch.cat(
+            [self.historical_ts, torch.zeros(grow, device=device, dtype=torch.float32)],
+            dim=0,
+        )
+        self.loss_count = torch.cat(
+            [self.loss_count, torch.zeros(grow, device=device, dtype=torch.long)],
+            dim=0,
+        )
 
-    def get_increment_remote(self, index: Tensor) -> Tensor:
-        # Keep the same API semantics as MemShare's filter module.
-        return self.get_increment(index)
 
-    def update(self, index: Tensor, change: Tensor) -> None:
-        index = index.long().reshape(-1)
+class HistoricalDeltaFilter(nn.Module):
+    """Track historical memory and dense increments for historical compensation."""
+
+    def __init__(
+        self,
+        memory_dim: int,
+        *,
+        num_nodes: int = 0,
+        preload_candidate_delta: bool = False,
+        node_id_to_index: Tensor | None = None,
+    ) -> None:
+        super().__init__()
+        self.memory_dim = int(memory_dim)
+        self.preload_candidate_delta = bool(preload_candidate_delta)
+        if node_id_to_index is None:
+            self.register_buffer("node_id_to_index", torch.empty(0, dtype=torch.long), persistent=False)
+        else:
+            self.register_buffer("node_id_to_index", node_id_to_index.long().reshape(-1).contiguous(), persistent=False)
+        self.register_buffer("historical_memory", torch.zeros(int(num_nodes), self.memory_dim))
+        self.register_buffer("historical_ts", torch.zeros(int(num_nodes)))
+        self.register_buffer("increment_sum", torch.zeros(int(num_nodes), self.memory_dim))
+        self.register_buffer("increment_count", torch.zeros(int(num_nodes), 1))
+
+    def reset_state(self) -> None:
+        self.historical_memory.zero_()
+        self.historical_ts.zero_()
+        self.increment_sum.zero_()
+        self.increment_count.zero_()
+
+    def preload_candidate(self, index: Tensor, historical_memory: Tensor, new_data: Tensor, ts: Tensor) -> None:
+        if not self.preload_candidate_delta:
+            return
+        index, keep = self._map_index(index)
         if index.numel() == 0:
             return
+        new_data = new_data[keep]
+        historical_memory = historical_memory[keep]
+        ts = ts.reshape(-1)[keep]
+        self._ensure_capacity(int(index.max().item()) + 1, new_data.device, new_data.dtype)
+        delta = new_data - historical_memory
+        self._update_increment(index, delta)
+        update_index = index.to(self.historical_memory.device)
+        self.historical_memory[update_index] = new_data.to(
+            device=self.historical_memory.device,
+            dtype=self.historical_memory.dtype,
+        )
+        self.historical_ts[update_index] = ts.to(
+            device=self.historical_ts.device,
+            dtype=self.historical_ts.dtype,
+        )
+
+    def record_history(
+        self,
+        index: Tensor,
+        new_data: Tensor,
+        ts: Tensor,
+        *,
+        reset_increment: bool = False,
+    ) -> None:
+        index, keep = self._map_index(index)
+        if index.numel() == 0:
+            return
+        new_data = new_data[keep]
+        ts = ts.reshape(-1)[keep]
+        self._ensure_capacity(int(index.max().item()) + 1, new_data.device, new_data.dtype)
+        update_index = index.to(self.historical_memory.device)
+        self.historical_memory[update_index] = new_data.to(
+            device=self.historical_memory.device,
+            dtype=self.historical_memory.dtype,
+        )
+        self.historical_ts[update_index] = ts.to(
+            device=self.historical_ts.device,
+            dtype=self.historical_ts.dtype,
+        )
+        if reset_increment:
+            self.increment_sum[update_index] = 0
+            self.increment_count[update_index] = 0
+
+    def get_increment(self, index: Tensor) -> Tensor:
+        raw = index.long().reshape(-1)
+        mapped, keep = self._map_index(raw)
+        out = self.increment_sum.new_zeros((int(raw.numel()), self.memory_dim))
+        if mapped.numel() == 0:
+            return out
+        self._ensure_capacity(int(mapped.max().item()) + 1, self.increment_sum.device, self.increment_sum.dtype)
+        denom = self.increment_count.index_select(0, mapped).clamp_min(1)
+        out[keep.to(out.device)] = self.increment_sum.index_select(0, mapped) / denom
+        return out
+
+    def get_increment_remote(self, index: Tensor) -> Tensor:
+        return self.get_increment(index)
+
+    def get_count(self, index: Tensor) -> Tensor:
+        raw = index.long().reshape(-1)
+        mapped, keep = self._map_index(raw)
+        out = self.increment_count.new_zeros((int(raw.numel()), 1))
+        if mapped.numel() == 0:
+            return out
+        self._ensure_capacity(int(mapped.max().item()) + 1, self.increment_count.device, self.increment_count.dtype)
+        out[keep.to(out.device)] = self.increment_count.index_select(0, mapped)
+        return out
+
+    def update(self, index: Tensor, change: Tensor) -> None:
+        index, keep = self._map_index(index)
+        if index.numel() == 0:
+            return
+        change = change[keep]
         self._ensure_capacity(int(index.max().item()) + 1, change.device, change.dtype)
-        dev_index = index.to(self.increment_sum.device)
         value = change.to(device=self.increment_sum.device, dtype=self.increment_sum.dtype).reshape(-1, self.memory_dim)
-        self.increment_sum[dev_index] = value
-        self.increment_count[dev_index] = 1.0
+        self._update_increment(index, value)
+
+    def get_history(self, index: Tensor, *, device: torch.device | None = None, dtype: torch.dtype | None = None) -> Tensor:
+        raw = index.long().reshape(-1)
+        resolved, keep = self._map_index(raw)
+        out_device = self.historical_memory.device if device is None else device
+        out_dtype = self.historical_memory.dtype if dtype is None else dtype
+        out = torch.zeros((int(raw.numel()), self.memory_dim), device=out_device, dtype=out_dtype)
+        if resolved.numel() == 0:
+            return out
+        self._ensure_capacity(int(resolved.max().item()) + 1, self.historical_memory.device, self.historical_memory.dtype)
+        gathered = self.historical_memory.index_select(0, resolved.to(self.historical_memory.device))
+        out[keep.to(out.device)] = gathered.to(device=out.device, dtype=out.dtype)
+        return out
+
+    def get_history_ts(self, index: Tensor, *, device: torch.device | None = None, dtype: torch.dtype | None = None) -> Tensor:
+        raw = index.long().reshape(-1)
+        resolved, keep = self._map_index(raw)
+        out_device = self.historical_ts.device if device is None else device
+        out_dtype = self.historical_ts.dtype if dtype is None else dtype
+        out = torch.zeros((int(raw.numel()),), device=out_device, dtype=out_dtype)
+        if resolved.numel() == 0:
+            return out
+        self._ensure_capacity(int(resolved.max().item()) + 1, self.historical_ts.device, self.historical_ts.dtype)
+        gathered = self.historical_ts.index_select(0, resolved.to(self.historical_ts.device))
+        out[keep.to(out.device)] = gathered.to(device=out.device, dtype=out.dtype)
+        return out
 
     def _update_increment(self, index: Tensor, delta: Tensor) -> None:
         device_index = index.to(self.increment_sum.device)
@@ -135,10 +263,22 @@ class SharedHistoricalCache(nn.Module):
         ones = torch.ones((device_index.numel(), 1), device=self.increment_count.device, dtype=self.increment_count.dtype)
         self.increment_count.index_add_(0, device_index, ones)
 
+    def _map_index(self, index: Tensor) -> tuple[Tensor, Tensor]:
+        raw = index.long().reshape(-1)
+        if raw.numel() == 0:
+            return raw, torch.zeros((0,), dtype=torch.bool, device=raw.device)
+        if int(self.node_id_to_index.numel()) == 0:
+            return raw, torch.ones_like(raw, dtype=torch.bool)
+        if int(raw.max().item()) >= int(self.node_id_to_index.numel()):
+            raise IndexError("node id exceeds historical filter mapping size")
+        mapped = self.node_id_to_index.index_select(0, raw.to(self.node_id_to_index.device)).to(raw.device)
+        keep = mapped >= 0
+        return mapped[keep].long(), keep
+
     def _ensure_capacity(self, size: int, device: torch.device, dtype: torch.dtype) -> None:
-        if int(self.historical_memory.size(0)) >= int(size):
+        if int(self.increment_sum.size(0)) >= int(size):
             return
-        current = int(self.historical_memory.size(0))
+        current = int(self.increment_sum.size(0))
         grow = int(size) - current
         self.historical_memory = torch.cat(
             [self.historical_memory, torch.zeros(grow, self.memory_dim, device=device, dtype=dtype)],
@@ -374,6 +514,7 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         committer: AsyncMemoryCommitter,
         historical_blend: HistoricalBlend | None = None,
         historical_cache: SharedHistoricalCache | None = None,
+        historical_filter: HistoricalDeltaFilter | None = None,
         use_staged_commit: bool = False,
         use_shared_filter: bool = True,
         enable_delta_compensation: bool = False,
@@ -384,6 +525,7 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         self.committer = committer
         self.historical_blend = historical_blend
         self.historical_cache = historical_cache
+        self.historical_filter = historical_filter
         self.use_staged_commit = bool(use_staged_commit)
         self.use_shared_filter = bool(use_shared_filter)
         self.enable_delta_compensation = bool(enable_delta_compensation)
@@ -395,6 +537,7 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         self.last_commit_handle: AsyncCommitHandle | None = None
         self.pending_shared_handle: AsyncCommitHandle | None = None
         self.pending_async_handle: AsyncCommitHandle | None = None
+        self.pending_shared_nodes: Tensor | None = None
         self._diag_stats: dict[str, float] = {
             "commit_memory_row_path_count": 0.0,
             "commit_memory_row_fallback_count": 0.0,
@@ -418,8 +561,11 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         self.last_commit_handle = None
         self.pending_shared_handle = None
         self.pending_async_handle = None
+        self.pending_shared_nodes = None
         if self.historical_cache is not None:
             self.historical_cache.reset_state()
+        if self.historical_filter is not None:
+            self.historical_filter.reset_state()
         for name in ("last_updated_memory", "last_updated_ts", "last_updated_nid"):
             if hasattr(self.base_updater, name):
                 setattr(self.base_updater, name, None)
@@ -466,22 +612,77 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             self.pending_shared_handle = None
             self.pending_async_handle = None
             return handle
-        if self.pending_shared_handle is not None or self.pending_async_handle is not None:
-            raise RuntimeError("pending shared/async updates must be drained before submitting a new commit")
+        self.drain_before_submit()
+        return self._submit_staged_prepared(prepared)
+
+    def submit_empty_commit(self, spec: AsyncMemoryUpdateSpec) -> AsyncCommitHandle:
+        memory_runtime = self.committer.memory_runtime
+        memory = memory_runtime.store.memory
+        ts = memory_runtime.store.ts
+        device = memory.device
+        memory_nodes = torch.empty((0,), dtype=torch.long, device=device)
+        memory_values = memory.new_empty((0, int(memory.size(1))))
+        memory_ts = ts.new_empty((0,))
+        mailbox_nodes = None
+        mailbox_msg = None
+        mailbox_ts = None
+        mailbox_runtime = getattr(self.committer, "mailbox_runtime", None)
+        if spec.update_mailbox and mailbox_runtime is not None:
+            mailbox_store = mailbox_runtime.store
+            mailbox = mailbox_store.mailbox
+            mailbox_nodes = torch.empty((0,), dtype=torch.long, device=mailbox.device)
+            mailbox_msg = mailbox.new_empty((0, int(mailbox.size(2))))
+            mailbox_ts = mailbox_store.mailbox_ts.new_empty((0,))
+        if not self.use_staged_commit:
+            return self.committer.submit(
+                memory_nodes,
+                memory_values,
+                memory_ts,
+                mailbox_nodes=mailbox_nodes,
+                mailbox_msg=mailbox_msg,
+                mailbox_ts=mailbox_ts,
+                memory_replica_index=spec.memory_replica_index,
+                mailbox_replica_index=spec.mailbox_replica_index,
+                mailbox_snapshot=spec.mailbox_snapshot,
+                mailbox_snapshot_ts=spec.mailbox_snapshot_ts,
+            )
+        prepared = _PreparedCommitInputs(
+            spec=spec,
+            memory_nodes=memory_nodes,
+            memory_values=memory_values,
+            memory_ts=memory_ts,
+            mailbox_nodes=mailbox_nodes,
+            mailbox_msg=mailbox_msg,
+            mailbox_ts=mailbox_ts,
+        )
+        self.drain_before_submit()
+        return self._submit_staged_prepared(prepared)
+
+    def drain_before_submit(self) -> None:
+        if not self.use_staged_commit:
+            return
+        self.synchronize_shared()
+        self.handle_last_async()
+
+    def _submit_staged_prepared(self, prepared: "_PreparedCommitInputs") -> AsyncCommitHandle:
         shared_handle = self.submit_shared(prepared)
         async_handle = _merge_handles(
             self.submit_p2p_memory(prepared),
             self.submit_p2p_mailbox(prepared),
         )
         self.pending_shared_handle = shared_handle if _has_any_handle(shared_handle) else None
+        self.pending_shared_nodes = prepared.shared_nodes.detach().clone() if prepared.shared_nodes is not None else None
         self.pending_async_handle = async_handle if _has_any_handle(async_handle) else None
         return _merge_handles(shared_handle, async_handle)
 
     def synchronize_shared(self) -> None:
         handle = self.pending_shared_handle
+        shared_nodes = self.pending_shared_nodes
         self.pending_shared_handle = None
+        self.pending_shared_nodes = None
         if handle is not None:
             handle.wait_apply()
+            self._refresh_shared_history(shared_nodes)
 
     def handle_last_async(self) -> None:
         handle = self.pending_async_handle
@@ -500,18 +701,23 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         shared_mailbox_nodes = prepared.shared_mailbox_nodes
         shared_mailbox_snapshot = prepared.shared_mailbox_snapshot
         shared_mailbox_snapshot_ts = prepared.shared_mailbox_snapshot_ts
+        need_shared_memory_collective = prepared.spec.memory_replica_index is not None
+        need_shared_mailbox_collective = (
+            prepared.spec.mailbox_replica_index is not None
+            and getattr(self.committer, "mailbox_runtime", None) is not None
+        )
         has_shared_memory = (
             shared_nodes is not None
             and shared_memory is not None
             and shared_ts is not None
         )
         has_shared_mailbox = (
-            prepared.spec.mailbox_replica_index is not None
+            need_shared_mailbox_collective
             and shared_mailbox_nodes is not None
             and shared_mailbox_snapshot is not None
             and shared_mailbox_snapshot_ts is not None
         )
-        if not has_shared_memory and not has_shared_mailbox:
+        if not need_shared_memory_collective and not need_shared_mailbox_collective:
             return AsyncCommitHandle()
         if any(value is not None for value in (shared_nodes, shared_memory, shared_ts)) and not has_shared_memory:
             raise RuntimeError("shared memory payload is incomplete")
@@ -524,13 +730,21 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             shared_nodes = prepared.memory_nodes.new_empty((0,))
             shared_memory = prepared.memory_values.new_empty((0, prepared.memory_values.size(1)))
             shared_ts = prepared.memory_ts.new_empty((0,))
+        if not has_shared_mailbox and need_shared_mailbox_collective:
+            mailbox_runtime = getattr(self.committer, "mailbox_runtime", None)
+            assert mailbox_runtime is not None
+            mailbox = mailbox_runtime.store.mailbox
+            mailbox_ts = mailbox_runtime.store.mailbox_ts
+            shared_mailbox_nodes = prepared.memory_nodes.new_empty((0,))
+            shared_mailbox_snapshot = mailbox.new_empty((0, int(mailbox.size(1)), int(mailbox.size(2))))
+            shared_mailbox_snapshot_ts = mailbox_ts.new_empty((0, int(mailbox_ts.size(1))))
         return self.committer.submit_shared(
             shared_nodes,
             shared_memory,
             shared_ts,
-            memory_replica_index=prepared.spec.memory_replica_index if has_shared_memory else None,
+            memory_replica_index=prepared.spec.memory_replica_index if need_shared_memory_collective else None,
             mailbox_nodes=shared_mailbox_nodes,
-            mailbox_replica_index=prepared.spec.mailbox_replica_index,
+            mailbox_replica_index=prepared.spec.mailbox_replica_index if need_shared_mailbox_collective else None,
             mailbox_snapshot=shared_mailbox_snapshot,
             mailbox_snapshot_ts=shared_mailbox_snapshot_ts,
         )
@@ -559,6 +773,41 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             write_layout=prepared.mailbox_write_layout,
         )
 
+    def _refresh_shared_history(self, shared_nodes: Tensor | None) -> None:
+        if shared_nodes is None or shared_nodes.numel() == 0:
+            return
+        memory_runtime = getattr(self.committer, "memory_runtime", None)
+        if memory_runtime is None or not hasattr(memory_runtime, "store") or not hasattr(memory_runtime, "index"):
+            return
+        nodes = shared_nodes.reshape(-1).long()
+        nodes, order = torch.sort(nodes)
+        keep = torch.ones(int(nodes.numel()), dtype=torch.bool, device=nodes.device)
+        if int(nodes.numel()) > 1:
+            keep[1:] = nodes[1:] != nodes[:-1]
+        nodes = nodes[keep]
+        if nodes.numel() == 0:
+            return
+        master_index = memory_runtime.index.master_for(
+            nodes.to(memory_runtime.index.master_dist_index.device)
+        )
+        rows = dist_index_loc(master_index).to(memory_runtime.store.device)
+        memory, ts = memory_runtime.store.gather_rows(rows)
+        if self.historical_cache is not None:
+            self.historical_cache._ensure_capacity(
+                int(nodes.max().item()) + 1,
+                self.historical_cache.historical_memory.device,
+                self.historical_cache.historical_memory.dtype,
+            )
+            cache_nodes = nodes.to(self.historical_cache.historical_memory.device)
+            self.historical_cache.historical_memory[cache_nodes] = memory.to(
+                self.historical_cache.historical_memory.device,
+                dtype=self.historical_cache.historical_memory.dtype,
+            )
+            self.historical_cache.historical_ts[cache_nodes] = ts.to(
+                self.historical_cache.historical_ts.device,
+                dtype=self.historical_cache.historical_ts.dtype,
+            )
+
     def _prepare_commit_inputs(self, spec: AsyncMemoryUpdateSpec) -> "_PreparedCommitInputs":
         if self.last_updated_memory is None or self.last_updated_ts is None or self.last_updated_nid is None:
             raise RuntimeError("no updated memory is available; call forward() first")
@@ -577,7 +826,7 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             memory_rows = torch.cat([spec.src_rows, spec.dst_rows], dim=0)
         if memory_rows is not None:
             memory_rows = _checked_rows(memory_rows, updated, name="memory_rows")
-            if _rows_match_nodes(nid, memory_rows, memory_nodes):
+            if spec.precomputed_commit or _rows_match_nodes(nid, memory_rows, memory_nodes):
                 self._diag_stats["commit_memory_row_path_count"] += 1.0
                 memory_values = updated.index_select(0, memory_rows)
                 memory_ts = updated_ts.reshape(-1, 1).index_select(0, memory_rows).reshape(-1)
@@ -623,7 +872,10 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             if spec.src_rows is not None and spec.dst_rows is not None:
                 src_rows = _checked_rows(spec.src_rows, updated, name="src_rows")
                 dst_rows = _checked_rows(spec.dst_rows, updated, name="dst_rows")
-                if _rows_match_nodes(nid, src_rows, spec.src) and _rows_match_nodes(nid, dst_rows, spec.dst):
+                if spec.precomputed_commit or (
+                    _rows_match_nodes(nid, src_rows, spec.src)
+                    and _rows_match_nodes(nid, dst_rows, spec.dst)
+                ):
                     self._diag_stats["commit_mailbox_row_path_count"] += 1.0
                     mailbox_msg = _build_mailbox_messages_from_rows(updated, src_rows, dst_rows, spec.edge_feat)
                 else:
@@ -642,10 +894,12 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             shared_mask = _replicated_node_mask(memory_nodes, spec.memory_replica_index)
             if self.use_shared_filter and self.historical_cache is not None and shared_mask.any():
                 shared_index = memory_nodes[shared_mask].to(device=updated.device, dtype=torch.long)
+                candidate_shared_memory = memory_values[shared_mask]
+                candidate_shared_ts = memory_ts[shared_mask]
                 update_mask = self.historical_cache.historical_check(
                     shared_index,
-                    memory_values[shared_mask],
-                    memory_ts[shared_mask],
+                    candidate_shared_memory,
+                    candidate_shared_ts,
                 )
                 full_mask = torch.zeros_like(shared_mask)
                 full_mask[shared_mask] = update_mask.to(device=shared_mask.device)
@@ -694,56 +948,92 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
         return getattr(self.base_updater, "last_updated_memory", None)
 
     def _maybe_historical_blend(self, mfg: Any, updated: Tensor) -> Tensor:
-        if self.historical_blend is None:
+        if self.historical_blend is None or self.historical_filter is None:
             return updated
+        nid = getattr(self.base_updater, "last_updated_nid", None)
+        if nid is None:
+            return updated
+        shared_mask, his_mem, increment, shared_index = self._historical_compensation_inputs(mfg, updated, nid)
+        if shared_mask is None or his_mem is None or increment is None or shared_index is None:
+            return updated
+        out = self.historical_blend(
+            updated,
+            shared_mask,
+            his_mem,
+            increment,
+        )
+        shared_index = shared_index[shared_mask]
+        if shared_index.numel() > 0:
+            change = out[shared_mask].detach() - his_mem[shared_mask].detach()
+            self.historical_filter.update(shared_index, change)
+        return out
+
+    def _historical_compensation_inputs(
+        self,
+        mfg: Any,
+        updated: Tensor,
+        nid: Tensor,
+    ) -> tuple[Tensor | None, Tensor | None, Tensor | None, Tensor | None]:
+        if self.historical_filter is None:
+            return None, None, None, None
+        index = nid.to(device=updated.device, dtype=torch.long).reshape(-1)
+        if index.numel() == 0:
+            return None, None, None, None
         block = _first_block(mfg)
         srcdata = getattr(block, "srcdata", None)
-        if not isinstance(srcdata, dict):
-            return updated
-        shared_mask = srcdata.get("shared_mask")
-        his_mem = srcdata.get("his_mem")
-        increment = srcdata.get("his_increment")
-        if shared_mask is None or his_mem is None or increment is None:
-            return updated
-        return self.historical_blend(
-            updated,
-            shared_mask.to(device=updated.device).bool(),
-            his_mem.to(device=updated.device, dtype=updated.dtype),
-            increment.to(device=updated.device, dtype=updated.dtype),
-        )
+        shared_mask = None
+        his_mem = None
+        if isinstance(srcdata, dict):
+            raw_mask = srcdata.get("shared_mask")
+            if raw_mask is not None:
+                shared_mask = raw_mask.to(device=updated.device).bool().reshape(-1)
+            raw_his_mem = srcdata.get("his_mem")
+            if raw_his_mem is not None:
+                his_mem = raw_his_mem.to(device=updated.device, dtype=updated.dtype)
+        if shared_mask is None:
+            memory_runtime = getattr(self.committer, "memory_runtime", None)
+            if memory_runtime is None or not hasattr(memory_runtime, "index"):
+                return None, None, None, None
+            master_index = memory_runtime.index.master_for(
+                index.to(memory_runtime.index.master_dist_index.device)
+            ).to(index.device)
+            shared_mask = dist_index_is_shared(master_index).to(device=updated.device)
+        if his_mem is None and self.historical_cache is not None:
+            his_mem = self.historical_cache.historical_memory.index_select(
+                0,
+                index.to(self.historical_cache.historical_memory.device),
+            ).to(device=updated.device, dtype=updated.dtype)
+        if his_mem is None:
+            his_mem = self.historical_filter.get_history(index, device=updated.device, dtype=updated.dtype)
+        increment = self.historical_filter.get_increment(index).to(device=updated.device, dtype=updated.dtype)
+        if shared_mask.numel() != updated.size(0):
+            return None, None, None, None
+        if not bool(shared_mask.any().item()):
+            return shared_mask, his_mem, increment, index
+        transition_dense = his_mem[shared_mask] + increment[shared_mask]
+        max_val = transition_dense.max()
+        if float(max_val.item()) != 0.0:
+            transition_dense = transition_dense - transition_dense.min()
+            transition_dense = transition_dense / transition_dense.max().clamp_min(1e-12)
+            transition_dense = 2 * transition_dense - 1
+        full_increment = torch.zeros_like(increment)
+        full_increment[shared_mask] = transition_dense - his_mem[shared_mask]
+        return shared_mask, his_mem, full_increment, index
 
     def _maybe_delta_compensate(self, updated: Tensor, nid: Tensor, ts: Tensor) -> Tensor:
-        if not self.enable_delta_compensation or self.historical_cache is None:
+        if not self.enable_delta_compensation or self.historical_filter is None:
+            return updated
+        if self.historical_blend is not None:
             return updated
         if nid.numel() == 0:
             return updated
         index = nid.to(device=updated.device, dtype=torch.long).reshape(-1)
         if index.numel() == 0:
             return updated
-        cache = self.historical_cache
-        cache._ensure_capacity(int(index.max().item()) + 1, cache.historical_memory.device, cache.historical_memory.dtype)
-        dev_index = index.to(cache.historical_memory.device)
-        prev_memory = cache.historical_memory.index_select(0, dev_index).to(device=updated.device, dtype=updated.dtype)
-        memory_runtime = getattr(self.committer, "memory_runtime", None)
-        if memory_runtime is not None and hasattr(memory_runtime, "index"):
-            master_index = memory_runtime.index.master_for(
-                index.to(memory_runtime.index.master_dist_index.device)
-            ).to(index.device)
-            rank = int(dist.get_rank()) if dist.is_available() and dist.is_initialized() else 0
-            remote_mask = ~(dist_index_part(master_index) == rank)
-            shared_mask = dist_index_is_shared(master_index).to(device=updated.device)
-            local_rows = dist_index_loc(master_index).to(device=updated.device)
-        else:
-            remote_mask = torch.zeros_like(index, dtype=torch.bool, device=index.device)
-            shared_mask = torch.zeros_like(index, dtype=torch.bool, device=updated.device)
-            local_rows = index.to(device=updated.device)
-
+        cache = self.historical_filter
+        prev_memory = cache.get_history(index, device=updated.device, dtype=updated.dtype)
         with torch.no_grad():
-            if bool(remote_mask.any().item()):
-                transition_dense = cache.get_increment_remote(index).to(device=updated.device, dtype=updated.dtype)
-            else:
-                transition_dense = cache.get_increment(local_rows).to(device=updated.device, dtype=updated.dtype)
-            transition_dense[shared_mask] *= 2
+            transition_dense = cache.get_increment(index).to(device=updated.device, dtype=updated.dtype)
             max_val = transition_dense.max()
             if float(max_val.item()) != 0.0:
                 transition_dense = transition_dense - transition_dense.min()
@@ -752,28 +1042,17 @@ class RuntimeAsyncMemoryUpdater(nn.Module):
             pred_memory = prev_memory + transition_dense
 
         gamma = self.delta_gamma.to(device=updated.device, dtype=updated.dtype)
-        inc_count = cache.increment_count.index_select(0, dev_index).to(device=updated.device).reshape(-1)
+        inc_count = cache.get_count(index).to(device=updated.device).reshape(-1)
         valid = inc_count > 0
         out = updated.clone()
         if bool(valid.any().item()):
             out[valid] = gamma * pred_memory[valid] + (1.0 - gamma) * updated[valid]
 
         with torch.no_grad():
-            local_non_shared = ((~remote_mask).to(device=updated.device) & (~shared_mask) & valid)
-            if bool(local_non_shared.any().item()):
-                change = (out.detach() - prev_memory.detach()).clone()
-                max_change = change.max()
-                if float(max_change.item()) != 0.0:
-                    change = change - change.min()
-                    change = change / change.max().clamp_min(1e-12)
-                    change = 2 * change - 1
-                    cache.update(local_rows[local_non_shared], change[local_non_shared])
+            if bool(valid.any().item()):
+                change = out.detach() - prev_memory.detach()
+                cache.update(index[valid], change[valid])
         return out
-
-
-def _normalize_increment(x: Tensor, eps: float = 1e-12) -> Tensor:
-    norm = x.norm(dim=-1, keepdim=True).clamp_min(eps)
-    return x / norm
 
 
 def _memory_write_layout_from_spec(spec: AsyncMemoryUpdateSpec) -> MemoryWriteLayout | None:
@@ -851,13 +1130,19 @@ def _build_mailbox_messages(
         raise RuntimeError("src/dst nodes are not covered by updated node ids")
     src_mem = src_mem.reshape(int(src_mem.size(0)), -1)
     dst_mem = dst_mem.reshape(int(dst_mem.size(0)), -1)
-    src_mail = torch.cat([src_mem, dst_mem], dim=-1)
-    dst_mail = torch.cat([dst_mem, src_mem], dim=-1)
+    num_edges = int(src_mem.size(0))
+    mem_dim = int(src_mem.size(1))
+    edge_dim = 0 if edge_feat is None else int(edge_feat.reshape(num_edges, -1).size(1))
+    out = src_mem.new_empty((num_edges * 2, mem_dim * 2 + edge_dim))
+    out[:num_edges, :mem_dim] = src_mem
+    out[:num_edges, mem_dim : mem_dim * 2] = dst_mem
+    out[num_edges:, :mem_dim] = dst_mem
+    out[num_edges:, mem_dim : mem_dim * 2] = src_mem
     if edge_feat is not None:
-        edge = edge_feat.to(src_mem.device, dtype=src_mem.dtype).reshape(int(edge_feat.size(0)), -1)
-        src_mail = torch.cat([src_mail, edge], dim=-1)
-        dst_mail = torch.cat([dst_mail, edge], dim=-1)
-    return torch.cat([src_mail, dst_mail], dim=0)
+        edge = edge_feat.to(src_mem.device, dtype=src_mem.dtype).reshape(num_edges, -1)
+        out[:num_edges, mem_dim * 2 :] = edge
+        out[num_edges:, mem_dim * 2 :] = edge
+    return out
 
 
 def _build_mailbox_messages_from_rows(
@@ -870,13 +1155,19 @@ def _build_mailbox_messages_from_rows(
     dst_rows = _checked_rows(dst_rows, updated, name="dst_rows")
     src_mem = updated.index_select(0, src_rows).reshape(int(src_rows.numel()), -1)
     dst_mem = updated.index_select(0, dst_rows).reshape(int(dst_rows.numel()), -1)
-    src_mail = torch.cat([src_mem, dst_mem], dim=-1)
-    dst_mail = torch.cat([dst_mem, src_mem], dim=-1)
+    num_edges = int(src_mem.size(0))
+    mem_dim = int(src_mem.size(1))
+    edge_dim = 0 if edge_feat is None else int(edge_feat.reshape(num_edges, -1).size(1))
+    out = src_mem.new_empty((num_edges * 2, mem_dim * 2 + edge_dim))
+    out[:num_edges, :mem_dim] = src_mem
+    out[:num_edges, mem_dim : mem_dim * 2] = dst_mem
+    out[num_edges:, :mem_dim] = dst_mem
+    out[num_edges:, mem_dim : mem_dim * 2] = src_mem
     if edge_feat is not None:
-        edge = edge_feat.to(src_mem.device, dtype=src_mem.dtype).reshape(int(edge_feat.size(0)), -1)
-        src_mail = torch.cat([src_mail, edge], dim=-1)
-        dst_mail = torch.cat([dst_mail, edge], dim=-1)
-    return torch.cat([src_mail, dst_mail], dim=0)
+        edge = edge_feat.to(src_mem.device, dtype=src_mem.dtype).reshape(num_edges, -1)
+        out[:num_edges, mem_dim * 2 :] = edge
+        out[num_edges:, mem_dim * 2 :] = edge
+    return out
 
 
 def _checked_rows(rows: Tensor, values: Tensor, *, name: str) -> Tensor:

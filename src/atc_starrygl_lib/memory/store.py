@@ -7,18 +7,19 @@ from torch import Tensor
 class MemoryStore:
     """Row-indexed temporal memory storage."""
 
-    def __init__(self, memory: Tensor, ts: Tensor) -> None:
+    def __init__(self, memory: Tensor, ts: Tensor, *, row_map: Tensor | None = None) -> None:
         if memory.size(0) != ts.numel():
             raise ValueError("memory and ts must have the same row count")
         self.memory = memory
         self.ts = ts
+        self.row_map = row_map
 
     @property
     def device(self) -> torch.device:
         return self.memory.device
 
     def gather_rows(self, rows: Tensor, _time_slices: Tensor | None = None) -> tuple[Tensor, Tensor]:
-        row = rows.long().to(self.memory.device)
+        row = self._physical_rows(rows)
         return self.memory.index_select(0, row).to(rows.device), self.ts.index_select(0, row).to(rows.device)
 
     def reset_zeros(self) -> None:
@@ -26,7 +27,7 @@ class MemoryStore:
         self.ts.zero_()
 
     def update_rows(self, rows: Tensor, memory: Tensor, ts: Tensor, *, reduce: str = "max_ts") -> None:
-        row = rows.long().to(self.memory.device)
+        row = self._physical_rows(rows)
         mem = memory.to(device=self.memory.device, dtype=self.memory.dtype)
         ts_in = ts.to(device=self.ts.device, dtype=self.ts.dtype).reshape(-1)
         if row.numel() != mem.size(0) or row.numel() != ts_in.numel():
@@ -45,6 +46,12 @@ class MemoryStore:
             self.ts[row] = ts_in
             return
         raise ValueError(f"unknown memory reduce mode: {reduce!r}")
+
+    def _physical_rows(self, rows: Tensor) -> Tensor:
+        row = rows.long().to(self.memory.device)
+        if self.row_map is None:
+            return row
+        return self.row_map.to(self.memory.device).index_select(0, row)
 
 
 def _latest_by_row(row: Tensor, memory: Tensor, ts: Tensor) -> tuple[Tensor, Tensor, Tensor]:

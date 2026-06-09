@@ -4,6 +4,7 @@ import pytest
 import atc_starrygl_lib.preprocess.dist as dist_mod
 from atc_starrygl_lib.preprocess.dist import (
     assign_chunks_temporal_hot_balance,
+    assign_chunks_temporal_balance_native,
     assign_chunks_by_load,
     build_chunk_csr,
     build_dist_plan,
@@ -11,6 +12,7 @@ from atc_starrygl_lib.preprocess.dist import (
     build_local_metis_chunks,
     compute_chunk_event_load,
     compute_chunk_load,
+    compute_chunk_task_load,
     normalize_replica,
 )
 
@@ -94,6 +96,23 @@ def test_chunk_event_load_counts_dst_events_only() -> None:
     assert load.tolist() == [[1.0, 1.0], [1.0, 1.0]]
 
 
+def test_chunk_task_load_counts_source_executor_load() -> None:
+    src = torch.tensor([0, 1, 2, 3])
+    dst = torch.tensor([1, 2, 3, 0])
+    node_to_chunk = torch.tensor([0, 0, 1, 1])
+    time_ptr_2 = torch.tensor([[0, 2], [2, 4]])
+    load = compute_chunk_task_load(
+        src=src,
+        dst=dst,
+        node_to_chunk=node_to_chunk,
+        time_ptr_2=time_ptr_2,
+        num_chunks=2,
+        node_count_weight=1.0,
+        executor_endpoint="src",
+    )
+    assert load.tolist() == [[5.0, 0.0], [0.0, 5.0]]
+
+
 def test_assign_chunks_by_mean_std_round_robin() -> None:
     load = torch.tensor([[10.0, 1.0, 8.0, 2.0], [10.0, 7.0, 0.0, 2.0]])
     owner = assign_chunks_by_load(load, world_size=2)
@@ -127,6 +146,26 @@ def test_temporal_hot_chunk_balance_respects_capacity_and_hot_exemption() -> Non
     assert torch.bincount(owner, minlength=2).tolist() == [2, 2]
     rank_load = torch.stack([load[:, owner == rank].sum(dim=1) for rank in range(2)], dim=0)
     assert torch.all(rank_load.sum(dim=0) == load.sum(dim=1))
+
+
+def test_native_temporal_balance_respects_capacity() -> None:
+    load = torch.tensor(
+        [
+            [10.0, 9.0, 1.0, 1.0],
+            [1.0, 1.0, 10.0, 9.0],
+        ]
+    )
+    affinity = torch.zeros(4, 4)
+    affinity[2, 3] = affinity[3, 2] = 5.0
+    owner = assign_chunks_temporal_balance_native(
+        chunk_load=load,
+        affinity=affinity,
+        world_size=2,
+        chunks_per_rank=2,
+        affinity_weight=0.1,
+        local_search_iters=20,
+    )
+    assert torch.bincount(owner, minlength=2).tolist() == [2, 2]
 
 
 def test_normalize_replica_promotes_hot_global_ids() -> None:
@@ -204,3 +243,28 @@ def test_build_dist_plan_temporal_hot_chunk_balance_uses_speed_base(monkeypatch:
     assert plan["partition_algorithm"] == "temporal_hot_chunk_balance"
     assert plan["chunk_load"].shape == (2, 4)
     assert torch.bincount(plan["chunk_owner"], minlength=2).tolist() == [2, 2]
+
+
+def test_build_dist_plan_metis_chunk_assignment_uses_source_edge_owner(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_metis(*, src, dst, num_nodes, world_size):
+        return torch.arange(int(num_nodes), dtype=torch.long) % int(world_size)
+
+    monkeypatch.setattr(dist_mod, "run_metis_partition", fake_metis)
+    src = torch.tensor([0, 1, 2, 3, 0, 2])
+    dst = torch.tensor([1, 2, 3, 0, 2, 1])
+    plan = build_dist_plan(
+        src=src,
+        dst=dst,
+        ts=None,
+        num_nodes=4,
+        world_size=2,
+        time_ptr_2=torch.tensor([[0, 3], [3, 6]]),
+        algorithm="metis_chunk_assignment",
+        chunks_per_rank=2,
+        hot_topk=1,
+        chunk_local_search_iters=0,
+    )
+    assert plan["partition_algorithm"] == "metis_chunk_assignment"
+    assert plan["chunk_load"].shape == (2, 4)
+    assert torch.bincount(plan["chunk_owner"], minlength=2).tolist() == [2, 2]
+    assert torch.equal(plan["edge_owner"], plan["node_owner"].index_select(0, src))

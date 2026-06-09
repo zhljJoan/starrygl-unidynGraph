@@ -65,3 +65,33 @@ def test_ctdg_edge_feature_runtime_uses_native_direct_layout() -> None:
     assert torch.equal(layout.read_index, read_index)
     assert layout.read_ptr.tolist() == [0, 2, 3]
     assert layout.compute_to_feature.tolist() == [0, 1, 2]
+
+
+def test_feature_store_row_map_preserves_logical_rows() -> None:
+    features = torch.tensor([[20.0], [10.0], [30.0]])
+    row_map = torch.tensor([1, 0, 2], dtype=torch.long)
+    store = FeatureStore(node_features=features, node_row_map=row_map)
+
+    out = store.gather_node_rows(torch.tensor([0, 1, 2], dtype=torch.long))
+
+    assert out.tolist() == [[10.0], [20.0], [30.0]]
+
+
+def test_feature_store_sorted_mapped_gather_restores_request_order() -> None:
+    features = torch.tensor([[20.0], [10.0], [30.0]])
+    row_map = torch.tensor([1, 0, 2], dtype=torch.long)
+    store = FeatureStore(node_features=features, node_row_map=row_map, sort_mapped_gather=True)
+
+    out = store.gather_node_rows(torch.tensor([2, 0, 1], dtype=torch.long))
+
+    assert out.tolist() == [[30.0], [10.0], [20.0]]
+
+
+def test_feature_store_pinned_transfer_keeps_cpu_requests_on_cpu() -> None:
+    features = torch.tensor([[1.0], [2.0]])
+    store = FeatureStore(node_features=features, pin_memory_transfer=True)
+
+    out = store.gather_node_rows(torch.tensor([1, 0], dtype=torch.long))
+
+    assert out.device.type == "cpu"
+    assert out.tolist() == [[2.0], [1.0]]

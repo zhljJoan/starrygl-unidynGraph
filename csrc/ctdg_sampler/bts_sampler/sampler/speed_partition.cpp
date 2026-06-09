@@ -111,6 +111,15 @@ torch::Tensor require_1d_cpu_contiguous(torch::Tensor t, const char* name, torch
     return t.contiguous();
 }
 
+torch::Tensor require_2d_cpu_contiguous(torch::Tensor t, const char* name, torch::ScalarType dtype) {
+    TORCH_CHECK(t.dim() == 2, name, " must be 2-D");
+    TORCH_CHECK(t.device().is_cpu(), name, " must be a CPU tensor");
+    if (t.scalar_type() != dtype) {
+        t = t.to(dtype);
+    }
+    return t.contiguous();
+}
+
 int64_t tensor_num_nodes(const int64_t* src, const int64_t* dst, int64_t num_edges, int64_t requested) {
     int64_t n = requested;
     if (n > 0) {
@@ -254,6 +263,89 @@ torch::Tensor vector_to_long_tensor(const std::vector<int64_t>& values) {
     return out;
 }
 
+double load_score_for_rank(
+    const std::vector<double>& rank_load,
+    const std::vector<double>& target,
+    int64_t rank,
+    int64_t num_slices) {
+    double score = 0.0;
+    const int64_t offset = rank * num_slices;
+    for (int64_t t = 0; t < num_slices; ++t) {
+        const double diff = rank_load[static_cast<size_t>(offset + t)] - target[static_cast<size_t>(t)];
+        score += diff * diff;
+    }
+    return score / static_cast<double>(std::max<int64_t>(num_slices, 1));
+}
+
+double load_objective(
+    const std::vector<double>& rank_load,
+    const std::vector<double>& target,
+    int64_t world_size,
+    int64_t num_slices) {
+    double score = 0.0;
+    for (int64_t rank = 0; rank < world_size; ++rank) {
+        score += load_score_for_rank(rank_load, target, rank, num_slices);
+    }
+    return score;
+}
+
+double average_batch_load_ratio(
+    const std::vector<double>& rank_load,
+    int64_t world_size,
+    int64_t num_slices) {
+    double total_ratio = 0.0;
+    int64_t valid_slices = 0;
+    for (int64_t t = 0; t < num_slices; ++t) {
+        double min_load = std::numeric_limits<double>::infinity();
+        double max_load = 0.0;
+        for (int64_t rank = 0; rank < world_size; ++rank) {
+            const double value = rank_load[static_cast<size_t>(rank * num_slices + t)];
+            min_load = std::min(min_load, value);
+            max_load = std::max(max_load, value);
+        }
+        if (max_load <= 0.0) {
+            continue;
+        }
+        total_ratio += max_load / std::max(min_load, kEps);
+        valid_slices += 1;
+    }
+    return total_ratio / static_cast<double>(std::max<int64_t>(valid_slices, 1));
+}
+
+double average_batch_load_ratio_after_swap(
+    const std::vector<double>& rank_load,
+    const double* load_ptr,
+    int64_t world_size,
+    int64_t num_slices,
+    int64_t num_chunks,
+    int64_t rank_a,
+    int64_t rank_b,
+    int64_t chunk_a,
+    int64_t chunk_b) {
+    double total_ratio = 0.0;
+    int64_t valid_slices = 0;
+    for (int64_t t = 0; t < num_slices; ++t) {
+        double min_load = std::numeric_limits<double>::infinity();
+        double max_load = 0.0;
+        for (int64_t rank = 0; rank < world_size; ++rank) {
+            double value = rank_load[static_cast<size_t>(rank * num_slices + t)];
+            if (rank == rank_a) {
+                value = value - load_ptr[t * num_chunks + chunk_a] + load_ptr[t * num_chunks + chunk_b];
+            } else if (rank == rank_b) {
+                value = value - load_ptr[t * num_chunks + chunk_b] + load_ptr[t * num_chunks + chunk_a];
+            }
+            min_load = std::min(min_load, value);
+            max_load = std::max(max_load, value);
+        }
+        if (max_load <= 0.0) {
+            continue;
+        }
+        total_ratio += max_load / std::max(min_load, kEps);
+        valid_slices += 1;
+    }
+    return total_ratio / static_cast<double>(std::max<int64_t>(valid_slices, 1));
+}
+
 int64_t first_local_part_or_fallback(
     const SpeedState& state,
     int64_t nid,
@@ -347,6 +439,258 @@ torch::Tensor choose_balanced_node_master(
 }
 
 }  // namespace
+
+torch::Tensor assign_chunks_temporal_balance(
+    torch::Tensor chunk_load,
+    torch::Tensor affinity,
+    int64_t world_size,
+    int64_t chunks_per_rank,
+    double affinity_weight,
+    int64_t local_search_iters) {
+    TORCH_CHECK(world_size > 0, "world_size must be positive");
+    TORCH_CHECK(chunks_per_rank > 0, "chunks_per_rank must be positive");
+    chunk_load = require_2d_cpu_contiguous(chunk_load, "chunk_load", torch::kFloat64);
+    affinity = require_2d_cpu_contiguous(affinity, "affinity", torch::kFloat64);
+    const int64_t num_slices = chunk_load.size(0);
+    const int64_t num_chunks = chunk_load.size(1);
+    TORCH_CHECK(num_chunks == world_size * chunks_per_rank,
+                "num_chunks must equal world_size * chunks_per_rank");
+    TORCH_CHECK(affinity.size(0) == num_chunks && affinity.size(1) == num_chunks,
+                "affinity shape must be [num_chunks, num_chunks]");
+
+    const auto* load_ptr = chunk_load.data_ptr<double>();
+    const auto* affinity_ptr = affinity.data_ptr<double>();
+    std::vector<double> target(static_cast<size_t>(num_slices), 0.0);
+    std::vector<double> scalar(static_cast<size_t>(num_chunks), 0.0);
+    for (int64_t t = 0; t < num_slices; ++t) {
+        double total = 0.0;
+        for (int64_t c = 0; c < num_chunks; ++c) {
+            const double v = load_ptr[t * num_chunks + c];
+            total += v;
+            scalar[static_cast<size_t>(c)] += v * v;
+        }
+        target[static_cast<size_t>(t)] = total / static_cast<double>(world_size);
+    }
+
+    std::vector<int64_t> order(static_cast<size_t>(num_chunks));
+    for (int64_t c = 0; c < num_chunks; ++c) {
+        order[static_cast<size_t>(c)] = c;
+        scalar[static_cast<size_t>(c)] = std::sqrt(scalar[static_cast<size_t>(c)]);
+    }
+    std::stable_sort(order.begin(), order.end(), [&](int64_t a, int64_t b) {
+        if (!almost_equal(scalar[static_cast<size_t>(a)], scalar[static_cast<size_t>(b)])) {
+            return scalar[static_cast<size_t>(a)] > scalar[static_cast<size_t>(b)];
+        }
+        return a < b;
+    });
+
+    std::vector<int64_t> owner(static_cast<size_t>(num_chunks), -1);
+    std::vector<int64_t> rank_count(static_cast<size_t>(world_size), 0);
+    std::vector<double> rank_load(static_cast<size_t>(world_size * num_slices), 0.0);
+    std::vector<int64_t> assigned;
+    assigned.reserve(static_cast<size_t>(num_chunks));
+
+    for (int64_t cid : order) {
+        int64_t best_rank = -1;
+        double best_score = std::numeric_limits<double>::infinity();
+        for (int64_t rank = 0; rank < world_size; ++rank) {
+            if (rank_count[static_cast<size_t>(rank)] >= chunks_per_rank) {
+                continue;
+            }
+            const double before_load = load_score_for_rank(rank_load, target, rank, num_slices);
+            double after_load = 0.0;
+            for (int64_t t = 0; t < num_slices; ++t) {
+                const double next_load =
+                    rank_load[static_cast<size_t>(rank * num_slices + t)] +
+                    load_ptr[t * num_chunks + cid];
+                const double diff = next_load - target[static_cast<size_t>(t)];
+                after_load += diff * diff;
+            }
+            after_load /= static_cast<double>(std::max<int64_t>(num_slices, 1));
+            double locality_score = 0.0;
+            for (int64_t other : assigned) {
+                if (owner[static_cast<size_t>(other)] != rank) {
+                    locality_score += affinity_ptr[cid * num_chunks + other];
+                }
+            }
+            const double score = (after_load - before_load) + affinity_weight * locality_score;
+            if (score < best_score - kEps ||
+                (almost_equal(score, best_score) && (best_rank < 0 || rank < best_rank))) {
+                best_score = score;
+                best_rank = rank;
+            }
+        }
+        TORCH_CHECK(best_rank >= 0, "failed to assign chunk under capacity constraint");
+        owner[static_cast<size_t>(cid)] = best_rank;
+        rank_count[static_cast<size_t>(best_rank)] += 1;
+        for (int64_t t = 0; t < num_slices; ++t) {
+            rank_load[static_cast<size_t>(best_rank * num_slices + t)] += load_ptr[t * num_chunks + cid];
+        }
+        assigned.push_back(cid);
+    }
+
+    double cut_score = 0.0;
+    for (int64_t i = 0; i < num_chunks; ++i) {
+        for (int64_t j = i + 1; j < num_chunks; ++j) {
+            if (owner[static_cast<size_t>(i)] != owner[static_cast<size_t>(j)]) {
+                cut_score += affinity_ptr[i * num_chunks + j];
+            }
+        }
+    }
+    double load_score = load_objective(rank_load, target, world_size, num_slices);
+    double best_score = load_score + affinity_weight * cut_score;
+
+    std::vector<std::vector<int64_t>> chunks_by_rank(static_cast<size_t>(world_size));
+    for (int64_t c = 0; c < num_chunks; ++c) {
+        chunks_by_rank[static_cast<size_t>(owner[static_cast<size_t>(c)])].push_back(c);
+    }
+
+    if (local_search_iters > 0 && num_chunks <= 256) {
+        double best_ratio = average_batch_load_ratio(rank_load, world_size, num_slices);
+        const int64_t ratio_passes = std::min<int64_t>(std::max<int64_t>(local_search_iters, 0), 64);
+        for (int64_t pass = 0; pass < ratio_passes; ++pass) {
+            int64_t best_a = -1;
+            int64_t best_b = -1;
+            int64_t best_rank_a = -1;
+            int64_t best_rank_b = -1;
+            double next_ratio = best_ratio;
+            for (int64_t a = 0; a < num_chunks; ++a) {
+                const int64_t rank_a = owner[static_cast<size_t>(a)];
+                for (int64_t b = a + 1; b < num_chunks; ++b) {
+                    const int64_t rank_b = owner[static_cast<size_t>(b)];
+                    if (rank_a == rank_b) {
+                        continue;
+                    }
+                    const double ratio = average_batch_load_ratio_after_swap(
+                        rank_load, load_ptr, world_size, num_slices, num_chunks, rank_a, rank_b, a, b);
+                    if (ratio < next_ratio - 1e-9 ||
+                        (almost_equal(ratio, next_ratio) && (best_a < 0 || a < best_a || (a == best_a && b < best_b)))) {
+                        next_ratio = ratio;
+                        best_a = a;
+                        best_b = b;
+                        best_rank_a = rank_a;
+                        best_rank_b = rank_b;
+                    }
+                }
+            }
+            if (best_a < 0 || best_b < 0) {
+                break;
+            }
+            for (int64_t t = 0; t < num_slices; ++t) {
+                rank_load[static_cast<size_t>(best_rank_a * num_slices + t)] =
+                    rank_load[static_cast<size_t>(best_rank_a * num_slices + t)] -
+                    load_ptr[t * num_chunks + best_a] +
+                    load_ptr[t * num_chunks + best_b];
+                rank_load[static_cast<size_t>(best_rank_b * num_slices + t)] =
+                    rank_load[static_cast<size_t>(best_rank_b * num_slices + t)] -
+                    load_ptr[t * num_chunks + best_b] +
+                    load_ptr[t * num_chunks + best_a];
+            }
+            owner[static_cast<size_t>(best_a)] = best_rank_b;
+            owner[static_cast<size_t>(best_b)] = best_rank_a;
+            auto& list_a = chunks_by_rank[static_cast<size_t>(best_rank_a)];
+            auto& list_b = chunks_by_rank[static_cast<size_t>(best_rank_b)];
+            auto it_a = std::find(list_a.begin(), list_a.end(), best_a);
+            auto it_b = std::find(list_b.begin(), list_b.end(), best_b);
+            if (it_a != list_a.end()) {
+                *it_a = best_b;
+            }
+            if (it_b != list_b.end()) {
+                *it_b = best_a;
+            }
+            best_ratio = next_ratio;
+        }
+    }
+
+    cut_score = 0.0;
+    for (int64_t i = 0; i < num_chunks; ++i) {
+        for (int64_t j = i + 1; j < num_chunks; ++j) {
+            if (owner[static_cast<size_t>(i)] != owner[static_cast<size_t>(j)]) {
+                cut_score += affinity_ptr[i * num_chunks + j];
+            }
+        }
+    }
+    load_score = load_objective(rank_load, target, world_size, num_slices);
+    best_score = load_score + affinity_weight * cut_score;
+
+    int64_t stale = 0;
+    const int64_t max_stale = std::max<int64_t>(100, std::max<int64_t>(local_search_iters, 1) / 10);
+    const int64_t mse_search_iters = (num_chunks <= 256) ? 0 : local_search_iters;
+    for (int64_t step = 0; step < mse_search_iters; ++step) {
+        const int64_t rank_a = step % world_size;
+        const int64_t rank_b = (step * 7 + 1) % world_size;
+        if (rank_a == rank_b ||
+            chunks_by_rank[static_cast<size_t>(rank_a)].empty() ||
+            chunks_by_rank[static_cast<size_t>(rank_b)].empty()) {
+            continue;
+        }
+        auto& list_a = chunks_by_rank[static_cast<size_t>(rank_a)];
+        auto& list_b = chunks_by_rank[static_cast<size_t>(rank_b)];
+        const int64_t pos_a = (step * 13) % static_cast<int64_t>(list_a.size());
+        const int64_t pos_b = (step * 17) % static_cast<int64_t>(list_b.size());
+        const int64_t a = list_a[static_cast<size_t>(pos_a)];
+        const int64_t b = list_b[static_cast<size_t>(pos_b)];
+
+        const double before_load =
+            load_score_for_rank(rank_load, target, rank_a, num_slices) +
+            load_score_for_rank(rank_load, target, rank_b, num_slices);
+        std::vector<double> trial_a(static_cast<size_t>(num_slices));
+        std::vector<double> trial_b(static_cast<size_t>(num_slices));
+        for (int64_t t = 0; t < num_slices; ++t) {
+            trial_a[static_cast<size_t>(t)] =
+                rank_load[static_cast<size_t>(rank_a * num_slices + t)] -
+                load_ptr[t * num_chunks + a] +
+                load_ptr[t * num_chunks + b];
+            trial_b[static_cast<size_t>(t)] =
+                rank_load[static_cast<size_t>(rank_b * num_slices + t)] -
+                load_ptr[t * num_chunks + b] +
+                load_ptr[t * num_chunks + a];
+        }
+        double after_load = 0.0;
+        for (int64_t t = 0; t < num_slices; ++t) {
+            const double da = trial_a[static_cast<size_t>(t)] - target[static_cast<size_t>(t)];
+            const double db = trial_b[static_cast<size_t>(t)] - target[static_cast<size_t>(t)];
+            after_load += da * da + db * db;
+        }
+        after_load /= static_cast<double>(std::max<int64_t>(num_slices, 1));
+
+        double cut_delta = 0.0;
+        for (int64_t c = 0; c < num_chunks; ++c) {
+            if (c == a || c == b) {
+                continue;
+            }
+            const int64_t rc = owner[static_cast<size_t>(c)];
+            const double wa = affinity_ptr[std::min(a, c) * num_chunks + std::max(a, c)];
+            const double wb = affinity_ptr[std::min(b, c) * num_chunks + std::max(b, c)];
+            const bool before_a_cut = rank_a != rc;
+            const bool after_a_cut = rank_b != rc;
+            const bool before_b_cut = rank_b != rc;
+            const bool after_b_cut = rank_a != rc;
+            cut_delta += (after_a_cut ? wa : 0.0) - (before_a_cut ? wa : 0.0);
+            cut_delta += (after_b_cut ? wb : 0.0) - (before_b_cut ? wb : 0.0);
+        }
+        const double next_score = best_score + (after_load - before_load) + affinity_weight * cut_delta;
+        if (next_score < best_score - 1e-6) {
+            for (int64_t t = 0; t < num_slices; ++t) {
+                rank_load[static_cast<size_t>(rank_a * num_slices + t)] = trial_a[static_cast<size_t>(t)];
+                rank_load[static_cast<size_t>(rank_b * num_slices + t)] = trial_b[static_cast<size_t>(t)];
+            }
+            owner[static_cast<size_t>(a)] = rank_b;
+            owner[static_cast<size_t>(b)] = rank_a;
+            list_a[static_cast<size_t>(pos_a)] = b;
+            list_b[static_cast<size_t>(pos_b)] = a;
+            best_score = next_score;
+            stale = 0;
+        } else {
+            stale += 1;
+            if (stale >= max_stale) {
+                break;
+            }
+        }
+    }
+
+    return vector_to_long_tensor(owner);
+}
 
 py::dict speed_partition(
     torch::Tensor src,

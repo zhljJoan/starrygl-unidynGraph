@@ -8,13 +8,14 @@ from typing import Any, Iterator
 import torch
 
 from atc_starrygl_lib.core.types import ArtifactBundle, Batch, RuntimeContext
-from atc_starrygl_lib.comm.dist_index import dist_index_loc, dist_index_part, encode_dist_index
+from atc_starrygl_lib.comm.dist_index import dist_index_is_shared, dist_index_loc, dist_index_part, encode_dist_index
 from atc_starrygl_lib.features import CTDGFeatureRuntime, FeatureStore
 from atc_starrygl_lib.comm.dynamic import DynamicFetchComm, DynamicPushComm
 from atc_starrygl_lib.comm.layouts import FeatureReadLayout, MailboxReadLayout, MemoryReadLayout
 from atc_starrygl_lib.memory import MailboxRuntime, MailboxStore, MemoryRuntime, MemoryStore
 from atc_starrygl_lib.runtime.index import DistIndexTables
 from atc_starrygl_lib.memory.shared_sync import ReplicaPushIndex
+from atc_starrygl_lib.memory.sync_mode import resolve_memory_sync_mode
 from atc_starrygl_lib.runtime.index import build_feature_read_layout_from_comm
 from atc_starrygl_lib.runtime.async_queue import AsyncWorkQueue
 from atc_starrygl_lib.sampling import MemShareNativeSamplerFactory, NativeSamplerConfig, TemporalGraphData
@@ -95,11 +96,16 @@ class MemShareTemporalSamplingBackend:
             adaptive_split_enable_drop=bool(prep_cfg.get("adaptive_split_enable_drop", False)),
             adaptive_split_drop_rate=float(prep_cfg.get("adaptive_split_drop_rate", 0.8)),
             adaptive_split_window_size=int(prep_cfg.get("adaptive_split_window_size", 1000)),
+            adaptive_split_min_batch_size=prep_cfg.get("adaptive_split_min_batch_size"),
+            adaptive_split_max_batch_size=prep_cfg.get("adaptive_split_max_batch_size"),
+            adaptive_split_coherence_chunks=int(prep_cfg.get("adaptive_split_coherence_chunks", 0)),
+            adaptive_split_max_chunk_entropy_ratio=prep_cfg.get("adaptive_split_max_chunk_entropy_ratio"),
             adaptive_split_fallback=bool(prep_cfg.get("adaptive_split_fallback", True)),
             random_node_feat_dim=int(graph_cfg.get("random_node_feat_dim", prep_cfg.get("random_node_feat_dim", 0))),
             random_node_feat_seed=int(graph_cfg.get("random_node_feat_seed", prep_cfg.get("random_node_feat_seed", 0))),
             random_edge_feat_dim=int(graph_cfg.get("random_edge_feat_dim", prep_cfg.get("random_edge_feat_dim", 0))),
             random_edge_feat_seed=int(graph_cfg.get("random_edge_feat_seed", prep_cfg.get("random_edge_feat_seed", 0))),
+            random_feature_seed_mode=str(graph_cfg.get("random_feature_seed_mode", prep_cfg.get("random_feature_seed_mode", "independent"))),
         )
         next_prep = dict(prep_cfg)
         next_prep["time_ptr_2"] = dataset["time_ptr_2"].tolist()
@@ -143,6 +149,10 @@ class MemShareTemporalSamplingBackend:
             adaptive_split_enable_drop=bool(prep_cfg.get("adaptive_split_enable_drop", False)),
             adaptive_split_drop_rate=float(prep_cfg.get("adaptive_split_drop_rate", 0.8)),
             adaptive_split_window_size=int(prep_cfg.get("adaptive_split_window_size", 1000)),
+            adaptive_split_min_batch_size=prep_cfg.get("adaptive_split_min_batch_size"),
+            adaptive_split_max_batch_size=prep_cfg.get("adaptive_split_max_batch_size"),
+            adaptive_split_coherence_chunks=int(prep_cfg.get("adaptive_split_coherence_chunks", 0)),
+            adaptive_split_max_chunk_entropy_ratio=prep_cfg.get("adaptive_split_max_chunk_entropy_ratio"),
             adaptive_split_fallback=bool(prep_cfg.get("adaptive_split_fallback", True)),
             hot_ratio=float(prep_cfg.get("hot_ratio", 0.0)),
             hot_topk=int(prep_cfg.get("hot_topk", 0)),
@@ -155,6 +165,7 @@ class MemShareTemporalSamplingBackend:
             random_node_feat_seed=int(graph_cfg.get("random_node_feat_seed", prep_cfg.get("random_node_feat_seed", 0))),
             random_edge_feat_dim=int(graph_cfg.get("random_edge_feat_dim", prep_cfg.get("random_edge_feat_dim", 0))),
             random_edge_feat_seed=int(graph_cfg.get("random_edge_feat_seed", prep_cfg.get("random_edge_feat_seed", 0))),
+            random_feature_seed_mode=str(graph_cfg.get("random_feature_seed_mode", prep_cfg.get("random_feature_seed_mode", "independent"))),
             preserve_replica_history=_should_preserve_replica_history(ctx.config),
         )
         files = {
@@ -245,12 +256,7 @@ def _coerce_ctdg_batch(old_batch: object, split: str) -> Batch:
 
 def _should_preserve_replica_history(config: dict[str, Any]) -> bool:
     runtime_cfg = dict(config.get("runtime", {})) if isinstance(config.get("runtime", {}), dict) else {}
-    historical_cfg = dict(runtime_cfg.get("historical", {})) if isinstance(runtime_cfg.get("historical", {}), dict) else {}
-    async_memory_cfg = dict(runtime_cfg.get("async_memory", {})) if isinstance(runtime_cfg.get("async_memory", {}), dict) else {}
-    historical_enabled = bool(historical_cfg.get("enabled", False))
-    shared_filter_enabled = bool(async_memory_cfg.get("shared_filter", False))
-    delta_comp_enabled = bool(async_memory_cfg.get("delta_compensation", False))
-    return historical_enabled or shared_filter_enabled or delta_comp_enabled
+    return bool(resolve_memory_sync_mode(runtime_cfg)["preserve_replica_history"])
 
 
 class _CTDGArtifactRuntime:
@@ -278,6 +284,11 @@ class _CTDGArtifactRuntime:
         prefetch_read_lookahead: int = 1,
         edge_feature_source: str = "store",
         synthetic_edge_feat_seed: int = 0,
+        train_cross_partition_non_hot_keep_prob: float = 1.0,
+        train_cross_partition_non_hot_filter_seed: int = 0,
+        train_drop_last: bool = False,
+        train_drop_last_batch_size: int = 0,
+        negative_seed: int | None = None,
     ) -> None:
         self.graph = graph
         self.dist = dist
@@ -301,8 +312,19 @@ class _CTDGArtifactRuntime:
         self.prefetch_read_lookahead = max(1, int(prefetch_read_lookahead))
         self.edge_feature_source = str(edge_feature_source).strip().lower()
         self.synthetic_edge_feat_seed = int(synthetic_edge_feat_seed)
+        self.train_cross_partition_non_hot_keep_prob = float(train_cross_partition_non_hot_keep_prob)
+        self.train_cross_partition_non_hot_filter_seed = int(train_cross_partition_non_hot_filter_seed)
+        self.train_drop_last = bool(train_drop_last)
+        self.train_drop_last_batch_size = int(train_drop_last_batch_size)
+        self.negative_seed = None if negative_seed is None else int(negative_seed)
+        self._negative_generator = self._make_negative_generator(self.negative_seed)
+        self.node_part = _node_part_from_dist(dist)
+        self.hot_node_mask = _hot_node_mask(dist=dist, num_nodes=int(graph.get("num_nodes", 0)))
         self.parallel_patch_build = False
         self._patch_executor: ThreadPoolExecutor | None = None
+        self.historical_cache_provider = None
+        self.historical_filter_provider = None
+        self.historical_updater_provider = None
         self.local_edge_ids = rank_artifact["local_edge_ids"].long().cpu().contiguous()
         self.graph_src = graph["src"].long().cpu().contiguous()
         self.graph_dst = graph["dst"].long().cpu().contiguous()
@@ -397,6 +419,20 @@ class _CTDGArtifactRuntime:
             prefetch_read_lookahead=int(runtime_cfg.get("prefetch_read_lookahead", 1)),
             edge_feature_source=str(runtime_cfg.get("edge_feature_source", "store")),
             synthetic_edge_feat_seed=int(runtime_cfg.get("synthetic_edge_feat_seed", graph.get("random_edge_feat_seed", 0))),
+            train_cross_partition_non_hot_keep_prob=float(
+                runtime_cfg.get(
+                    "train_cross_partition_non_hot_keep_prob",
+                    runtime_cfg.get("cross_partition_non_hot_keep_prob", 1.0),
+                )
+            ),
+            train_cross_partition_non_hot_filter_seed=int(
+                runtime_cfg.get("train_cross_partition_non_hot_filter_seed", 0)
+            ),
+            train_drop_last=bool(runtime_cfg.get("train_drop_last", False)),
+            train_drop_last_batch_size=int(
+                runtime_cfg.get("train_drop_last_batch_size", prep_cfg.get("batch_size", task_cfg.get("batch_size", 0)))
+            ),
+            negative_seed=_negative_seed(ctx.config, rank=rank),
         )
         runtime.parallel_patch_build = bool(runtime_cfg.get("parallel_patch_build", False))
         return runtime
@@ -452,6 +488,9 @@ class _CTDGArtifactRuntime:
             "backend_batches": 0.0,
             "backend_remap_src_mismatch_count": 0.0,
             "backend_remap_dst_mismatch_count": 0.0,
+            "backend_train_edge_filter_input_edges": 0.0,
+            "backend_train_edge_filter_kept_edges": 0.0,
+            "backend_train_edge_filter_dropped_edges": 0.0,
         }
 
     def pop_profile_stats(self) -> dict[str, float]:
@@ -470,19 +509,64 @@ class _CTDGArtifactRuntime:
             for index in range(max(int(ptr.numel()) - 1, 0)):
                 begin = int(ptr[index])
                 end = int(ptr[index + 1])
-                yield index, data[begin:end].long().contiguous()
+                if self._should_drop_train_window(split, int(index)):
+                    continue
+                event_pos = data[begin:end].long().contiguous()
+                yield index, self._filter_train_event_positions(split, event_pos)
             return
         global_windows = _split_windows(self.graph, split)
         local_windows = self.rank_artifact.get("split_time_ptr", {}).get(split)
         if local_windows is None:
             local_windows = global_windows
         for index in range(int(local_windows.size(0))):
+            if self._should_drop_train_window(split, int(index)):
+                continue
             if index < int(global_windows.size(0)):
                 begin, end = (int(v) for v in global_windows[index].tolist())
                 event_pos = _window_local_event_positions(self.local_edge_ids, begin=begin, end=end)
             else:
                 event_pos = torch.empty(0, dtype=torch.long)
-            yield index, event_pos
+            yield index, self._filter_train_event_positions(split, event_pos)
+
+    def _should_drop_train_window(self, split: str, window_index: int) -> bool:
+        if str(split) != "train" or not self.train_drop_last:
+            return False
+        batch_size = int(self.train_drop_last_batch_size)
+        if batch_size <= 0:
+            return False
+        windows = _split_windows(self.graph, "train")
+        if window_index < 0 or window_index >= int(windows.size(0)):
+            return False
+        begin, end = (int(v) for v in windows[window_index].tolist())
+        return (end - begin) < batch_size
+
+    def _filter_train_event_positions(self, split: str, event_pos: torch.Tensor) -> torch.Tensor:
+        prob = float(self.train_cross_partition_non_hot_keep_prob)
+        if str(split) != "train" or prob >= 1.0 or int(event_pos.numel()) == 0:
+            return event_pos
+        if self.node_part is None or self.hot_node_mask is None:
+            return event_pos
+        src = self.graph_src.index_select(0, event_pos)
+        dst = self.graph_dst.index_select(0, event_pos)
+        src_part = self.node_part.index_select(0, src)
+        dst_part = self.node_part.index_select(0, dst)
+        src_hot = self.hot_node_mask.index_select(0, src)
+        dst_hot = self.hot_node_mask.index_select(0, dst)
+        filtered_candidate = (src_part != dst_part) & (~src_hot) & (~dst_hot)
+        keep = ~filtered_candidate
+        if prob > 0.0 and bool(filtered_candidate.any().item()):
+            keys = self.graph_eids.index_select(0, event_pos[filtered_candidate])
+            keep[filtered_candidate] = _deterministic_probability_mask(
+                keys,
+                probability=prob,
+                seed=self.train_cross_partition_non_hot_filter_seed,
+            )
+        input_edges = int(event_pos.numel())
+        kept_edges = int(keep.sum().item())
+        self._profile_stats["backend_train_edge_filter_input_edges"] += float(input_edges)
+        self._profile_stats["backend_train_edge_filter_kept_edges"] += float(kept_edges)
+        self._profile_stats["backend_train_edge_filter_dropped_edges"] += float(input_edges - kept_edges)
+        return event_pos[keep].long().contiguous()
 
     def _iter_edge_batches(self, split: str) -> Iterator[Batch]:
         split = str(split)
@@ -620,6 +704,7 @@ class _CTDGArtifactRuntime:
                 dst_pool=self.negative_dst_pool,
                 local_dst_pool=self.local_negative_dst_pool,
                 remote_dst_pool=self.remote_negative_dst_pool,
+                generator=self._negative_generator,
             )
         )
         neg_roots = result.neg_dst.to(batch.roots.device).long().contiguous()
@@ -637,6 +722,16 @@ class _CTDGArtifactRuntime:
         batch.timestamps = torch.cat([batch.timestamps, neg_ts], dim=0).contiguous()
         self._profile_stats["backend_negative_attach_seconds"] += float(time.perf_counter() - t0)
         return batch
+
+    def _make_negative_generator(self, seed: int | None) -> torch.Generator | None:
+        if seed is None:
+            return None
+        try:
+            gen = torch.Generator(device=self.device)
+        except TypeError:
+            gen = torch.Generator()
+        gen.manual_seed(int(seed))
+        return gen
 
     def _sample_and_patch(self, batch: Batch) -> Batch:
         return self._patch_sampled_batch(self._sample_batch(batch))
@@ -838,6 +933,9 @@ class _CTDGArtifactRuntime:
             memory_ts=memory_ts,
             mailbox=mailbox,
             mailbox_ts=mailbox_ts,
+            memory_runtime=self.memory_runtime,
+            historical_cache=self.historical_cache_provider,
+            historical_filter=self.historical_filter_provider,
         )
         self._profile_stats["backend_patch_inputs_seconds"] += float(time.perf_counter() - t0)
 
@@ -1217,6 +1315,18 @@ def _build_negative_sampler(runtime_cfg: dict[str, Any]) -> NegativeSampler:
     return RandomNegativeSampler()
 
 
+def _negative_seed(config: dict[str, Any], *, rank: int) -> int | None:
+    runtime_cfg = dict(config.get("runtime", {})) if isinstance(config.get("runtime", {}), dict) else {}
+    if runtime_cfg.get("negative_seed") is not None:
+        seed = int(runtime_cfg["negative_seed"])
+    else:
+        train_cfg = dict(config.get("train", {})) if isinstance(config.get("train", {}), dict) else {}
+        if train_cfg.get("seed") is None:
+            return None
+        seed = int(train_cfg["seed"])
+    return int(seed) ^ int(rank)
+
+
 def _expected_mailbox_msg_dim(
     *,
     task_cfg: dict[str, Any],
@@ -1267,8 +1377,52 @@ def _rank_negative_dst_pools(
     dst = torch.unique(graph["dst"].long().cpu(), sorted=True)
     dst_part = node_part.index_select(0, dst)
     local = dst[dst_part == int(rank)].long().contiguous()
-    remote = dst[dst_part != int(rank)].long().contiguous()
+    pool_scope = str(runtime_cfg.get("negative_local_pool_scope", "owned_plus_replica")).strip().lower()
+    include_replica_dst = pool_scope not in {"owned", "owner", "owned_only", "owner_only"}
+    replica_by_part = dist.get("replica_node_ids_by_part")
+    if include_replica_dst and replica_by_part is not None and 0 <= int(rank) < len(replica_by_part):
+        replica_dst = torch.as_tensor(replica_by_part[int(rank)], dtype=torch.long).cpu().contiguous()
+        if replica_dst.numel() > 0:
+            replica_dst = torch.unique(replica_dst, sorted=True)
+            replica_dst = replica_dst[torch.isin(replica_dst, dst)]
+            if replica_dst.numel() > 0:
+                local = torch.unique(torch.cat([local, replica_dst], dim=0), sorted=True).contiguous()
+    remote = dst[~torch.isin(dst, local)].long().contiguous()
     return local, remote
+
+
+def _node_part_from_dist(dist: dict[str, Any]) -> torch.Tensor | None:
+    node_to_chunk = dist.get("node_to_chunk")
+    chunk_owner = dist.get("chunk_owner")
+    if node_to_chunk is not None and chunk_owner is not None:
+        return chunk_owner.long().cpu().index_select(0, node_to_chunk.long().cpu()).contiguous()
+    node_owner = dist.get("node_owner")
+    if node_owner is None:
+        return None
+    return node_owner.long().cpu().contiguous()
+
+
+def _hot_node_mask(*, dist: dict[str, Any], num_nodes: int) -> torch.Tensor | None:
+    hot = dist.get("hot_node_ids")
+    if hot is None:
+        return None
+    mask = torch.zeros(int(num_nodes), dtype=torch.bool)
+    hot = torch.as_tensor(hot, dtype=torch.long).cpu().contiguous()
+    if int(hot.numel()) > 0:
+        valid = hot[(hot >= 0) & (hot < int(num_nodes))]
+        mask[valid] = True
+    return mask
+
+
+def _deterministic_probability_mask(keys: torch.Tensor, *, probability: float, seed: int = 0) -> torch.Tensor:
+    prob = min(1.0, max(0.0, float(probability)))
+    if prob <= 0.0:
+        return torch.zeros(keys.shape, dtype=torch.bool, device=keys.device)
+    if prob >= 1.0:
+        return torch.ones(keys.shape, dtype=torch.bool, device=keys.device)
+    values = torch.remainder(keys.to(torch.long) * 1103515245 + 12345 + int(seed), 1_000_000)
+    threshold = int(prob * 1_000_000)
+    return values < threshold
 
 
 def _build_native_sampler(
@@ -1356,16 +1510,38 @@ def _build_feature_runtime(
 ) -> CTDGFeatureRuntime:
     node_feat = None if feature_artifact is None else feature_artifact.get("node_feat")
     edge_feat = None if feature_artifact is None else feature_artifact.get("edge_feat")
+    node_row_map = None
+    if bool(runtime_cfg.get("chunk_feature_layout", False)):
+        node_feat, node_row_map = _apply_chunk_feature_layout(
+            node_feat=node_feat,
+            rank_artifact=rank_artifact,
+            dist=dist,
+        )
     feature_device = str(runtime_cfg.get("feature_device", "cpu")).strip().lower()
+    pin_memory_transfer = bool(runtime_cfg.get("feature_pin_memory_transfer", False))
+    if feature_device in {"cpu_pinned", "pinned_cpu", "pinned", "uma", "cpu_uma"}:
+        pin_memory_transfer = True
+        if torch.cuda.is_available():
+            node_feat = None if node_feat is None else node_feat.pin_memory()
+            edge_feat = None if edge_feat is None else edge_feat.pin_memory()
+            node_row_map = None if node_row_map is None else node_row_map.pin_memory()
     if feature_device in {"cuda", "gpu", "runtime", "device"}:
         device = torch.device(ctx.device)
         node_feat = None if node_feat is None else node_feat.to(device=device, non_blocking=True).contiguous()
         edge_feat = None if edge_feat is None else edge_feat.to(device=device, non_blocking=True).contiguous()
-    elif feature_device != "cpu":
+        node_row_map = None if node_row_map is None else node_row_map.to(device=device, non_blocking=True).contiguous()
+    elif feature_device not in {"cpu", "cpu_pinned", "pinned_cpu", "pinned", "uma", "cpu_uma"}:
         device = torch.device(feature_device)
         node_feat = None if node_feat is None else node_feat.to(device=device, non_blocking=True).contiguous()
         edge_feat = None if edge_feat is None else edge_feat.to(device=device, non_blocking=True).contiguous()
-    store = FeatureStore(node_features=node_feat, edge_features=edge_feat)
+        node_row_map = None if node_row_map is None else node_row_map.to(device=device, non_blocking=True).contiguous()
+    store = FeatureStore(
+        node_features=node_feat,
+        edge_features=edge_feat,
+        node_row_map=node_row_map,
+        sort_mapped_gather=bool(runtime_cfg.get("chunk_feature_sort_gather", False)),
+        pin_memory_transfer=pin_memory_transfer,
+    )
     index = DistIndexTables(
         master_dist_index=rank_artifact["read_dist_index"].long().cpu().contiguous(),
         read_dist_index=rank_artifact["read_dist_index"].long().cpu().contiguous(),
@@ -1381,6 +1557,52 @@ def _build_feature_runtime(
         world_size=int(ctx.world_size),
         edge_dist_index=edge_dist_index,
     )
+
+
+def _apply_chunk_feature_layout(
+    *,
+    node_feat: torch.Tensor | None,
+    rank_artifact: dict[str, Any],
+    dist: dict[str, Any],
+) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+    if node_feat is None:
+        return None, None
+    local_node_ids = rank_artifact.get("local_node_ids")
+    node_to_chunk = dist.get("node_to_chunk")
+    if local_node_ids is None or node_to_chunk is None:
+        return node_feat, None
+    local_node_ids = local_node_ids.long().cpu().contiguous()
+    if int(local_node_ids.numel()) != int(node_feat.size(1) if node_feat.dim() >= 3 else node_feat.size(0)):
+        return node_feat, None
+    chunks = node_to_chunk.long().cpu().index_select(0, local_node_ids)
+    old_rows = torch.arange(int(local_node_ids.numel()), dtype=torch.long)
+    order = torch.argsort((chunks << 32) | old_rows, stable=True)
+    row_map = torch.empty_like(order)
+    row_map[order] = torch.arange(int(order.numel()), dtype=torch.long)
+    if node_feat.dim() >= 3:
+        return node_feat.index_select(1, order.to(node_feat.device)).contiguous(), row_map
+    return node_feat.index_select(0, order.to(node_feat.device)).contiguous(), row_map
+
+
+def _chunk_row_permutation(
+    *,
+    num_rows: int,
+    rank_artifact: dict[str, Any],
+    dist: dict[str, Any],
+) -> tuple[torch.Tensor, torch.Tensor] | None:
+    local_node_ids = rank_artifact.get("local_node_ids")
+    node_to_chunk = dist.get("node_to_chunk")
+    if local_node_ids is None or node_to_chunk is None:
+        return None
+    local_node_ids = local_node_ids.long().cpu().contiguous()
+    if int(local_node_ids.numel()) != int(num_rows):
+        return None
+    chunks = node_to_chunk.long().cpu().index_select(0, local_node_ids)
+    old_rows = torch.arange(int(local_node_ids.numel()), dtype=torch.long)
+    order = torch.argsort((chunks << 32) | old_rows, stable=True)
+    row_map = torch.empty_like(order)
+    row_map[order] = torch.arange(int(order.numel()), dtype=torch.long)
+    return order, row_map
 
 
 def _native_sampler_policy(policy: str) -> str:
@@ -1424,6 +1646,14 @@ def _build_memory_runtime(
         ts = torch.zeros((int(memory.size(0)),), dtype=torch.float32, device=memory.device)
     else:
         ts = torch.as_tensor(init_ts, dtype=torch.float32, device=memory.device).reshape(-1).contiguous()
+    row_map = None
+    if bool(runtime_cfg.get("chunk_state_layout", False)) and not direct_node_id_io:
+        perm = _chunk_row_permutation(num_rows=int(memory.size(0)), rank_artifact=rank_artifact, dist=dist)
+        if perm is not None:
+            order, row_map = perm
+            memory = memory.index_select(0, order.to(memory.device)).contiguous()
+            ts = ts.index_select(0, order.to(ts.device)).contiguous()
+            row_map = row_map.to(device=memory.device, non_blocking=True).contiguous()
     master = dist.get("master_dist_index")
     if master is None:
         master = rank_artifact["read_dist_index"]
@@ -1437,7 +1667,7 @@ def _build_memory_runtime(
                 else master.long().cpu().contiguous()
             ),
         ),
-        store=MemoryStore(memory, ts),
+        store=MemoryStore(memory, ts, row_map=row_map),
         fetch_comm=DynamicFetchComm(torch.device(ctx.device)),
         push_comm=DynamicPushComm(torch.device(ctx.device)),
         world_size=int(ctx.world_size),
@@ -1488,6 +1718,15 @@ def _build_mailbox_runtime(
     else:
         mailbox_ts = torch.as_tensor(init_ts, dtype=torch.float32, device=mailbox.device).contiguous()
     next_pos = torch.zeros((int(mailbox.size(0)),), dtype=torch.long, device=mailbox.device)
+    row_map = None
+    if bool(runtime_cfg.get("chunk_state_layout", False)) and not direct_node_id_io:
+        perm = _chunk_row_permutation(num_rows=int(mailbox.size(0)), rank_artifact=rank_artifact, dist=dist)
+        if perm is not None:
+            order, row_map = perm
+            mailbox = mailbox.index_select(0, order.to(mailbox.device)).contiguous()
+            mailbox_ts = mailbox_ts.index_select(0, order.to(mailbox_ts.device)).contiguous()
+            next_pos = next_pos.index_select(0, order.to(next_pos.device)).contiguous()
+            row_map = row_map.to(device=mailbox.device, non_blocking=True).contiguous()
     master = dist.get("master_dist_index")
     if master is None:
         master = rank_artifact["read_dist_index"]
@@ -1501,7 +1740,7 @@ def _build_mailbox_runtime(
                 else master.long().cpu().contiguous()
             ),
         ),
-        store=MailboxStore(mailbox, mailbox_ts, next_pos),
+        store=MailboxStore(mailbox, mailbox_ts, next_pos, row_map=row_map),
         fetch_comm=DynamicFetchComm(torch.device(ctx.device)),
         push_comm=DynamicPushComm(torch.device(ctx.device)),
         world_size=int(ctx.world_size),
@@ -1708,6 +1947,9 @@ def _patch_first_layer_inputs(
     memory_ts: torch.Tensor | None = None,
     mailbox: torch.Tensor | None = None,
     mailbox_ts: torch.Tensor | None = None,
+    memory_runtime: Any | None = None,
+    historical_cache: Any | None = None,
+    historical_filter: Any | None = None,
 ) -> None:
     if not mfgs:
         return
@@ -1732,6 +1974,48 @@ def _patch_first_layer_inputs(
             srcdata["mem_input"] = mail.reshape(mail.size(0), -1)
         if mailbox_ts is not None:
             srcdata["mail_ts"] = mailbox_ts.index_select(0, idx.to(mailbox_ts.device)).to(device)
+        if memory_runtime is not None and "ID" in srcdata:
+            node_ids = srcdata["ID"].long()
+            master_index = memory_runtime.index.master_for(
+                node_ids.to(memory_runtime.index.master_dist_index.device)
+            ).to(node_ids.device)
+            shared_mask = dist_index_is_shared(master_index).to(device=device)
+            srcdata["shared_mask"] = shared_mask
+            if memory is not None:
+                his_mem = srcdata["mem"].clone()
+                history_provider = historical_cache if historical_cache is not None else historical_filter
+                if history_provider is not None and bool(shared_mask.any().item()):
+                    shared_nodes = node_ids[shared_mask]
+                    if hasattr(history_provider, "get_history"):
+                        hist = history_provider.get_history(shared_nodes, device=device, dtype=his_mem.dtype)
+                    else:
+                        hist = history_provider.historical_memory.index_select(
+                            0,
+                            shared_nodes.to(history_provider.historical_memory.device),
+                        ).to(device=device, dtype=his_mem.dtype)
+                    his_mem[shared_mask] = hist
+                srcdata["his_mem"] = his_mem
+            if mailbox_ts is not None:
+                his_ts = srcdata["mail_ts"].clone()
+            elif memory_ts is not None:
+                his_ts = srcdata["mem_ts"].clone().reshape(-1, 1)
+            else:
+                his_ts = None
+            history_provider = historical_cache if historical_cache is not None else historical_filter
+            if his_ts is not None:
+                if history_provider is not None and bool(shared_mask.any().item()):
+                    shared_nodes = node_ids[shared_mask]
+                    if hasattr(history_provider, "get_history_ts"):
+                        shared_his_ts = history_provider.get_history_ts(shared_nodes, device=device, dtype=his_ts.dtype)
+                    else:
+                        shared_his_ts = history_provider.historical_ts.index_select(
+                            0,
+                            shared_nodes.to(history_provider.historical_ts.device),
+                        ).to(device=device, dtype=his_ts.dtype)
+                    shared_his_ts = shared_his_ts.reshape(-1, 1)
+                    his_ts = his_ts.reshape(-1, 1)
+                    his_ts[shared_mask] = shared_his_ts
+                srcdata["his_ts"] = his_ts
     if edge_feat is not None:
         for block in _flatten_mfg_blocks(mfgs):
             edata = getattr(block, "edata", None)

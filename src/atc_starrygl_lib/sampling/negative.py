@@ -134,7 +134,10 @@ class MemShareLocalNegativeSampler:
             sampled_local = _sample_pool(request.local_dst_pool, count, request.pos_src.device, request.pos_src.dtype, request.generator)
             choose_global = torch.rand(count, device=request.pos_src.device, generator=request.generator) <= self.beta
             neg_dst = torch.where(choose_global, sampled_global, sampled_local)
-            local_mask = _membership_mask(neg_dst, request.local_dst_pool)
+            local_mask = torch.ones((count,), dtype=torch.bool, device=request.pos_src.device)
+            if bool(choose_global.any()):
+                global_local_mask = _membership_mask_sorted(sampled_global[choose_global], request.local_dst_pool)
+                local_mask[choose_global] = global_local_mask
             weight = _memshare_local_global_weight(
                 local_mask=local_mask,
                 beta=self.beta,
@@ -173,6 +176,17 @@ def _membership_mask(sampled: Tensor, pool: Tensor) -> Tensor:
     if pool.numel() == 0 or sampled.numel() == 0:
         return torch.zeros(sampled.shape, dtype=torch.bool, device=sampled.device)
     pool_cpu = torch.unique(pool.long().cpu(), sorted=True)
+    sampled_cpu = sampled.long().cpu()
+    pos = torch.searchsorted(pool_cpu, sampled_cpu)
+    pos = pos.clamp_max(max(int(pool_cpu.numel()) - 1, 0))
+    mask = (torch.searchsorted(pool_cpu, sampled_cpu) < int(pool_cpu.numel())) & (pool_cpu.index_select(0, pos) == sampled_cpu)
+    return mask.to(sampled.device)
+
+
+def _membership_mask_sorted(sampled: Tensor, sorted_pool: Tensor) -> Tensor:
+    if sorted_pool.numel() == 0 or sampled.numel() == 0:
+        return torch.zeros(sampled.shape, dtype=torch.bool, device=sampled.device)
+    pool_cpu = sorted_pool.long().cpu()
     sampled_cpu = sampled.long().cpu()
     pos = torch.searchsorted(pool_cpu, sampled_cpu)
     pos = pos.clamp_max(max(int(pool_cpu.numel()) - 1, 0))

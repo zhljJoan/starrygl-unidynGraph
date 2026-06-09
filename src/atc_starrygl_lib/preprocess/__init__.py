@@ -3,11 +3,13 @@
 from .dist import (
     DIST_FORMAT,
     assign_chunks_by_load,
+    assign_chunks_temporal_balance_native,
     build_chunk_csr,
     build_dist_plan,
     build_global_metis_chunks,
     build_local_metis_chunks,
     compute_chunk_load,
+    compute_chunk_task_load,
     normalize_replica,
 )
 from .dataset import DATASET_FORMAT, build_dataset
@@ -34,6 +36,7 @@ __all__ = [
     "PARTITION_DATA_FORMAT",
     "RANK_FORMAT",
     "assign_chunks_by_load",
+    "assign_chunks_temporal_balance_native",
     "build_all_rank_artifacts",
     "build_all_feature_artifacts",
     "build_all_partition_data_artifacts",
@@ -52,6 +55,7 @@ __all__ = [
     "load_speed_partition_cache",
     "run_preprocess_pipeline",
     "compute_chunk_load",
+    "compute_chunk_task_load",
     "normalize_replica",
     "summarize_rank_loads",
     "write_feature_artifacts",

@@ -66,13 +66,14 @@ class TransformerAttentionLayer(nn.Module):
             )
 
         if self.combined:
+            src, dst = b.edges()
             Q = torch.zeros((b.num_edges(), self.dim_out), device=device)
             K = torch.zeros((b.num_edges(), self.dim_out), device=device)
             V = torch.zeros((b.num_edges(), self.dim_out), device=device)
             if self.dim_node_feat > 0:
-                Q += self.w_q_n(b.srcdata['h'][:b.num_dst_nodes()])[b.edges()[1]]
-                K += self.w_k_n(b.srcdata['h'][b.num_dst_nodes():])[b.edges()[0] - b.num_dst_nodes()]
-                V += self.w_v_n(b.srcdata['h'][b.num_dst_nodes():])[b.edges()[0] - b.num_dst_nodes()]
+                Q += self.w_q_n(b.srcdata['h'][:b.num_dst_nodes()])[dst]
+                K += self.w_k_n(b.srcdata['h'][b.num_dst_nodes():])[src - b.num_dst_nodes()]
+                V += self.w_v_n(b.srcdata['h'][b.num_dst_nodes():])[src - b.num_dst_nodes()]
             if self.dim_edge_feat > 0:
                 K += self.w_k_e(b.edata['f'])
                 V += self.w_v_e(b.edata['f'])
@@ -92,24 +93,28 @@ class TransformerAttentionLayer(nn.Module):
                 V = self.w_v(b.srcdata['h'][src])
             elif self.dim_time == 0:
                 Q = self.w_q(b.srcdata['h'][:b.num_dst_nodes()])[dst]
-                K = self.w_k(torch.cat([b.srcdata['h'][src], b.edata['f']], dim=1))
-                V = self.w_v(torch.cat([b.srcdata['h'][src], b.edata['f']], dim=1))
+                kv_input = torch.cat([b.srcdata['h'][src], b.edata['f']], dim=1)
+                K = self.w_k(kv_input)
+                V = self.w_v(kv_input)
             elif self.dim_node_feat == 0 and self.dim_edge_feat == 0:
                 Q = self.w_q(zero_time_feat)[dst]
                 K = self.w_k(time_feat)
                 V = self.w_v(time_feat)
             elif self.dim_node_feat == 0:
                 Q = self.w_q(zero_time_feat)[dst]
-                K = self.w_k(torch.cat([b.edata['f'], time_feat], dim=1))
-                V = self.w_v(torch.cat([b.edata['f'], time_feat], dim=1))
+                kv_input = torch.cat([b.edata['f'], time_feat], dim=1)
+                K = self.w_k(kv_input)
+                V = self.w_v(kv_input)
             elif self.dim_edge_feat == 0:
                 Q = self.w_q(torch.cat([b.srcdata['h'][:b.num_dst_nodes()], zero_time_feat], dim=1))[dst]
-                K = self.w_k(torch.cat([b.srcdata['h'][src], time_feat], dim=1))
-                V = self.w_v(torch.cat([b.srcdata['h'][src], time_feat], dim=1))
+                kv_input = torch.cat([b.srcdata['h'][src], time_feat], dim=1)
+                K = self.w_k(kv_input)
+                V = self.w_v(kv_input)
             else:
                 Q = self.w_q(torch.cat([b.srcdata['h'][:b.num_dst_nodes()], zero_time_feat], dim=1))[dst]
-                K = self.w_k(torch.cat([b.srcdata['h'][src], b.edata['f'], time_feat], dim=1))
-                V = self.w_v(torch.cat([b.srcdata['h'][src], b.edata['f'], time_feat], dim=1))
+                kv_input = torch.cat([b.srcdata['h'][src], b.edata['f'], time_feat], dim=1)
+                K = self.w_k(kv_input)
+                V = self.w_v(kv_input)
 
         Q = Q.reshape(Q.shape[0], self.num_head, -1)
         K = K.reshape(K.shape[0], self.num_head, -1)

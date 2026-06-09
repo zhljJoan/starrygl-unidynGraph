@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from atc_starrygl_lib.memory.sync_mode import normalize_memory_sync_config
+
 from .errors import ConfigError
 from .types import RuntimeContext
 
@@ -45,6 +47,7 @@ def normalize_config(config_or_path: Mapping[str, Any] | str | Path) -> dict[str
     sampling = _merge_sampling_config(config.get("sampling"), gnn.get("sampling"))
     runtime = dict(config.get("runtime", {}))
     runtime = _merge_runtime_gnn(runtime, gnn=gnn, sampling=sampling, model=model)
+    runtime = normalize_memory_sync_config(runtime)
     preprocess = dict(config.get("preprocess", {})) if isinstance(config.get("preprocess"), Mapping) else {}
 
     task["name"] = _required_str(task, "name", "task")
@@ -189,6 +192,7 @@ def _merge_sampling_config(raw_sampling: Any, raw_gnn_sampling: Any) -> dict[str
 
 def _merge_runtime_gnn(runtime: Mapping[str, Any], *, gnn: Mapping[str, Any], sampling: Mapping[str, Any], model: Mapping[str, Any]) -> dict[str, Any]:
     out = dict(runtime)
+    out = _merge_runtime_components(out)
     if _sampling_enabled(sampling):
         out.setdefault("build_sampler", True)
         if "fanouts" in sampling:
@@ -230,6 +234,50 @@ def _merge_runtime_gnn(runtime: Mapping[str, Any], *, gnn: Mapping[str, Any], sa
         out.setdefault("num_full_snapshots", int(model["history"]))
     if "memory_history" in model:
         out.setdefault("mailbox_size", int(model["memory_history"]))
+    return out
+
+
+def _merge_runtime_components(runtime: Mapping[str, Any]) -> dict[str, Any]:
+    out = dict(runtime)
+    component_aliases = (
+        (
+            "sampling",
+            (
+                ("enabled", "build_sampler"),
+                ("workers", "sampler_workers"),
+                ("sampler_workers", "sampler_workers"),
+                ("prefetch_lookahead", "prefetch_sample_lookahead"),
+                ("prefetch_sample_lookahead", "prefetch_sample_lookahead"),
+            ),
+        ),
+        (
+            "communication",
+            (
+                ("gradient_sync", "gradient_sync"),
+                ("sync_gradients", "sync_gradients"),
+                ("schedule_async_commit", "schedule_async_commit"),
+                ("profile_sync_timing", "profile_sync_timing"),
+            ),
+        ),
+        (
+            "training",
+            (
+                ("feature_device", "feature_device"),
+                ("train_compute_metrics", "train_compute_metrics"),
+                ("commit_memory", "commit_memory"),
+                ("eval_updates_memory", "eval_updates_memory"),
+                ("predict_updates_memory", "predict_updates_memory"),
+                ("reset_memory_each_epoch", "reset_memory_each_epoch"),
+            ),
+        ),
+    )
+    for section_name, aliases in component_aliases:
+        section = out.get(section_name)
+        if not isinstance(section, Mapping):
+            continue
+        for src, dst in aliases:
+            if src in section:
+                out.setdefault(dst, section[src])
     return out
 
 

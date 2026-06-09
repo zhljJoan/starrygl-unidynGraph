@@ -11,7 +11,13 @@ from torch import Tensor
 from atc_starrygl_lib.lib import is_bts_sampler_available, load_bts_sampler_module
 
 DIST_FORMAT = "atc_dist_v1"
-PartitionAlgorithm = Literal["metis", "speed_partition", "chunk_load_balance", "temporal_hot_chunk_balance"]
+PartitionAlgorithm = Literal[
+    "metis",
+    "speed_partition",
+    "chunk_load_balance",
+    "temporal_hot_chunk_balance",
+    "metis_chunk_assignment",
+]
 
 
 def _timed_dist_stage(name: str, t0: float) -> float:
@@ -120,6 +126,49 @@ def build_dist_plan(
             hot_topk=int(hot_topk),
         )
         edge_owner = chunk_owner.index_select(0, node_to_chunk.index_select(0, dst))
+    elif algorithm == "metis_chunk_assignment":
+        num_chunks = world_size * chunks_per_rank
+        node_to_chunk = build_global_metis_chunks(src=src, dst=dst, num_nodes=num_nodes, num_chunks=num_chunks)
+        chunk_ptr, chunk_nodes = build_chunk_csr(node_to_chunk=node_to_chunk, num_chunks=num_chunks)
+        hot_node_ids = _hot_nodes_by_degree(
+            src,
+            dst,
+            num_nodes=num_nodes,
+            hot_ratio=float(hot_ratio),
+            hot_topk=int(hot_topk),
+        )
+        chunk_load = compute_chunk_task_load(
+            src=src,
+            dst=dst,
+            node_to_chunk=node_to_chunk,
+            time_ptr_2=time_ptr_2,
+            num_chunks=num_chunks,
+            node_count_weight=float(node_count_weight),
+            executor_endpoint="src",
+        )
+        affinity = _non_hot_chunk_affinity(
+            src=src,
+            dst=dst,
+            node_to_chunk=node_to_chunk,
+            hot_node_ids=hot_node_ids,
+            num_chunks=num_chunks,
+        )
+        chunk_owner = assign_chunks_temporal_balance_native(
+            chunk_load=chunk_load,
+            affinity=affinity,
+            world_size=world_size,
+            chunks_per_rank=chunks_per_rank,
+            affinity_weight=float(chunk_affinity_weight),
+            local_search_iters=int(chunk_local_search_iters),
+        )
+        node_owner = chunk_owner.index_select(0, node_to_chunk)
+        replica_mask, hot_node_ids, node_master = normalize_replica(
+            src=src,
+            dst=dst,
+            node_owner=node_owner,
+            hot_node_ids=hot_node_ids,
+        )
+        edge_owner = node_owner.index_select(0, src)
     elif algorithm == "temporal_hot_chunk_balance":
         speed = run_speed_partition(
             src=src,
@@ -357,6 +406,44 @@ def compute_chunk_event_load(
     return load
 
 
+def compute_chunk_task_load(
+    *,
+    src: Tensor,
+    dst: Tensor,
+    node_to_chunk: Tensor,
+    time_ptr_2: Tensor,
+    num_chunks: int,
+    node_count_weight: float = 1.0,
+    executor_endpoint: str = "src",
+) -> Tensor:
+    src = src.long().cpu()
+    dst = dst.long().cpu()
+    node_to_chunk = node_to_chunk.long().cpu()
+    time_ptr_2 = time_ptr_2.long().cpu()
+    load = torch.zeros(int(time_ptr_2.size(0)), int(num_chunks), dtype=torch.float32)
+    num_nodes = int(node_to_chunk.numel())
+    stride = num_nodes + 1
+    if executor_endpoint not in {"src", "dst"}:
+        raise ValueError("executor_endpoint must be 'src' or 'dst'")
+    for t in range(int(time_ptr_2.size(0))):
+        begin = int(time_ptr_2[t, 0])
+        end = int(time_ptr_2[t, 1])
+        if end <= begin:
+            continue
+        s = src[begin:end]
+        d = dst[begin:end]
+        executor_nodes = s if executor_endpoint == "src" else d
+        chunks = node_to_chunk.index_select(0, executor_nodes)
+        event_count = torch.bincount(chunks, minlength=int(num_chunks)).float()
+        pair_src = chunks * stride + s
+        pair_dst = chunks * stride + d
+        unique_pairs = torch.unique(torch.cat([pair_src, pair_dst], dim=0))
+        unique_chunks = (unique_pairs // stride).long()
+        node_count = torch.bincount(unique_chunks, minlength=int(num_chunks)).float()
+        load[t] = event_count + float(node_count_weight) * node_count
+    return load
+
+
 def assign_chunks_by_load(chunk_load: Tensor, *, world_size: int) -> Tensor:
     chunk_load = chunk_load.float().cpu()
     mean = chunk_load.mean(dim=0)
@@ -366,6 +453,49 @@ def assign_chunks_by_load(chunk_load: Tensor, *, world_size: int) -> Tensor:
     for idx, cid in enumerate(order.tolist()):
         owner[int(cid)] = int(idx % int(world_size))
     return owner
+
+
+def assign_chunks_temporal_balance_native(
+    *,
+    chunk_load: Tensor,
+    affinity: Tensor,
+    world_size: int,
+    chunks_per_rank: int,
+    affinity_weight: float = 0.05,
+    local_search_iters: int = 2000,
+) -> Tensor:
+    def fallback() -> Tensor:
+        fallback_owner = _greedy_temporal_chunk_assign(
+            chunk_load=chunk_load,
+            affinity=affinity,
+            world_size=world_size,
+            chunks_per_rank=chunks_per_rank,
+            affinity_weight=affinity_weight,
+        )
+        if int(local_search_iters) > 0:
+            fallback_owner = _refine_chunk_assignment_by_swaps(
+                owner=fallback_owner,
+                chunk_load=chunk_load,
+                affinity=affinity,
+                world_size=world_size,
+                affinity_weight=affinity_weight,
+                max_iters=int(local_search_iters),
+            )
+        return fallback_owner.long().contiguous()
+
+    if not is_bts_sampler_available():
+        return fallback()
+    mod = load_bts_sampler_module()
+    if not hasattr(mod, "assign_chunks_temporal_balance"):
+        return fallback()
+    return mod.assign_chunks_temporal_balance(
+        chunk_load.double().cpu().contiguous(),
+        affinity.double().cpu().contiguous(),
+        int(world_size),
+        int(chunks_per_rank),
+        float(affinity_weight),
+        int(local_search_iters),
+    ).long().cpu().contiguous()
 
 
 def assign_chunks_temporal_hot_balance(

@@ -87,3 +87,43 @@ def test_ctdg_prepare_enables_replica_history_for_historical_runtime(monkeypatch
     backend.prepare(ctx)
 
     assert called["preserve_replica_history"] is True
+
+
+def test_ctdg_prepare_enables_replica_history_for_memshare_historical_mode(monkeypatch, tmp_path: Path) -> None:
+    called = {}
+
+    def fake_run_preprocess_pipeline(**kwargs):
+        called.update(kwargs)
+        out = Path(kwargs["out_dir"])
+        (out / "graph.pt").write_bytes(b"x")
+        (out / "dist.pt").write_bytes(b"x")
+        (out / "meta.json").write_text("{}", encoding="utf-8")
+        (out / "rank_000.pt").write_bytes(b"x")
+        (out / "feature_000.pt").write_bytes(b"x")
+        return {"ranks": [object()], "meta": {"mode": "event"}}
+
+    monkeypatch.setattr("atc_starrygl_lib.preprocess.pipeline.run_preprocess_pipeline", fake_run_preprocess_pipeline)
+    ctx = RuntimeContext(
+        config={
+            "graph": {"mode": "ctdg", "source": str(tmp_path / "edges.csv")},
+            "task": {"name": "edge_pred"},
+            "runtime": {
+                "device": "cpu",
+                "memory_sync_mode": "memshare_historical",
+            },
+            "preprocess": {
+                "use_new_pipeline": True,
+                "mode": "event",
+                "partition_algorithm": "speed_partition",
+                "chunks_per_rank": 2,
+                "batch_size": 128,
+            },
+        },
+        artifact_root=tmp_path / "artifacts_memshare_hist",
+        rank=0,
+        world_size=1,
+    )
+    backend = MemShareTemporalSamplingBackend()
+    backend.prepare(ctx)
+
+    assert called["preserve_replica_history"] is True

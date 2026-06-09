@@ -3,6 +3,7 @@ from pathlib import Path
 import torch
 
 from atc_starrygl_lib.preprocess.dataset import build_dataset
+from atc_starrygl_lib.preprocess.dataset import _refine_adaptive_time_ptr
 
 
 def test_event_dict_stable_sort_and_reorder() -> None:
@@ -72,6 +73,38 @@ def test_event_adaptive_split_mode_builds_split_time_ptr() -> None:
     assert out["time_ptr_2"].tolist() == [[0, 3], [3, 6], [6, 10]]
 
 
+def test_adaptive_split_refinement_bounds_large_windows() -> None:
+    ptr = torch.tensor([[0, 10]], dtype=torch.long)
+    src = torch.arange(10, dtype=torch.long)
+
+    out = _refine_adaptive_time_ptr(
+        ptr,
+        src=src,
+        min_batch_size=3,
+        max_batch_size=4,
+        coherence_chunks=0,
+        max_chunk_entropy_ratio=None,
+    )
+
+    assert out.tolist() == [[0, 4], [4, 8], [8, 10]]
+
+
+def test_adaptive_split_refinement_can_cut_on_chunk_entropy() -> None:
+    ptr = torch.tensor([[0, 8]], dtype=torch.long)
+    src = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7], dtype=torch.long)
+
+    out = _refine_adaptive_time_ptr(
+        ptr,
+        src=src,
+        min_batch_size=4,
+        max_batch_size=None,
+        coherence_chunks=4,
+        max_chunk_entropy_ratio=0.75,
+    )
+
+    assert out.tolist() == [[0, 4], [4, 8]]
+
+
 def test_event_can_generate_deterministic_random_node_features() -> None:
     data = {
         "src": torch.tensor([0, 1]),
@@ -99,6 +132,32 @@ def test_event_can_generate_deterministic_random_edge_features() -> None:
 
     assert first["edge_feat"].shape == (2, 172)
     assert torch.equal(first["edge_feat"], second["edge_feat"])
+
+
+def test_event_can_generate_bts_style_sequential_random_features() -> None:
+    data = {
+        "src": torch.tensor([0, 1]),
+        "dst": torch.tensor([1, 2]),
+        "ts": torch.tensor([0.0, 1.0]),
+        "num_nodes": 4,
+    }
+    gen = torch.Generator()
+    gen.manual_seed(7)
+    expected_node = torch.randn((4, 3), generator=gen, dtype=torch.float32)
+    expected_edge = torch.randn((2, 5), generator=gen, dtype=torch.float32)
+
+    out = build_dataset(
+        data=data,
+        mode="event",
+        random_node_feat_dim=3,
+        random_node_feat_seed=7,
+        random_edge_feat_dim=5,
+        random_edge_feat_seed=7,
+        random_feature_seed_mode="bts",
+    )
+
+    assert torch.equal(out["node_feat"], expected_node)
+    assert torch.equal(out["edge_feat"], expected_edge)
 
 
 def test_snapshot_list_build_overlapped_windows() -> None:

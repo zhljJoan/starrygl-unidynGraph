@@ -56,7 +56,7 @@ class GeneralModel(nn.Module):
                 )
             elif upd == 'transformer':
                 self.memory_updater = TransformerMemoryUpdater(
-                    memory_param, dim_in, dim_hid, dim_time, train_param,
+                    memory_param, dim_in, dim_hid, dim_time, train_param, dim_node,
                 )
             else:
                 raise NotImplementedError(f"memory_update={upd!r}")

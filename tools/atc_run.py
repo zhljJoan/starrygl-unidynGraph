@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import time
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ from atc_starrygl_lib.core.session import TrainingSession
 from atc_starrygl_lib.ctdg.train_loop import CTDGMemoryCommitHook
 from atc_starrygl_lib.ctdg.runtime.backend import build_memory_replica_index
 from atc_starrygl_lib.dtdg.runtime.stgraph_loader import STGraphWindow
+from atc_starrygl_lib.memory.sync_mode import resolve_memory_sync_mode
 from atc_starrygl_lib.runtime.grad_sync import AsyncGradientSyncOptimizer
 from atc_starrygl_lib.runtime.unified import artifact_bundle, build_model_and_head, register_builtin_backends
 
@@ -27,6 +29,7 @@ def main() -> None:
     device = _device(args.device, local_rank)
     register_builtin_backends()
     config = _runtime_config(args.config)
+    _seed_everything(config)
     _apply_runtime_threading(config)
     ctx = build_context(
         config,
@@ -243,31 +246,35 @@ def _build_ctdg_memory_commit(session: TrainingSession, *, enabled: bool) -> CTD
     mailbox_replica_index = None
     mailbox_runtime = None
     runtime_cfg = getattr(getattr(session, "ctx", None), "config", {}).get("runtime", {})
-    async_memory_cfg = dict(runtime_cfg.get("async_memory", {})) if isinstance(runtime_cfg.get("async_memory", {}), dict) else {}
+    sync_cfg = resolve_memory_sync_mode(runtime_cfg)
     build_stats: dict[str, float] = {
         "memory_replica_index_build_wall_seconds": 0.0,
         "mailbox_replica_index_build_wall_seconds": 0.0,
     }
-    if runtime is not None and bool(runtime_cfg.get("memory_replica_push", False)):
+    if runtime is not None and bool(sync_cfg["memory_replica_push"]):
         replica_index = getattr(runtime, "_cached_memory_replica_index", None)
         if replica_index is None:
             t0 = time.perf_counter()
             replica_index = build_memory_replica_index(dist=getattr(runtime, "dist", {}))
             build_stats["memory_replica_index_build_wall_seconds"] = float(time.perf_counter() - t0)
             setattr(runtime, "_cached_memory_replica_index", replica_index)
-    if runtime is not None and bool(runtime_cfg.get("mailbox_replica_push", runtime_cfg.get("memory_replica_push", False))):
+    if runtime is not None and bool(sync_cfg["mailbox_replica_push"]):
         mailbox_replica_index = getattr(runtime, "_cached_mailbox_replica_index", None)
+        if mailbox_replica_index is None:
+            mailbox_replica_index = getattr(runtime, "_cached_memory_replica_index", None)
         if mailbox_replica_index is None:
             t0 = time.perf_counter()
             mailbox_replica_index = build_memory_replica_index(dist=getattr(runtime, "dist", {}))
             build_stats["mailbox_replica_index_build_wall_seconds"] = float(time.perf_counter() - t0)
+            setattr(runtime, "_cached_mailbox_replica_index", mailbox_replica_index)
+        else:
             setattr(runtime, "_cached_mailbox_replica_index", mailbox_replica_index)
         mailbox_runtime = getattr(runtime, "mailbox_runtime", None)
     hook = CTDGMemoryCommitHook(
         memory_replica_index=replica_index,
         mailbox_replica_index=mailbox_replica_index,
         mailbox_runtime=mailbox_runtime,
-        wait_mode=str(async_memory_cfg.get("commit_order", "legacy")),
+        wait_mode=str(sync_cfg["wait_mode"]),
     )
     for key, value in build_stats.items():
         setattr(hook, key, float(value))
@@ -384,6 +391,44 @@ def _apply_runtime_threading(config: dict[str, Any]) -> None:
     interop_threads = runtime_cfg.get("torch_num_interop_threads")
     if interop_threads is not None:
         torch.set_num_interop_threads(int(interop_threads))
+    allow_tf32 = runtime_cfg.get("allow_tf32", runtime_cfg.get("tf32", None))
+    if allow_tf32 is not None:
+        enabled = _bool_config(allow_tf32)
+        torch.backends.cuda.matmul.allow_tf32 = enabled
+        torch.backends.cudnn.allow_tf32 = enabled
+        if hasattr(torch, "set_float32_matmul_precision"):
+            torch.set_float32_matmul_precision("high" if enabled else "highest")
+
+
+def _bool_config(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() not in {"0", "false", "no", "off", "none"}
+    return bool(value)
+
+
+def _seed_everything(config: dict[str, Any]) -> None:
+    train_cfg = config.get("train", {})
+    runtime_cfg = config.get("runtime", {})
+    seed = None
+    if isinstance(train_cfg, dict) and train_cfg.get("seed") is not None:
+        seed = int(train_cfg["seed"])
+    elif isinstance(runtime_cfg, dict) and runtime_cfg.get("seed") is not None:
+        seed = int(runtime_cfg["seed"])
+    if seed is None:
+        return
+    random.seed(seed)
+    try:
+        import numpy as np
+
+        np.random.seed(seed)
+    except ImportError:
+        pass
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 def _resolve_input_source(source: Any, *, graph: dict[str, Any], config_dir: Path) -> Path:
