@@ -1,0 +1,115 @@
+{
+  "gnn": {
+    "history": 1,
+    "sampling": {
+      "fanouts": [
+        20
+      ],
+      "policy": "boundary_recent_decay",
+      "probability": 0.1
+    }
+  },
+  "graph": {
+    "random_edge_feat_dim": 172,
+    "random_edge_feat_seed": 6773,
+    "random_feature_seed_mode": "bts",
+    "random_node_feat_dim": 172,
+    "random_node_feat_seed": 6773,
+    "source": "/mnt/nfs/zlj/TGL-DATA/WikiTalk"
+  },
+  "model": {
+    "att_dropout": 0.2,
+    "att_head": 2,
+    "combine_node_feature": true,
+    "dim_time": 100,
+    "dropout": 0.2,
+    "gnn_arch": "transformer_attention",
+    "gnn_dim_time": 100,
+    "hidden_dim": 100,
+    "layers": 1,
+    "memory_dim_time": 100,
+    "memory_history": 1,
+    "memory_update": "gru",
+    "name": "general"
+  },
+  "preprocess": {
+    "adaptive_split": true,
+    "adaptive_split_coherence_chunks": 8,
+    "adaptive_split_fallback": true,
+    "adaptive_split_max_batch_size": 48000,
+    "adaptive_split_max_chunk_entropy_ratio": 0.9,
+    "adaptive_split_min_batch_size": 12000,
+    "batch_size": 12000,
+    "build_feature": true,
+    "chunks_per_rank": 2,
+    "hot_ratio": 0.1,
+    "partition_algorithm": "speed_partition",
+    "split_mode": "adaptive",
+    "train_ratio": 0.7,
+    "use_new_pipeline": true,
+    "val_ratio": 0.15
+  },
+  "runtime": {
+    "async_memory": {
+      "commit_order": "legacy",
+      "delta_compensation": true,
+      "delta_compensation_gamma": 0.5,
+      "shared_filter": true,
+      "staged_commit": false
+    },
+    "build_feature_runtime": true,
+    "build_mailbox_runtime": true,
+    "build_memory_runtime": true,
+    "build_sampler": true,
+    "chunk_feature_layout": true,
+    "chunk_feature_sort_gather": false,
+    "commit_memory": true,
+    "dynamic_state_read_after_commit": true,
+    "eval_updates_memory": true,
+    "feature_device": "cuda",
+    "gradient_sync": "async",
+    "historical": {
+      "alpha": 0.3,
+      "enabled": true,
+      "times_threshold": 10
+    },
+    "mailbox_msg_dim": 372,
+    "mailbox_replica_push": false,
+    "mailbox_size": 1,
+    "memory_dim": 100,
+    "memory_replica_push": false,
+    "memory_sync_mode": "memshare_public_historical",
+    "mkl_num_threads": 1,
+    "negative_dst_pool": "global_dst",
+    "negative_memshare_beta": 0.1,
+    "negative_ratio": 1,
+    "negative_sampler_policy": "memshare_local",
+    "negative_seed": 6773,
+    "negative_test_policy": "global",
+    "negative_train_remote_dst_prob": 0.1,
+    "omp_num_threads": 1,
+    "openblas_num_threads": 1,
+    "predict_updates_memory": true,
+    "prefetch_read_lookahead": 2,
+    "prefetch_sample_lookahead": 3,
+    "reset_memory_each_epoch": true,
+    "sampler_workers": 4,
+    "schedule_async_commit": true,
+    "shared_memory_ssim": 0.3,
+    "torch_num_interop_threads": 1,
+    "torch_num_threads": 1,
+    "train_compute_metrics": false,
+    "train_drop_last": true,
+    "train_drop_last_batch_size": 12000
+  },
+  "task": {
+    "batch_size": 12000,
+    "name": "edge_prediction"
+  },
+  "train": {
+    "epochs": 1,
+    "lr": 0.0004,
+    "seed": 6773,
+    "weight_decay": 0.0001
+  }
+}

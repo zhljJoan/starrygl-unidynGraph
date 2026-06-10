@@ -1,0 +1,39 @@
+[2026-06-09 22:38:06] prepare stackoverflow_bs12000_fanout20_10ep_1gpu_featcuda_memshare_public_historical
+[23:01:26] /opt/dgl/src/graph/transform/metis_partition_hetero.cc:89: Partition a graph with 2601977 nodes and 57724800 edges into 2 parts and get 5422758 edge cuts
+Convert a graph into a bidirected graph: 4.288 seconds, peak memory: 69.399 GB
+Construct multi-constraint weights: 0.000 seconds, peak memory: 69.399 GB
+Metis partitioning: 19.698 seconds, peak memory: 69.399 GB
+Traceback (most recent call last):
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/serialization.py", line 619, in save
+    _save(obj, opened_zipfile, pickle_module, pickle_protocol, _disable_byteorder_record)
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/serialization.py", line 853, in _save
+    zip_file.write_record(name, storage.data_ptr(), num_bytes)
+RuntimeError: [enforce fail at inline_container.cc:588] . PytorchStreamWriter failed writing file data/5: file write failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/zlj/ATC_StarryglLib/src/atc_starrygl_lib/core/session.py", line 37, in prepare
+    self.artifacts = self.backend.prepare(self.ctx)
+  File "/home/zlj/ATC_StarryglLib/src/atc_starrygl_lib/ctdg/runtime/backend.py", line 41, in prepare
+    bundle = self._prepare_new_pipeline(ctx, graph_cfg=graph_cfg, prep_cfg=prep_cfg)
+  File "/home/zlj/ATC_StarryglLib/src/atc_starrygl_lib/ctdg/runtime/backend.py", line 124, in _prepare_new_pipeline
+    result = run_preprocess_pipeline(
+  File "/home/zlj/ATC_StarryglLib/src/atc_starrygl_lib/preprocess/pipeline.py", line 107, in run_preprocess_pipeline
+    torch.save(graph, out / "graph.pt")
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/serialization.py", line 618, in save
+    with _open_zipfile_writer(f) as opened_zipfile:
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/serialization.py", line 466, in __exit__
+    self.file_like.write_end_of_file()
+RuntimeError: [enforce fail at inline_container.cc:424] . unexpected pos 3631576896 vs 3631576768
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 728, in <module>
+    main()
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 46, in main
+    session.prepare()
+  File "/home/zlj/ATC_StarryglLib/src/atc_starrygl_lib/core/session.py", line 39, in prepare
+    raise BackendError("backend prepare failed") from exc
+atc_starrygl_lib.core.errors.BackendError: backend prepare failed

@@ -1,0 +1,177 @@
+Output directory: result_newest
+Summary JSONL: result_newest/summary.jsonl
+Dataset root: /mnt/nfs/zlj/TGL-DATA
+Running 4-GPU suite first, then single-GPU suite.
+========== LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical ==========
+dataset=LASTFM
+source=/mnt/nfs/zlj/TGL-DATA/LASTFM
+batch_size=4000
+fanout=10
+epochs=100
+gpus=4
+feature_device=cuda
+config=result_newest/configs/LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical.json
+artifact_root=artifacts/bench_LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical
+log=result_newest/logs/LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical.log
+{
+  "artifact_root": "artifacts/bench_LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical",
+  "avg_train_seconds": 4.197238151496276,
+  "avg_train_seconds_excl_epoch0": 4.1957570988628445,
+  "avg_train_seconds_last10": 4.1928628602996465,
+  "best_ap_epoch": 73,
+  "best_auc_epoch": 73,
+  "best_test_ap": 0.8711698947444482,
+  "best_test_ap_auc": 0.8787283843888485,
+  "best_test_auc": 0.8787283843888485,
+  "best_test_auc_ap": 0.8711698947444482,
+  "config": "result_newest/configs/LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical.json",
+  "dataset": "LASTFM",
+  "epochs": 100,
+  "gpus": 4,
+  "latest_epoch": 99,
+  "latest_test_ap": 0.8639125055562382,
+  "latest_test_auc": 0.8706852840259727,
+  "log": "result_newest/logs/LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical.log"
+}
+========== wikitalk_bs12000_fanout20_50ep_4gpu_featcuda_memshare_public_historical ==========
+dataset=wikitalk
+source=/mnt/nfs/zlj/TGL-DATA/WikiTalk
+batch_size=12000
+fanout=20
+epochs=50
+gpus=4
+feature_device=cuda
+config=result_newest/configs/wikitalk_bs12000_fanout20_50ep_4gpu_featcuda_memshare_public_historical.json
+artifact_root=artifacts/bench_wikitalk_bs12000_fanout20_50ep_4gpu_featcuda_memshare_public_historical
+log=result_newest/logs/wikitalk_bs12000_fanout20_50ep_4gpu_featcuda_memshare_public_historical.log
+{
+  "artifact_root": "artifacts/bench_wikitalk_bs12000_fanout20_50ep_4gpu_featcuda_memshare_public_historical",
+  "avg_train_seconds": 13.26519988240674,
+  "avg_train_seconds_excl_epoch0": 13.218536653156791,
+  "avg_train_seconds_last10": 13.180397465545685,
+  "best_ap_epoch": 41,
+  "best_auc_epoch": 41,
+  "best_test_ap": 0.9777612115832819,
+  "best_test_ap_auc": 0.9773464589202695,
+  "best_test_auc": 0.9773464589202695,
+  "best_test_auc_ap": 0.9777612115832819,
+  "config": "result_newest/configs/wikitalk_bs12000_fanout20_50ep_4gpu_featcuda_memshare_public_historical.json",
+  "dataset": "wikitalk",
+  "epochs": 50,
+  "gpus": 4,
+  "latest_epoch": 49,
+  "latest_test_ap": 0.9770375877200108,
+  "latest_test_auc": 0.9765266826896708,
+  "log": "result_newest/logs/wikitalk_bs12000_fanout20_50ep_4gpu_featcuda_memshare_public_historical.log"
+}
+========== stackoverflow_bs12000_fanout20_10ep_4gpu_featcuda_memshare_public_historical ==========
+dataset=stackoverflow
+source=/mnt/nfs/zlj/TGL-DATA/StackOverflow
+batch_size=12000
+fanout=20
+epochs=10
+gpus=4
+feature_device=cuda
+config=result_newest/configs/stackoverflow_bs12000_fanout20_10ep_4gpu_featcuda_memshare_public_historical.json
+artifact_root=artifacts/bench_stackoverflow_bs12000_fanout20_10ep_4gpu_featcuda_memshare_public_historical
+log=result_newest/logs/stackoverflow_bs12000_fanout20_10ep_4gpu_featcuda_memshare_public_historical.log
+PREPARE_FAILED stackoverflow_bs12000_fanout20_10ep_4gpu_featcuda_memshare_public_historical status=1
+========== GDELT_bs12000_fanout20_10ep_4gpu_featcpu_memshare_public_historical ==========
+dataset=GDELT
+source=/mnt/nfs/zlj/TGL-DATA/GDELT
+batch_size=12000
+fanout=20
+epochs=10
+gpus=4
+feature_device=cpu
+config=result_newest/configs/GDELT_bs12000_fanout20_10ep_4gpu_featcpu_memshare_public_historical.json
+artifact_root=artifacts/bench_GDELT_bs12000_fanout20_10ep_4gpu_featcpu_memshare_public_historical
+log=result_newest/logs/GDELT_bs12000_fanout20_10ep_4gpu_featcpu_memshare_public_historical.log
+PREPARE_FAILED GDELT_bs12000_fanout20_10ep_4gpu_featcpu_memshare_public_historical status=1
+========== LASTFM_bs4000_fanout10_100ep_1gpu_featcuda_memshare_public_historical ==========
+dataset=LASTFM
+source=/mnt/nfs/zlj/TGL-DATA/LASTFM
+batch_size=4000
+fanout=10
+epochs=100
+gpus=1
+feature_device=cuda
+config=result_newest/configs/LASTFM_bs4000_fanout10_100ep_1gpu_featcuda_memshare_public_historical.json
+artifact_root=artifacts/bench_LASTFM_bs4000_fanout10_100ep_1gpu_featcuda_memshare_public_historical
+log=result_newest/logs/LASTFM_bs4000_fanout10_100ep_1gpu_featcuda_memshare_public_historical.log
+{
+  "artifact_root": "artifacts/bench_LASTFM_bs4000_fanout10_100ep_1gpu_featcuda_memshare_public_historical",
+  "avg_train_seconds": 5.865093558607623,
+  "avg_train_seconds_excl_epoch0": 5.863133486444977,
+  "avg_train_seconds_last10": 5.826876816060394,
+  "best_ap_epoch": 74,
+  "best_auc_epoch": 74,
+  "best_test_ap": 0.8398887157805666,
+  "best_test_ap_auc": 0.8397376004078291,
+  "best_test_auc": 0.8397376004078291,
+  "best_test_auc_ap": 0.8398887157805666,
+  "config": "result_newest/configs/LASTFM_bs4000_fanout10_100ep_1gpu_featcuda_memshare_public_historical.json",
+  "dataset": "LASTFM",
+  "epochs": 100,
+  "gpus": 1,
+  "latest_epoch": 99,
+  "latest_test_ap": 0.77727689601171,
+  "latest_test_auc": 0.7793802165403554,
+  "log": "result_newest/logs/LASTFM_bs4000_fanout10_100ep_1gpu_featcuda_memshare_public_historical.log"
+}
+========== wikitalk_bs12000_fanout20_50ep_1gpu_featcuda_memshare_public_historical ==========
+dataset=wikitalk
+source=/mnt/nfs/zlj/TGL-DATA/WikiTalk
+batch_size=12000
+fanout=20
+epochs=50
+gpus=1
+feature_device=cuda
+config=result_newest/configs/wikitalk_bs12000_fanout20_50ep_1gpu_featcuda_memshare_public_historical.json
+artifact_root=artifacts/bench_wikitalk_bs12000_fanout20_50ep_1gpu_featcuda_memshare_public_historical
+log=result_newest/logs/wikitalk_bs12000_fanout20_50ep_1gpu_featcuda_memshare_public_historical.log
+{
+  "artifact_root": "artifacts/bench_wikitalk_bs12000_fanout20_50ep_1gpu_featcuda_memshare_public_historical",
+  "avg_train_seconds": 37.49054106608033,
+  "avg_train_seconds_excl_epoch0": 37.47464778508078,
+  "avg_train_seconds_last10": 37.31243092799559,
+  "best_ap_epoch": 45,
+  "best_auc_epoch": 48,
+  "best_test_ap": 0.969746257220473,
+  "best_test_ap_auc": 0.9665130155549612,
+  "best_test_auc": 0.9666974637617226,
+  "best_test_auc_ap": 0.969738940197249,
+  "config": "result_newest/configs/wikitalk_bs12000_fanout20_50ep_1gpu_featcuda_memshare_public_historical.json",
+  "dataset": "wikitalk",
+  "epochs": 50,
+  "gpus": 1,
+  "latest_epoch": 49,
+  "latest_test_ap": 0.9691333318777858,
+  "latest_test_auc": 0.9659495960334206,
+  "log": "result_newest/logs/wikitalk_bs12000_fanout20_50ep_1gpu_featcuda_memshare_public_historical.log"
+}
+========== stackoverflow_bs12000_fanout20_10ep_1gpu_featcuda_memshare_public_historical ==========
+dataset=stackoverflow
+source=/mnt/nfs/zlj/TGL-DATA/StackOverflow
+batch_size=12000
+fanout=20
+epochs=10
+gpus=1
+feature_device=cuda
+config=result_newest/configs/stackoverflow_bs12000_fanout20_10ep_1gpu_featcuda_memshare_public_historical.json
+artifact_root=artifacts/bench_stackoverflow_bs12000_fanout20_10ep_1gpu_featcuda_memshare_public_historical
+log=result_newest/logs/stackoverflow_bs12000_fanout20_10ep_1gpu_featcuda_memshare_public_historical.log
+PREPARE_FAILED stackoverflow_bs12000_fanout20_10ep_1gpu_featcuda_memshare_public_historical status=1
+========== GDELT_bs12000_fanout20_10ep_1gpu_featcpu_memshare_public_historical ==========
+dataset=GDELT
+source=/mnt/nfs/zlj/TGL-DATA/GDELT
+batch_size=12000
+fanout=20
+epochs=10
+gpus=1
+feature_device=cpu
+config=result_newest/configs/GDELT_bs12000_fanout20_10ep_1gpu_featcpu_memshare_public_historical.json
+artifact_root=artifacts/bench_GDELT_bs12000_fanout20_10ep_1gpu_featcpu_memshare_public_historical
+log=result_newest/logs/GDELT_bs12000_fanout20_10ep_1gpu_featcpu_memshare_public_historical.log
+PREPARE_FAILED GDELT_bs12000_fanout20_10ep_1gpu_featcpu_memshare_public_historical status=1
+All requested benchmark cases finished. Logs: result_newest/logs

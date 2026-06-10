@@ -213,6 +213,22 @@ class MemShareTemporalSamplingBackend:
         for old_batch in iterator:
             yield _coerce_ctdg_batch(old_batch, split)
 
+    def finalize_dynamic_batch_inputs(self, batch: Batch) -> None:
+        if self._runtime is not None and hasattr(self._runtime, "finalize_dynamic_batch_inputs"):
+            self._runtime.finalize_dynamic_batch_inputs(batch)
+
+    def prefetch_dynamic_batch_inputs(self, batch: Batch | None) -> None:
+        if self._runtime is not None and hasattr(self._runtime, "prefetch_dynamic_batch_inputs"):
+            self._runtime.prefetch_dynamic_batch_inputs(batch)
+
+    def prefetch_static_batch_inputs(self, batch: Batch | None) -> None:
+        if self._runtime is not None and hasattr(self._runtime, "prefetch_static_batch_inputs"):
+            self._runtime.prefetch_static_batch_inputs(batch)
+
+    def finalize_static_batch_inputs(self, batch: Batch) -> None:
+        if self._runtime is not None and hasattr(self._runtime, "finalize_static_batch_inputs"):
+            self._runtime.finalize_static_batch_inputs(batch)
+
     def reset_state(self) -> None:
         if self._prepared_by == "new_pipeline":
             if self._runtime is not None:
@@ -283,6 +299,7 @@ class _CTDGArtifactRuntime:
         prefetch_sample_lookahead: int = 2,
         prefetch_read_lookahead: int = 1,
         prefetch_read_lookahead_train_only: bool = False,
+        dynamic_state_read_after_commit: bool = False,
         edge_feature_source: str = "store",
         synthetic_edge_feat_seed: int = 0,
         train_cross_partition_non_hot_keep_prob: float = 1.0,
@@ -312,6 +329,7 @@ class _CTDGArtifactRuntime:
         self.prefetch_sample_lookahead = max(1, int(prefetch_sample_lookahead))
         self.prefetch_read_lookahead = max(1, int(prefetch_read_lookahead))
         self.prefetch_read_lookahead_train_only = bool(prefetch_read_lookahead_train_only)
+        self.dynamic_state_read_after_commit = bool(dynamic_state_read_after_commit)
         self.edge_feature_source = str(edge_feature_source).strip().lower()
         self.synthetic_edge_feat_seed = int(synthetic_edge_feat_seed)
         self.train_cross_partition_non_hot_keep_prob = float(train_cross_partition_non_hot_keep_prob)
@@ -420,6 +438,7 @@ class _CTDGArtifactRuntime:
             prefetch_sample_lookahead=int(runtime_cfg.get("prefetch_sample_lookahead", 2)),
             prefetch_read_lookahead=int(runtime_cfg.get("prefetch_read_lookahead", 1)),
             prefetch_read_lookahead_train_only=bool(runtime_cfg.get("prefetch_read_lookahead_train_only", False)),
+            dynamic_state_read_after_commit=bool(runtime_cfg.get("dynamic_state_read_after_commit", False)),
             edge_feature_source=str(runtime_cfg.get("edge_feature_source", "store")),
             synthetic_edge_feat_seed=int(runtime_cfg.get("synthetic_edge_feat_seed", graph.get("random_edge_feat_seed", 0))),
             train_cross_partition_non_hot_keep_prob=float(
@@ -759,7 +778,21 @@ class _CTDGArtifactRuntime:
 
     def _prepare_patch_inputs(self, sampled: tuple[Batch, Any]) -> tuple[Batch, Any, dict[str, tuple[Any, Any, Any]]]:
         batch, output = sampled
-        reads = self._submit_runtime_reads(output)
+        static = self._build_static_runtime_reads(output)
+        dynamic = self._build_dynamic_runtime_reads(output)
+        if self.dynamic_state_read_after_commit:
+            reads = {}
+            batch.runtime_static_reads = static
+            batch.runtime_static_patched = False
+            batch.runtime_dynamic_reads = dynamic
+            batch.runtime_dynamic_patched = False
+        else:
+            reads = self._submit_static_runtime_reads(static)
+            reads.update(self._submit_dynamic_runtime_reads(dynamic))
+            batch.runtime_static_reads = None
+            batch.runtime_static_patched = True
+            batch.runtime_dynamic_reads = None
+            batch.runtime_dynamic_patched = True
         return batch, output, reads
 
     def _finalize_patch(self, batch: Batch, output: Any, reads: dict[str, tuple[Any, Any, Any]]) -> Batch:
@@ -789,12 +822,9 @@ class _CTDGArtifactRuntime:
         if batch.pos_dst is not None and batch.commit_dst_rows is not None and batch.pos_dst.numel() == batch.commit_dst_rows.numel():
             self._profile_stats["backend_remap_dst_mismatch_count"] += float((batch.pos_dst != batch.commit_dst_rows).sum().item())
 
-    def _submit_runtime_reads(self, output: Any) -> dict[str, tuple[Any, ...]]:
-        total_t0 = time.perf_counter()
+    def _build_static_runtime_reads(self, output: Any) -> dict[str, tuple[Any, ...]]:
         reads: dict[str, tuple[Any, ...]] = {}
         node_layout_cache: dict[tuple[int, int, int], FeatureReadLayout] = {}
-        memory_read: tuple[Any, MemoryReadLayout] | None = None
-        mailbox_read: tuple[Any, MailboxReadLayout] | None = None
         if self.feature_runtime is not None:
             t0 = time.perf_counter()
             if hasattr(self.feature_runtime, "index") and hasattr(self.feature_runtime, "world_size"):
@@ -813,13 +843,36 @@ class _CTDGArtifactRuntime:
                 t0 = time.perf_counter()
                 edge_layout = self.feature_runtime.build_edge_layout_from_sampling(output)
                 self._profile_stats["backend_build_edge_feature_layout_seconds"] += float(time.perf_counter() - t0)
-            t0 = time.perf_counter()
-            reads["node_feature"] = (self.feature_runtime, layout, self.feature_runtime.submit_fetch(layout))
-            self._profile_stats["backend_submit_node_feature_seconds"] += float(time.perf_counter() - t0)
+            reads["node_feature_layout"] = (self.feature_runtime, layout)
             if edge_layout is not None:
-                t0 = time.perf_counter()
-                reads["edge_feature"] = (self.feature_runtime, edge_layout, self.feature_runtime.submit_edge_fetch(edge_layout))
-                self._profile_stats["backend_submit_edge_feature_seconds"] += float(time.perf_counter() - t0)
+                reads["edge_feature_layout"] = (self.feature_runtime, edge_layout)
+        return reads
+
+    def _submit_static_runtime_reads(self, static: dict[str, tuple[Any, ...]]) -> dict[str, tuple[Any, ...]]:
+        total_t0 = time.perf_counter()
+        reads: dict[str, tuple[Any, ...]] = {}
+        if "node_feature" in static:
+            reads["node_feature"] = static["node_feature"]
+        elif "node_feature_layout" in static:
+            runtime, layout = static["node_feature_layout"]
+            t0 = time.perf_counter()
+            reads["node_feature"] = (runtime, layout, runtime.submit_fetch(layout))
+            self._profile_stats["backend_submit_node_feature_seconds"] += float(time.perf_counter() - t0)
+        if "edge_feature" in static:
+            reads["edge_feature"] = static["edge_feature"]
+        elif "edge_feature_layout" in static:
+            runtime, layout = static["edge_feature_layout"]
+            t0 = time.perf_counter()
+            reads["edge_feature"] = (runtime, layout, runtime.submit_edge_fetch(layout))
+            self._profile_stats["backend_submit_edge_feature_seconds"] += float(time.perf_counter() - t0)
+        self._profile_stats["backend_submit_reads_seconds"] += float(time.perf_counter() - total_t0)
+        return reads
+
+    def _build_dynamic_runtime_reads(self, output: Any) -> dict[str, tuple[Any, ...]]:
+        reads: dict[str, tuple[Any, ...]] = {}
+        node_layout_cache: dict[tuple[int, int, int], FeatureReadLayout] = {}
+        memory_read: tuple[Any, MemoryReadLayout] | None = None
+        mailbox_read: tuple[Any, MailboxReadLayout] | None = None
         if self.memory_runtime is not None:
             t0 = time.perf_counter()
             if (
@@ -867,23 +920,90 @@ class _CTDGArtifactRuntime:
             self._profile_stats["backend_build_mailbox_layout_seconds"] += float(time.perf_counter() - t0)
             mailbox_read = (self.mailbox_runtime, layout)
         if memory_read is not None and mailbox_read is not None and _can_combine_memory_mailbox_read(memory_read[1], mailbox_read[1]):
+            reads["memory_mailbox_layout"] = (memory_read[0], memory_read[1], mailbox_read[0], mailbox_read[1])
+        else:
+            if memory_read is not None:
+                reads["memory_layout"] = memory_read
+            if mailbox_read is not None:
+                reads["mailbox_layout"] = mailbox_read
+        return reads
+
+    def finalize_dynamic_batch_inputs(self, batch: Batch) -> None:
+        if batch.runtime_dynamic_patched:
+            return
+        dynamic = batch.runtime_dynamic_reads
+        if not dynamic:
+            batch.runtime_dynamic_patched = True
+            return
+        if "memory_mailbox_layout" in dynamic or "memory_layout" in dynamic or "mailbox_layout" in dynamic:
+            dynamic = self._submit_dynamic_runtime_reads(dynamic)
+            batch.runtime_dynamic_reads = dynamic
+        self._wait_and_patch_runtime_reads(batch.graph, dynamic)
+        batch.runtime_dynamic_patched = True
+        batch.runtime_dynamic_reads = None
+
+    def prefetch_dynamic_batch_inputs(self, batch: Batch | None) -> None:
+        if batch is None or batch.runtime_dynamic_patched:
+            return
+        dynamic = batch.runtime_dynamic_reads
+        if not dynamic:
+            return
+        if "memory_mailbox_layout" in dynamic or "memory_layout" in dynamic or "mailbox_layout" in dynamic:
+            batch.runtime_dynamic_reads = self._submit_dynamic_runtime_reads(dynamic)
+
+    def prefetch_static_batch_inputs(self, batch: Batch | None) -> None:
+        if batch is None or batch.runtime_static_patched:
+            return
+        static = batch.runtime_static_reads
+        if not static:
+            return
+        if "node_feature_layout" in static or "edge_feature_layout" in static:
+            batch.runtime_static_reads = self._submit_static_runtime_reads(static)
+
+    def finalize_static_batch_inputs(self, batch: Batch) -> None:
+        if batch.runtime_static_patched:
+            return
+        static = batch.runtime_static_reads
+        if not static:
+            batch.runtime_static_patched = True
+            return
+        if "node_feature_layout" in static or "edge_feature_layout" in static:
+            static = self._submit_static_runtime_reads(static)
+            batch.runtime_static_reads = static
+        self._wait_and_patch_runtime_reads(batch.graph, static)
+        batch.runtime_static_reads = None
+        batch.runtime_static_patched = True
+
+    def _submit_dynamic_runtime_reads(self, dynamic: dict[str, tuple[Any, ...]]) -> dict[str, tuple[Any, ...]]:
+        reads: dict[str, tuple[Any, ...]] = {}
+        total_t0 = time.perf_counter()
+        if "memory_mailbox" in dynamic:
+            reads["memory_mailbox"] = dynamic["memory_mailbox"]
+        elif "memory_mailbox_layout" in dynamic:
+            memory_runtime, memory_layout, mailbox_runtime, mailbox_layout = dynamic["memory_mailbox_layout"]
             t0 = time.perf_counter()
             reads["memory_mailbox"] = (
-                memory_read[0],
-                memory_read[1],
-                mailbox_read[0],
-                mailbox_read[1],
-                _submit_combined_memory_mailbox_read(memory_read[0], mailbox_read[0], memory_read[1]),
+                memory_runtime,
+                memory_layout,
+                mailbox_runtime,
+                mailbox_layout,
+                _submit_combined_memory_mailbox_read(memory_runtime, mailbox_runtime, memory_layout),
             )
             self._profile_stats["backend_submit_memory_mailbox_seconds"] += float(time.perf_counter() - t0)
         else:
-            if memory_read is not None:
+            if "memory" in dynamic:
+                reads["memory"] = dynamic["memory"]
+            elif "memory_layout" in dynamic:
+                runtime, layout = dynamic["memory_layout"]
                 t0 = time.perf_counter()
-                reads["memory"] = (memory_read[0], memory_read[1], memory_read[0].submit_read(memory_read[1]))
+                reads["memory"] = (runtime, layout, runtime.submit_read(layout))
                 self._profile_stats["backend_submit_memory_seconds"] += float(time.perf_counter() - t0)
-            if mailbox_read is not None:
+            if "mailbox" in dynamic:
+                reads["mailbox"] = dynamic["mailbox"]
+            elif "mailbox_layout" in dynamic:
+                runtime, layout = dynamic["mailbox_layout"]
                 t0 = time.perf_counter()
-                reads["mailbox"] = (mailbox_read[0], mailbox_read[1], mailbox_read[0].submit_read(mailbox_read[1]))
+                reads["mailbox"] = (runtime, layout, runtime.submit_read(layout))
                 self._profile_stats["backend_submit_mailbox_seconds"] += float(time.perf_counter() - t0)
         self._profile_stats["backend_submit_reads_seconds"] += float(time.perf_counter() - total_t0)
         return reads
@@ -1551,7 +1671,10 @@ def _build_feature_runtime(
         master_dist_index=rank_artifact["read_dist_index"].long().cpu().contiguous(),
         read_dist_index=rank_artifact["read_dist_index"].long().cpu().contiguous(),
     )
-    comm = DynamicFetchComm(torch.device(ctx.device))
+    comm = DynamicFetchComm(
+        torch.device(ctx.device),
+        group=_maybe_new_comm_group(bool(runtime_cfg.get("feature_fetch_separate_group", False))),
+    )
     edge_dist_index = dist.get("edge_dist_index")
     if edge_dist_index is not None:
         edge_dist_index = edge_dist_index.long().cpu().contiguous()
@@ -1608,6 +1731,16 @@ def _chunk_row_permutation(
     row_map = torch.empty_like(order)
     row_map[order] = torch.arange(int(order.numel()), dtype=torch.long)
     return order, row_map
+
+
+def _maybe_new_comm_group(enabled: bool) -> Any | None:
+    if not enabled:
+        return None
+    if not torch.distributed.is_available() or not torch.distributed.is_initialized():
+        return None
+    if torch.distributed.get_world_size() <= 1:
+        return None
+    return torch.distributed.new_group()
 
 
 def _native_sampler_policy(policy: str) -> str:
@@ -1981,9 +2114,7 @@ def _patch_first_layer_inputs(
             srcdata["mail_ts"] = mailbox_ts.index_select(0, idx.to(mailbox_ts.device)).to(device)
         if memory_runtime is not None and "ID" in srcdata:
             node_ids = srcdata["ID"].long()
-            master_index = memory_runtime.index.master_for(
-                node_ids.to(memory_runtime.index.master_dist_index.device)
-            ).to(node_ids.device)
+            master_index = _master_for_runtime_on_device(memory_runtime, node_ids, device=device)
             shared_mask = dist_index_is_shared(master_index).to(device=device)
             srcdata["shared_mask"] = shared_mask
             if memory is not None:
@@ -2058,6 +2189,18 @@ def _flatten_mfg_blocks(mfgs: Any) -> list[Any]:
             out.extend(_flatten_mfg_blocks(item))
         return out
     return [mfgs]
+
+
+def _master_for_runtime_on_device(memory_runtime: Any, node_ids: torch.Tensor, *, device: torch.device) -> torch.Tensor:
+    index = getattr(memory_runtime, "index", None)
+    master = getattr(index, "master_dist_index", None)
+    if master is None:
+        return memory_runtime.index.master_for(node_ids)
+    cached = getattr(memory_runtime, "_device_master_dist_index", None)
+    if cached is None or cached.device != device:
+        cached = master.to(device=device, non_blocking=True).contiguous()
+        setattr(memory_runtime, "_device_master_dist_index", cached)
+    return cached.index_select(0, node_ids.to(device=device, dtype=torch.long))
 
 
 def _first_block(mfgs: Any) -> Any:

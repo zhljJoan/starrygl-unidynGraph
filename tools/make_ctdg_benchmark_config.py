@@ -85,8 +85,8 @@ def main() -> None:
 
     cfg.setdefault("runtime", {})
     cfg["runtime"]["build_sampler"] = True
-    cfg["runtime"]["sampler_workers"] = 10
-    cfg["runtime"]["torch_num_threads"] = 10
+    cfg["runtime"]["sampler_workers"] = 4
+    cfg["runtime"]["torch_num_threads"] = 1
     cfg["runtime"]["torch_num_interop_threads"] = 1
     cfg["runtime"]["omp_num_threads"] = 1
     cfg["runtime"]["mkl_num_threads"] = 1
@@ -117,6 +117,8 @@ def main() -> None:
     cfg["runtime"]["train_compute_metrics"] = False
     cfg["runtime"]["schedule_async_commit"] = True
     cfg["runtime"]["prefetch_sample_lookahead"] = 3
+    cfg["runtime"]["prefetch_read_lookahead"] = 2
+    cfg["runtime"]["dynamic_state_read_after_commit"] = True
     cfg["runtime"]["historical"] = {
         "enabled": True,
         "alpha": 0.3,
@@ -132,7 +134,7 @@ def main() -> None:
     if args.memshare_memory_sync:
         cfg["runtime"]["memory_sync_mode"] = "memshare_historical"
     else:
-        cfg["runtime"]["memory_sync_mode"] = "memshare_public_exact"
+        cfg["runtime"]["memory_sync_mode"] = "memshare_public_historical"
 
     cfg.setdefault("train", {})
     cfg["train"]["epochs"] = args.epochs

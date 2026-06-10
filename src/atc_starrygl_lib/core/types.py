@@ -72,6 +72,10 @@ class Batch:
     neg_weight: Optional[Tensor] = None
     labels: Optional[Tensor] = None
     node_ids: Optional[Tensor] = None
+    runtime_static_reads: Any = None
+    runtime_static_patched: bool = False
+    runtime_dynamic_reads: Any = None
+    runtime_dynamic_patched: bool = False
 
 
 # --- Model output types (slots for zero-overhead attribute access) ---

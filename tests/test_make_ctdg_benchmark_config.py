@@ -55,7 +55,7 @@ def test_make_ctdg_benchmark_config_defaults_match_repo_benchmark_conventions(tm
     assert cfg["runtime"]["negative_test_policy"] == "global"
 
 
-def test_make_ctdg_benchmark_config_defaults_to_memshare_public_exact(tmp_path: Path, monkeypatch) -> None:
+def test_make_ctdg_benchmark_config_defaults_to_memshare_public_historical(tmp_path: Path, monkeypatch) -> None:
     base_config = tmp_path / "base.json"
     output = tmp_path / "out.json"
     base_config.write_text(
@@ -94,4 +94,6 @@ def test_make_ctdg_benchmark_config_defaults_to_memshare_public_exact(tmp_path: 
     main()
 
     cfg = json.loads(output.read_text(encoding="utf-8"))
-    assert cfg["runtime"]["memory_sync_mode"] == "memshare_public_exact"
+    assert cfg["runtime"]["memory_sync_mode"] == "memshare_public_historical"
+    assert cfg["runtime"]["prefetch_read_lookahead"] == 2
+    assert cfg["runtime"]["dynamic_state_read_after_commit"] is True

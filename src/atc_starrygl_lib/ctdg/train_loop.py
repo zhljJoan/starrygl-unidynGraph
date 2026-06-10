@@ -92,7 +92,11 @@ def train_epoch(
             stage["memory_commit_seconds"] += float(time.perf_counter() - t_commit_wait)
             t_wait = time.perf_counter()
             batch = next_batch
+            _prefetch_dynamic_batch_inputs(backend, batch)
+            _finalize_static_batch_inputs(backend, batch)
             next_batch = _next_batch(iterator)
+            _prefetch_static_batch_inputs(backend, next_batch)
+            _finalize_dynamic_batch_inputs(backend, batch)
             has_next_batch = next_batch is not None
             sync_stage["batch_wait_seconds"] += _timed_sync_cuda(sync_timing, sync_device)
             stage["batch_wait_seconds"] += float(time.perf_counter() - t_wait)
@@ -215,7 +219,12 @@ def evaluate(
     while next_batch is not None:
         _wait_pending_memory_commit(memory_commit)
         batch = next_batch
+        backend = getattr(session, "backend", None)
+        _prefetch_dynamic_batch_inputs(backend, batch)
+        _finalize_static_batch_inputs(backend, batch)
         next_batch = _next_batch(iterator)
+        _prefetch_static_batch_inputs(backend, next_batch)
+        _finalize_dynamic_batch_inputs(backend, batch)
         emb = encode_batch(encoder, batch)
         output = head(emb, batch)
         loss = task.compute_loss(output, batch)
@@ -248,7 +257,12 @@ def predict(
     while next_batch is not None:
         _wait_pending_memory_commit(memory_commit)
         batch = next_batch
+        backend = getattr(session, "backend", None)
+        _prefetch_dynamic_batch_inputs(backend, batch)
+        _finalize_static_batch_inputs(backend, batch)
         next_batch = _next_batch(iterator)
+        _prefetch_static_batch_inputs(backend, next_batch)
+        _finalize_dynamic_batch_inputs(backend, batch)
         output = head(encode_batch(encoder, batch), batch)
         outputs.append((output, batch))
         if memory_commit is not None:
@@ -265,6 +279,26 @@ def encode_batch(encoder: torch.nn.Module, batch: Batch) -> Tensor:
     if hasattr(encoder, "encode"):
         return encoder.encode(batch.graph)
     return encoder(batch.graph)
+
+
+def _finalize_dynamic_batch_inputs(backend: Any, batch: Batch) -> None:
+    if backend is not None and hasattr(backend, "finalize_dynamic_batch_inputs"):
+        backend.finalize_dynamic_batch_inputs(batch)
+
+
+def _prefetch_dynamic_batch_inputs(backend: Any, batch: Batch | None) -> None:
+    if backend is not None and hasattr(backend, "prefetch_dynamic_batch_inputs"):
+        backend.prefetch_dynamic_batch_inputs(batch)
+
+
+def _prefetch_static_batch_inputs(backend: Any, batch: Batch | None) -> None:
+    if backend is not None and hasattr(backend, "prefetch_static_batch_inputs"):
+        backend.prefetch_static_batch_inputs(batch)
+
+
+def _finalize_static_batch_inputs(backend: Any, batch: Batch) -> None:
+    if backend is not None and hasattr(backend, "finalize_static_batch_inputs"):
+        backend.finalize_static_batch_inputs(batch)
 
 
 def _maybe_sync_cuda(enabled: bool, device: str | None) -> None:

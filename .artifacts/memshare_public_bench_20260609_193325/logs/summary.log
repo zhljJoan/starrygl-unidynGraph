@@ -1,0 +1,15 @@
+Output directory: .artifacts/memshare_public_bench_20260609_193325
+Summary JSONL: .artifacts/memshare_public_bench_20260609_193325/summary.jsonl
+Dataset root: /mnt/nfs/zlj/TGL-DATA
+Running 4-GPU suite first, then single-GPU suite.
+========== LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical ==========
+dataset=LASTFM
+source=/mnt/nfs/zlj/TGL-DATA/LASTFM
+batch_size=4000
+fanout=10
+epochs=100
+gpus=4
+feature_device=cuda
+config=.artifacts/memshare_public_bench_20260609_193325/configs/LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical.json
+artifact_root=artifacts/bench_LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical
+log=.artifacts/memshare_public_bench_20260609_193325/logs/LASTFM_bs4000_fanout10_100ep_4gpu_featcuda_memshare_public_historical.log

@@ -74,6 +74,8 @@
     "negative_dst_pool": "global_dst",
     "negative_train_remote_dst_prob": 0.1,
     "prefetch_sample_lookahead": 3,
+    "prefetch_read_lookahead": 2,
+    "dynamic_state_read_after_commit": true,
     "predict_updates_memory": true,
     "eval_updates_memory": true,
     "commit_memory": true,

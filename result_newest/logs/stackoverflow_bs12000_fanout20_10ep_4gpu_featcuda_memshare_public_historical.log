@@ -1,0 +1,233 @@
+[2026-06-09 20:32:31] prepare stackoverflow_bs12000_fanout20_10ep_4gpu_featcuda_memshare_public_historical
+[2026-06-09 20:32:32,416] torch.distributed.run: [WARNING] master_addr is only used for static rdzv_backend and when rdzv_endpoint is not specified.
+[2026-06-09 20:32:32,416] torch.distributed.run: [WARNING] 
+[2026-06-09 20:32:32,416] torch.distributed.run: [WARNING] *****************************************
+[2026-06-09 20:32:32,416] torch.distributed.run: [WARNING] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+[2026-06-09 20:32:32,416] torch.distributed.run: [WARNING] *****************************************
+Traceback (most recent call last):
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 728, in <module>
+    main()
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 47, in main
+    _barrier()
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 719, in _barrier
+    dist.barrier()
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/c10d_logger.py", line 47, in wrapper
+    return func(*args, **kwargs)
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/distributed_c10d.py", line 3696, in barrier
+    work = default_pg.barrier(opts=opts)
+RuntimeError: [3] is setting up NCCL communicator and retrieving ncclUniqueId from [0] via c10d key-value store by key '0', but store->get('0') got error: Socket Timeout
+Exception raised from doWait at ../torch/csrc/distributed/c10d/TCPStore.cpp:445 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::string) + 0x57 (0x7f738ca31617 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: c10::detail::torchCheckFail(char const*, char const*, unsigned int, char const*) + 0x68 (0x7f738c9eca56 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #2: c10d::TCPStore::doWait(c10::ArrayRef<std::string>, std::chrono::duration<long, std::ratio<1l, 1000l> >) + 0x32c (0x7f73e532d47c in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: c10d::TCPStore::doGet(std::string const&) + 0x32 (0x7f73e532e602 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::get(std::string const&) + 0x55 (0x7f73e532ea25 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::PrefixStore::get(std::string const&) + 0x31 (0x7f73e52e6271 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: c10d::PrefixStore::get(std::string const&) + 0x31 (0x7f73e52e6271 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #7: c10d::PrefixStore::get(std::string const&) + 0x31 (0x7f73e52e6271 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #8: c10d::ProcessGroupNCCL::broadcastUniqueNCCLID(ncclUniqueId*, bool, std::string const&, int) + 0xb2 (0x7f738deede62 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #9: c10d::ProcessGroupNCCL::getNCCLComm(std::string const&, std::vector<c10::Device, std::allocator<c10::Device> > const&, c10d::OpType, int, bool) + 0x203 (0x7f738def3833 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #10: <unknown function> + 0x1355047 (0x7f738df02047 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #11: c10d::ProcessGroupNCCL::allreduce_impl(std::vector<at::Tensor, std::allocator<at::Tensor> >&, c10d::AllreduceOptions const&) + 0x21 (0x7f738df03d01 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #12: c10d::ProcessGroupNCCL::allreduce(std::vector<at::Tensor, std::allocator<at::Tensor> >&, c10d::AllreduceOptions const&) + 0x3a7 (0x7f738df05927 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #13: c10d::ProcessGroupNCCL::barrier(c10d::BarrierOptions const&) + 0xb25 (0x7f738df17665 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #14: <unknown function> + 0x56747b2 (0x7f73e52d97b2 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #15: <unknown function> + 0x567edd0 (0x7f73e52e3dd0 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #16: <unknown function> + 0x567eed5 (0x7f73e52e3ed5 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #17: <unknown function> + 0x4caa8db (0x7f73e490f8db in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #18: <unknown function> + 0x4ca88bc (0x7f73e490d8bc in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #19: <unknown function> + 0x19fdbf8 (0x7f73e1662bf8 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #20: <unknown function> + 0x5688394 (0x7f73e52ed394 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #21: <unknown function> + 0x56892fd (0x7f73e52ee2fd in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #22: <unknown function> + 0xc4bbf8 (0x7f73f7e41bf8 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_python.so)
+frame #23: <unknown function> + 0x3f7674 (0x7f73f75ed674 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_python.so)
+frame #24: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x4fc697]
+frame #25: _PyObject_MakeTpCall + 0x25b (0x4f614b in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #26: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x50819f]
+frame #27: _PyEval_EvalFrameDefault + 0x13b3 (0x4ee353 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #28: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #29: _PyEval_EvalFrameDefault + 0x2b79 (0x4efb19 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #30: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #31: _PyEval_EvalFrameDefault + 0x4b26 (0x4f1ac6 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #32: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #33: _PyEval_EvalFrameDefault + 0x31f (0x4ed2bf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #34: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #35: _PyEval_EvalFrameDefault + 0x31f (0x4ed2bf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #36: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x591d92]
+frame #37: PyEval_EvalCode + 0x87 (0x591cd7 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #38: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x5c2967]
+frame #39: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x5bdad0]
+frame #40: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x45956b]
+frame #41: _PyRun_SimpleFileObject + 0x19f (0x5b805f in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #42: _PyRun_AnyFileObject + 0x43 (0x5b7dc3 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #43: Py_RunMain + 0x38d (0x5b4b7d in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #44: Py_BytesMain + 0x39 (0x584e49 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #45: __libc_start_main + 0xf3 (0x7f742b2f4083 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #46: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x584cfe]
+. This may indicate a possible application crash on rank 0 or a network set up issue.
+Traceback (most recent call last):
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 728, in <module>
+    main()
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 47, in main
+    _barrier()
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 719, in _barrier
+    dist.barrier()
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/c10d_logger.py", line 47, in wrapper
+    return func(*args, **kwargs)
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/distributed_c10d.py", line 3696, in barrier
+    work = default_pg.barrier(opts=opts)
+RuntimeError: [2] is setting up NCCL communicator and retrieving ncclUniqueId from [0] via c10d key-value store by key '0', but store->get('0') got error: Socket Timeout
+Exception raised from doWait at ../torch/csrc/distributed/c10d/TCPStore.cpp:445 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::string) + 0x57 (0x7f4422c57617 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: c10::detail::torchCheckFail(char const*, char const*, unsigned int, char const*) + 0x68 (0x7f4422c12a56 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #2: c10d::TCPStore::doWait(c10::ArrayRef<std::string>, std::chrono::duration<long, std::ratio<1l, 1000l> >) + 0x32c (0x7f447b55347c in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: c10d::TCPStore::doGet(std::string const&) + 0x32 (0x7f447b554602 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::get(std::string const&) + 0x55 (0x7f447b554a25 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::PrefixStore::get(std::string const&) + 0x31 (0x7f447b50c271 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: c10d::PrefixStore::get(std::string const&) + 0x31 (0x7f447b50c271 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #7: c10d::PrefixStore::get(std::string const&) + 0x31 (0x7f447b50c271 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #8: c10d::ProcessGroupNCCL::broadcastUniqueNCCLID(ncclUniqueId*, bool, std::string const&, int) + 0xb2 (0x7f4424113e62 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #9: c10d::ProcessGroupNCCL::getNCCLComm(std::string const&, std::vector<c10::Device, std::allocator<c10::Device> > const&, c10d::OpType, int, bool) + 0x203 (0x7f4424119833 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #10: <unknown function> + 0x1355047 (0x7f4424128047 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #11: c10d::ProcessGroupNCCL::allreduce_impl(std::vector<at::Tensor, std::allocator<at::Tensor> >&, c10d::AllreduceOptions const&) + 0x21 (0x7f4424129d01 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #12: c10d::ProcessGroupNCCL::allreduce(std::vector<at::Tensor, std::allocator<at::Tensor> >&, c10d::AllreduceOptions const&) + 0x3a7 (0x7f442412b927 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #13: c10d::ProcessGroupNCCL::barrier(c10d::BarrierOptions const&) + 0xb25 (0x7f442413d665 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #14: <unknown function> + 0x56747b2 (0x7f447b4ff7b2 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #15: <unknown function> + 0x567edd0 (0x7f447b509dd0 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #16: <unknown function> + 0x567eed5 (0x7f447b509ed5 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #17: <unknown function> + 0x4caa8db (0x7f447ab358db in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #18: <unknown function> + 0x4ca88bc (0x7f447ab338bc in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #19: <unknown function> + 0x19fdbf8 (0x7f4477888bf8 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #20: <unknown function> + 0x5688394 (0x7f447b513394 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #21: <unknown function> + 0x56892fd (0x7f447b5142fd in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #22: <unknown function> + 0xc4bbf8 (0x7f448e067bf8 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_python.so)
+frame #23: <unknown function> + 0x3f7674 (0x7f448d813674 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_python.so)
+frame #24: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x4fc697]
+frame #25: _PyObject_MakeTpCall + 0x25b (0x4f614b in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #26: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x50819f]
+frame #27: _PyEval_EvalFrameDefault + 0x13b3 (0x4ee353 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #28: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #29: _PyEval_EvalFrameDefault + 0x2b79 (0x4efb19 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #30: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #31: _PyEval_EvalFrameDefault + 0x4b26 (0x4f1ac6 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #32: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #33: _PyEval_EvalFrameDefault + 0x31f (0x4ed2bf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #34: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #35: _PyEval_EvalFrameDefault + 0x31f (0x4ed2bf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #36: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x591d92]
+frame #37: PyEval_EvalCode + 0x87 (0x591cd7 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #38: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x5c2967]
+frame #39: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x5bdad0]
+frame #40: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x45956b]
+frame #41: _PyRun_SimpleFileObject + 0x19f (0x5b805f in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #42: _PyRun_AnyFileObject + 0x43 (0x5b7dc3 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #43: Py_RunMain + 0x38d (0x5b4b7d in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #44: Py_BytesMain + 0x39 (0x584e49 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #45: __libc_start_main + 0xf3 (0x7f44c151a083 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #46: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x584cfe]
+. This may indicate a possible application crash on rank 0 or a network set up issue.
+Traceback (most recent call last):
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 728, in <module>
+    main()
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 47, in main
+    _barrier()
+  File "/home/zlj/ATC_StarryglLib/tools/atc_run.py", line 719, in _barrier
+    dist.barrier()
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/c10d_logger.py", line 47, in wrapper
+    return func(*args, **kwargs)
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/distributed_c10d.py", line 3696, in barrier
+    work = default_pg.barrier(opts=opts)
+RuntimeError: [1] is setting up NCCL communicator and retrieving ncclUniqueId from [0] via c10d key-value store by key '0', but store->get('0') got error: Socket Timeout
+Exception raised from doWait at ../torch/csrc/distributed/c10d/TCPStore.cpp:445 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::string) + 0x57 (0x7f4f5fc8a617 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: c10::detail::torchCheckFail(char const*, char const*, unsigned int, char const*) + 0x68 (0x7f4f5fc45a56 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #2: c10d::TCPStore::doWait(c10::ArrayRef<std::string>, std::chrono::duration<long, std::ratio<1l, 1000l> >) + 0x32c (0x7f4fb858647c in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: c10d::TCPStore::doGet(std::string const&) + 0x32 (0x7f4fb8587602 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::get(std::string const&) + 0x55 (0x7f4fb8587a25 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::PrefixStore::get(std::string const&) + 0x31 (0x7f4fb853f271 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: c10d::PrefixStore::get(std::string const&) + 0x31 (0x7f4fb853f271 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #7: c10d::PrefixStore::get(std::string const&) + 0x31 (0x7f4fb853f271 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #8: c10d::ProcessGroupNCCL::broadcastUniqueNCCLID(ncclUniqueId*, bool, std::string const&, int) + 0xb2 (0x7f4f61146e62 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #9: c10d::ProcessGroupNCCL::getNCCLComm(std::string const&, std::vector<c10::Device, std::allocator<c10::Device> > const&, c10d::OpType, int, bool) + 0x203 (0x7f4f6114c833 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #10: <unknown function> + 0x1355047 (0x7f4f6115b047 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #11: c10d::ProcessGroupNCCL::allreduce_impl(std::vector<at::Tensor, std::allocator<at::Tensor> >&, c10d::AllreduceOptions const&) + 0x21 (0x7f4f6115cd01 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #12: c10d::ProcessGroupNCCL::allreduce(std::vector<at::Tensor, std::allocator<at::Tensor> >&, c10d::AllreduceOptions const&) + 0x3a7 (0x7f4f6115e927 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #13: c10d::ProcessGroupNCCL::barrier(c10d::BarrierOptions const&) + 0xb25 (0x7f4f61170665 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #14: <unknown function> + 0x56747b2 (0x7f4fb85327b2 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #15: <unknown function> + 0x567edd0 (0x7f4fb853cdd0 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #16: <unknown function> + 0x567eed5 (0x7f4fb853ced5 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #17: <unknown function> + 0x4caa8db (0x7f4fb7b688db in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #18: <unknown function> + 0x4ca88bc (0x7f4fb7b668bc in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #19: <unknown function> + 0x19fdbf8 (0x7f4fb48bbbf8 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #20: <unknown function> + 0x5688394 (0x7f4fb8546394 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #21: <unknown function> + 0x56892fd (0x7f4fb85472fd in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #22: <unknown function> + 0xc4bbf8 (0x7f4fcb09abf8 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_python.so)
+frame #23: <unknown function> + 0x3f7674 (0x7f4fca846674 in /home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/lib/libtorch_python.so)
+frame #24: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x4fc697]
+frame #25: _PyObject_MakeTpCall + 0x25b (0x4f614b in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #26: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x50819f]
+frame #27: _PyEval_EvalFrameDefault + 0x13b3 (0x4ee353 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #28: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #29: _PyEval_EvalFrameDefault + 0x2b79 (0x4efb19 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #30: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #31: _PyEval_EvalFrameDefault + 0x4b26 (0x4f1ac6 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #32: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #33: _PyEval_EvalFrameDefault + 0x31f (0x4ed2bf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #34: _PyFunction_Vectorcall + 0x6f (0x4fcadf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #35: _PyEval_EvalFrameDefault + 0x31f (0x4ed2bf in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #36: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x591d92]
+frame #37: PyEval_EvalCode + 0x87 (0x591cd7 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #38: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x5c2967]
+frame #39: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x5bdad0]
+frame #40: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x45956b]
+frame #41: _PyRun_SimpleFileObject + 0x19f (0x5b805f in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #42: _PyRun_AnyFileObject + 0x43 (0x5b7dc3 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #43: Py_RunMain + 0x38d (0x5b4b7d in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #44: Py_BytesMain + 0x39 (0x584e49 in /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python)
+frame #45: __libc_start_main + 0xf3 (0x7f4ffe54d083 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #46: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python() [0x584cfe]
+. This may indicate a possible application crash on rank 0 or a network set up issue.
+[2026-06-09 21:02:44,456] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 3653788 closing signal SIGTERM
+[2026-06-09 21:02:47,423] torch.distributed.elastic.multiprocessing.api: [ERROR] failed (exitcode: 1) local_rank: 1 (pid: 3653789) of binary: /home/zlj/.miniconda3/envs/tgnn_3.10/bin/python
+Traceback (most recent call last):
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/bin/torchrun", line 8, in <module>
+    sys.exit(main())
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 346, in wrapper
+    return f(*args, **kwargs)
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/run.py", line 806, in main
+    run(args)
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/run.py", line 797, in run
+    elastic_launch(
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 134, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/home/zlj/.miniconda3/envs/tgnn_3.10/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 264, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+tools/atc_run.py FAILED
+------------------------------------------------------------
+Failures:
+[1]:
+  time      : 2026-06-09_21:02:44
+  host      : gpu07
+  rank      : 2 (local_rank: 2)
+  exitcode  : 1 (pid: 3653790)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[2]:
+  time      : 2026-06-09_21:02:44
+  host      : gpu07
+  rank      : 3 (local_rank: 3)
+  exitcode  : 1 (pid: 3653791)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-06-09_21:02:44
+  host      : gpu07
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 3653789)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
